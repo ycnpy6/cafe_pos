@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.FlowPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.cafepos.controllers.PosController">
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="12" BorderPane.alignment="CENTER">
+            <padding>
+                <Insets top="12" right="16" bottom="12" left="16"/>
+            </padding>
+            <Label text="Cafe POS" styleClass="title"/>
+            <Label fx:id="userLabel" text="" styleClass="subtitle"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="Back-office" onAction="#onOpenBackOffice" styleClass="action-button"/>
+            <Button text="Deconnexion" onAction="#onLogout" styleClass="action-button"/>
+        </HBox>
+    </top>
+    <center>
+        <HBox spacing="16" BorderPane.alignment="CENTER">
+            <padding>
+                <Insets top="12" right="16" bottom="12" left="16"/>
+            </padding>
+            <VBox spacing="10" HBox.hgrow="ALWAYS">
+                <HBox spacing="8">
+                    <Label text="Categories" styleClass="subtitle"/>
+                </HBox>
+                <HBox fx:id="categoryBar" spacing="8"/>
+                <ScrollPane fitToWidth="true" fitToHeight="true" VBox.vgrow="ALWAYS">
+                    <content>
+                        <FlowPane fx:id="productGrid" hgap="10" vgap="10" prefWrapLength="620"/>
+                    </content>
+                </ScrollPane>
+            </VBox>
+            <VBox spacing="10" prefWidth="360">
+                <Label text="Commande" styleClass="subtitle"/>
+                <VBox fx:id="customerCard" visible="false" managed="false" styleClass="card">
+                    <Label fx:id="customerNameLabel" text="" styleClass="subtitle"/>
+                    <Label fx:id="customerBalanceLabel" text=""/>
+                    <Button text="Retirer client" onAction="#onDetachCustomer" styleClass="action-button"/>
+                </VBox>
+                <ListView fx:id="orderList" VBox.vgrow="ALWAYS"/>
+                <Label fx:id="totalLabel" text="TOTAL: 0,00 DZD" styleClass="title"/>
+                <HBox spacing="10">
+                    <Button text="ESPECES" onAction="#onCashPayment" styleClass="action-button" HBox.hgrow="ALWAYS"/>
+                    <Button text="PREPAYE" onAction="#onPrepaidPayment" styleClass="action-button" HBox.hgrow="ALWAYS"/>
+                </HBox>
+                <Button text="Annuler commande" onAction="#onCancelOrder" styleClass="action-button"/>
+            </VBox>
+            <TextField fx:id="rfidBuffer" opacity="0" prefWidth="1" prefHeight="1"/>
+        </HBox>
+    </center>
+</BorderPane>

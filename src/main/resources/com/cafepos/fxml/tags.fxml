@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<HBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.cafepos.controllers.TagsController" spacing="20">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+    <VBox spacing="10" prefWidth="360">
+        <Label text="Groupes" styleClass="title"/>
+        <TableView fx:id="groupTable" prefHeight="280">
+            <columns>
+                <TableColumn fx:id="groupNameColumn" text="Nom" prefWidth="200"/>
+                <TableColumn fx:id="groupMultiColumn" text="Multi" prefWidth="80"/>
+            </columns>
+        </TableView>
+        <Label text="Ajouter un groupe" styleClass="subtitle"/>
+        <TextField fx:id="groupNameField" promptText="Nom du groupe"/>
+        <CheckBox fx:id="multiSelectBox" text="Multi-selection"/>
+        <Button text="Ajouter" onAction="#onAddGroup" styleClass="action-button"/>
+    </VBox>
+    <VBox spacing="10" prefWidth="360">
+        <Label text="Options" styleClass="title"/>
+        <TableView fx:id="tagTable" prefHeight="280">
+            <columns>
+                <TableColumn fx:id="tagNameColumn" text="Nom" prefWidth="200"/>
+                <TableColumn fx:id="tagPriceColumn" text="Prix" prefWidth="80"/>
+            </columns>
+        </TableView>
+        <Label text="Ajouter une option" styleClass="subtitle"/>
+        <TextField fx:id="tagNameField" promptText="Nom de l'option"/>
+        <TextField fx:id="tagPriceField" promptText="+50"/>
+        <Button text="Ajouter" onAction="#onAddTag" styleClass="action-button"/>
+    </VBox>
+</HBox>

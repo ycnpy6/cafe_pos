@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.cafepos.controllers.CustomersController" spacing="12">
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+    <Label text="Clients" styleClass="title"/>
+    <TableView fx:id="customersTable" prefHeight="300">
+        <columns>
+            <TableColumn fx:id="nameColumn" text="Nom" prefWidth="200"/>
+            <TableColumn fx:id="cardColumn" text="Carte" prefWidth="200"/>
+            <TableColumn fx:id="balanceColumn" text="Solde" prefWidth="120"/>
+        </columns>
+    </TableView>
+    <HBox spacing="10">
+        <Label text="Montant" styleClass="subtitle"/>
+        <TextField fx:id="amountField" promptText="100"/>
+        <Button text="Recharger" onAction="#onTopUp" styleClass="action-button"/>
+    </HBox>
+    <Label text="Ajouter un client" styleClass="subtitle"/>
+    <HBox spacing="10">
+        <TextField fx:id="customerNameField" promptText="Nom"/>
+        <TextField fx:id="cardUidField" promptText="UID carte"/>
+        <TextField fx:id="initialBalanceField" promptText="Solde initial"/>
+        <Button text="Ajouter" onAction="#onAddCustomer" styleClass="action-button"/>
+    </HBox>
+</VBox>
