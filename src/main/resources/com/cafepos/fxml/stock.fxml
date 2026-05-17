@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane fx:id="rootStack" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.cafepos.controllers.StockController">
+    <VBox spacing="0">
+        <HBox fx:id="toolbar" alignment="CENTER_LEFT" spacing="8">
+            <padding>
+                <Insets top="8" right="12" bottom="8" left="12"/>
+            </padding>
+            <TextField fx:id="searchField" promptText="Rechercher… F7" HBox.hgrow="ALWAYS"/>
+            <Button fx:id="newProductButton" text="+ Nouveau" onAction="#onNewProduct" styleClass="action-button"/>
+        </HBox>
+
+        <TabPane fx:id="tabPane" VBox.vgrow="ALWAYS">
+            <tabs>
+                <Tab text="Produits" closable="false">
+                    <content>
+                        <TableView fx:id="productsTable" fixedCellSize="52" VBox.vgrow="ALWAYS" editable="true">
+                            <columns>
+                                <TableColumn fx:id="activeColumn" text="" prefWidth="40"/>
+                                <TableColumn fx:id="nameColumn" text="Nom" prefWidth="200"/>
+                                <TableColumn fx:id="categoryColumn" text="Catégorie" prefWidth="140"/>
+                                <TableColumn fx:id="priceColumn" text="Prix" prefWidth="100"/>
+                                <TableColumn fx:id="costColumn" text="Coût" prefWidth="100"/>
+                                <TableColumn fx:id="stockColumn" text="Stock" prefWidth="160"/>
+                            </columns>
+                        </TableView>
+                    </content>
+                </Tab>
+                <Tab text="Suppléments" closable="false">
+                    <content>
+                        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" styleClass="card-scroll">
+                            <content>
+                                <VBox fx:id="supplementsBox" spacing="12">
+                                    <padding>
+                                        <Insets top="12" right="12" bottom="12" left="12"/>
+                                    </padding>
+                                </VBox>
+                            </content>
+                        </ScrollPane>
+                    </content>
+                </Tab>
+                <Tab text="Catégories" closable="false">
+                    <content>
+                        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" styleClass="card-scroll">
+                            <content>
+                                <VBox fx:id="categoriesBox" spacing="8">
+                                    <padding>
+                                        <Insets top="12" right="12" bottom="12" left="12"/>
+                                    </padding>
+                                </VBox>
+                            </content>
+                        </ScrollPane>
+                    </content>
+                </Tab>
+            </tabs>
+        </TabPane>
+    </VBox>
+
+        <VBox fx:id="toastContainer" spacing="8" mouseTransparent="true" pickOnBounds="false"
+            StackPane.alignment="BOTTOM_RIGHT">
+        <StackPane.margin>
+            <Insets top="0" right="12" bottom="12" left="0"/>
+        </StackPane.margin>
+    </VBox>
+</StackPane>

@@ -185,6 +185,10 @@ public class LoginController {
             Parent root = loader.load();
             PosController controller = loader.getController();
             controller.setUserInfo(username, role);
+            com.cafepos.model.Order locked = SessionManager.consumeLockedOrder();
+            if (locked != null) {
+                controller.restoreOrder(locked);
+            }
 
             Scene scene = new Scene(root, 1024, 640);
             scene.getStylesheets().add(getClass().getResource("/com/cafepos/styles/app.css").toExternalForm());

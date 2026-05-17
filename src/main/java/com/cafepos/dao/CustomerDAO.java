@@ -57,9 +57,14 @@ public class CustomerDAO {
     }
 
     public int insertCustomer(String name, String cardUid, double balance) throws Exception {
+        try (Connection conn = DatabaseManager.openConnection()) {
+            return insertCustomer(conn, name, cardUid, balance);
+        }
+    }
+
+    public int insertCustomer(Connection conn, String name, String cardUid, double balance) throws Exception {
         String sql = "INSERT INTO customers (name, card_uid, balance) VALUES (?, ?, ?)";
-        try (Connection conn = DatabaseManager.openConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, name);
             ps.setString(2, cardUid);
             ps.setDouble(3, balance);

@@ -47,4 +47,33 @@ public class TagDAO {
         }
         return -1;
     }
+
+    public void updateName(int tagId, String name) throws Exception {
+        String sql = "UPDATE tags SET name = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setInt(2, tagId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updatePrice(int tagId, double priceModifier) throws Exception {
+        String sql = "UPDATE tags SET price_modifier = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, priceModifier);
+            ps.setInt(2, tagId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void deleteTag(int tagId) throws Exception {
+        String sql = "DELETE FROM tags WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, tagId);
+            ps.executeUpdate();
+        }
+    }
 }

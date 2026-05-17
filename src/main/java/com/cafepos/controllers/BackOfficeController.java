@@ -15,13 +15,24 @@ import com.cafepos.util.WindowUtils;
 
 public class BackOfficeController {
     private static final Logger LOG = LoggerFactory.getLogger(BackOfficeController.class);
+    private static volatile String initialView;
 
     @FXML
     private StackPane contentPane;
 
     @FXML
     private void initialize() {
-        loadView("/com/cafepos/fxml/dashboard.fxml");
+        String view = initialView;
+        if (view != null && !view.isBlank()) {
+            initialView = null;
+            loadView(view);
+        } else {
+            loadView("/com/cafepos/fxml/dashboard.fxml");
+        }
+    }
+
+    public static void setInitialView(String fxml) {
+        initialView = fxml;
     }
 
     @FXML
@@ -30,18 +41,13 @@ public class BackOfficeController {
     }
 
     @FXML
-    private void onShowProducts() {
-        loadView("/com/cafepos/fxml/products.fxml");
-    }
-
-    @FXML
-    private void onShowTags() {
-        loadView("/com/cafepos/fxml/tags.fxml");
+    private void onShowStock() {
+        loadView("/com/cafepos/fxml/stock.fxml");
     }
 
     @FXML
     private void onShowCustomers() {
-        loadView("/com/cafepos/fxml/customers.fxml");
+        loadView("/com/cafepos/fxml/clients.fxml");
     }
 
     @FXML
@@ -70,6 +76,9 @@ public class BackOfficeController {
             Stage stage = (Stage) contentPane.getScene().getWindow();
             stage.setScene(scene);
             WindowUtils.applyFullSize(stage);
+            stage.setIconified(false);
+            stage.show();
+            stage.toFront();
         } catch (Exception ex) {
             LOG.error("Echec retour POS", ex);
         }

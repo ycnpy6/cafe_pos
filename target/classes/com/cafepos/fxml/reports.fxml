@@ -2,34 +2,130 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.DatePicker?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleButton?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.cafepos.controllers.ReportsController" spacing="12">
-    <padding>
-        <Insets top="20" right="20" bottom="20" left="20"/>
-    </padding>
-    <Label text="Rapports" styleClass="title"/>
-    <HBox spacing="10">
-        <Label text="Du" styleClass="subtitle"/>
-        <DatePicker fx:id="startDatePicker"/>
-        <Label text="Au" styleClass="subtitle"/>
-        <DatePicker fx:id="endDatePicker"/>
-        <Button text="Charger" onAction="#onLoad" styleClass="action-button"/>
-        <Button text="Exporter CSV" onAction="#onExport" styleClass="action-button"/>
-    </HBox>
-    <Label fx:id="summaryLabel" text="Total: 0,00 DZD" styleClass="subtitle"/>
-    <TableView fx:id="reportTable" prefHeight="320">
-        <columns>
-            <TableColumn fx:id="idColumn" text="ID" prefWidth="70"/>
-            <TableColumn fx:id="dateColumn" text="Date" prefWidth="200"/>
-            <TableColumn fx:id="paymentColumn" text="Paiement" prefWidth="120"/>
-            <TableColumn fx:id="totalColumn" text="Total" prefWidth="120"/>
-        </columns>
-    </TableView>
-</VBox>
+<StackPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.cafepos.controllers.ReportsController">
+    <VBox spacing="16" styleClass="page-root">
+        <padding>
+            <Insets top="18" right="18" bottom="18" left="18"/>
+        </padding>
+        <HBox alignment="CENTER_LEFT" spacing="12" styleClass="page-header">
+            <Label text="Rapports" styleClass="page-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <HBox spacing="8">
+                <Button fx:id="exportCsvButton" text="Exporter CSV" onAction="#onExportCsv" styleClass="ghost-button"/>
+                <Button fx:id="exportXlsxButton" text="Exporter Excel" onAction="#onExportExcel" styleClass="action-button"/>
+            </HBox>
+        </HBox>
+
+        <HBox alignment="CENTER_LEFT" spacing="8">
+            <ToggleButton fx:id="todayButton" text="Aujourd'hui" styleClass="period-toggle"/>
+            <ToggleButton fx:id="yesterdayButton" text="Hier" styleClass="period-toggle"/>
+            <ToggleButton fx:id="weekButton" text="7j" styleClass="period-toggle"/>
+            <ToggleButton fx:id="monthButton" text="Mois" styleClass="period-toggle"/>
+            <ToggleButton fx:id="customButton" text="Personnalise" styleClass="period-toggle"/>
+            <HBox fx:id="customRangeBox" spacing="6" visible="false" managed="false">
+                <DatePicker fx:id="startDatePicker"/>
+                <Label text="->" styleClass="hint-label"/>
+                <DatePicker fx:id="endDatePicker"/>
+            </HBox>
+        </HBox>
+
+        <HBox spacing="12">
+            <VBox styleClass="kpi-card" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="kpiTotalLabel" text="0 DZD" styleClass="kpi-value"/>
+                <Label text="Chiffre d'affaires" styleClass="kpi-label"/>
+            </VBox>
+            <VBox styleClass="kpi-card" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="kpiOrdersLabel" text="0" styleClass="kpi-value"/>
+                <Label text="Commandes" styleClass="kpi-label"/>
+            </VBox>
+            <VBox styleClass="kpi-card" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="kpiCashLabel" text="0 DZD" styleClass="kpi-value"/>
+                <Label text="Especes" styleClass="kpi-label"/>
+            </VBox>
+            <VBox styleClass="kpi-card" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="kpiPrepaidLabel" text="0 DZD" styleClass="kpi-value"/>
+                <Label text="Prepayes" styleClass="kpi-label"/>
+            </VBox>
+        </HBox>
+
+        <TabPane VBox.vgrow="ALWAYS">
+            <Tab text="Meilleures ventes" closable="false">
+                <ScrollPane fitToWidth="true" styleClass="card-scroll">
+                    <VBox fx:id="topItemsBox" spacing="8">
+                        <padding>
+                            <Insets top="10" right="10" bottom="10" left="10"/>
+                        </padding>
+                    </VBox>
+                </ScrollPane>
+            </Tab>
+            <Tab text="Historique" closable="false">
+                <VBox spacing="10">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <TextField fx:id="historySearchField" promptText="Recherche commande ou caissier" HBox.hgrow="ALWAYS"/>
+                        <ComboBox fx:id="paymentFilter" promptText="Paiement" prefWidth="140"/>
+                        <ComboBox fx:id="userFilter" promptText="Caissier" prefWidth="160"/>
+                    </HBox>
+                    <TableView fx:id="historyTable" prefHeight="280" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="historyIdColumn" text="#" prefWidth="70"/>
+                            <TableColumn fx:id="historyDateColumn" text="Date" prefWidth="160"/>
+                            <TableColumn fx:id="historyItemsColumn" text="Items" prefWidth="70"/>
+                            <TableColumn fx:id="historyTotalColumn" text="Total" prefWidth="110"/>
+                            <TableColumn fx:id="historyPaymentColumn" text="Paiement" prefWidth="110"/>
+                            <TableColumn fx:id="historyUserColumn" text="Caissier" prefWidth="140"/>
+                        </columns>
+                    </TableView>
+                    <VBox fx:id="orderDetailPane" spacing="10" visible="false" managed="false" styleClass="card">
+                        <HBox alignment="CENTER_LEFT" spacing="10">
+                            <Label fx:id="orderDetailTitle" styleClass="section-title"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="reprintButton" text="Reimprimer" onAction="#onReprintSelected" styleClass="ghost-button"/>
+                        </HBox>
+                        <VBox fx:id="orderLinesBox" spacing="6"/>
+                    </VBox>
+                </VBox>
+            </Tab>
+            <Tab text="Sessions" closable="false">
+                <VBox spacing="10">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+                    <TableView fx:id="sessionsTable" prefHeight="280" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="sessionIdColumn" text="ID" prefWidth="60"/>
+                            <TableColumn fx:id="sessionOpenColumn" text="Ouverture" prefWidth="150"/>
+                            <TableColumn fx:id="sessionCloseColumn" text="Fermeture" prefWidth="150"/>
+                            <TableColumn fx:id="sessionOrdersColumn" text="Cmd" prefWidth="60"/>
+                            <TableColumn fx:id="sessionTotalColumn" text="Total" prefWidth="110"/>
+                            <TableColumn fx:id="sessionCashColumn" text="Especes" prefWidth="110"/>
+                            <TableColumn fx:id="sessionPrepaidColumn" text="Prepayes" prefWidth="110"/>
+                            <TableColumn fx:id="sessionModeColumn" text="Mode" prefWidth="90"/>
+                        </columns>
+                    </TableView>
+                    <Label fx:id="sessionsSummaryLabel" text="" styleClass="hint-label"/>
+                </VBox>
+            </Tab>
+        </TabPane>
+    </VBox>
+        <VBox fx:id="toastContainer" spacing="6" mouseTransparent="true" pickOnBounds="false"
+            StackPane.alignment="TOP_RIGHT"/>
+</StackPane>

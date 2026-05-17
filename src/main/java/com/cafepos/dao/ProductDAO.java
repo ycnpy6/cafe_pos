@@ -110,4 +110,98 @@ public class ProductDAO {
             ps.executeUpdate();
         }
     }
+
+    public void updateName(int productId, String name) throws Exception {
+        String sql = "UPDATE products SET name = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setInt(2, productId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateCategory(int productId, int categoryId) throws Exception {
+        String sql = "UPDATE products SET category_id = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, categoryId);
+            ps.setInt(2, productId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateActive(int productId, boolean active) throws Exception {
+        String sql = "UPDATE products SET active = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, active ? 1 : 0);
+            ps.setInt(2, productId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateCost(int productId, double cost) throws Exception {
+        String sql = "UPDATE products SET cost = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDouble(1, cost);
+            ps.setInt(2, productId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updatePriceWithHistory(int productId, double newPrice, Integer userId) throws Exception {
+        String select = "SELECT price FROM products WHERE id = ?";
+        String update = "UPDATE products SET price = ? WHERE id = ?";
+        String insert = "INSERT INTO price_history (product_id, old_price, new_price, changed_by) "
+                + "VALUES (?, ?, ?, ?)";
+        try (Connection conn = DatabaseManager.openConnection()) {
+            conn.setAutoCommit(false);
+            double oldPrice = 0;
+            try (PreparedStatement ps = conn.prepareStatement(select)) {
+                ps.setInt(1, productId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        oldPrice = rs.getDouble("price");
+                    }
+                }
+            }
+            if (Math.abs(oldPrice - newPrice) < 0.0001) {
+                conn.rollback();
+                return;
+            }
+            try (PreparedStatement ps = conn.prepareStatement(update)) {
+                ps.setDouble(1, newPrice);
+                ps.setInt(2, productId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(insert)) {
+                ps.setInt(1, productId);
+                ps.setDouble(2, oldPrice);
+                ps.setDouble(3, newPrice);
+                if (userId == null) {
+                    ps.setObject(4, null);
+                } else {
+                    ps.setInt(4, userId);
+                }
+                ps.executeUpdate();
+            }
+            conn.commit();
+        }
+    }
+
+    public int countByCategory(int categoryId) throws Exception {
+        String sql = "SELECT COUNT(*) AS total FROM products WHERE category_id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, categoryId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("total");
+                }
+            }
+        }
+        return 0;
+    }
 }

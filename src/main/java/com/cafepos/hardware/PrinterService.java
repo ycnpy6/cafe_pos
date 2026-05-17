@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 
 public class PrinterService {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -28,12 +29,31 @@ public class PrinterService {
     private final SettingsDAO settingsDAO = new SettingsDAO();
 
     public void printReceipt(Order order, double remainingBalance) throws Exception {
+        String payload = buildReceiptPayload(order, remainingBalance);
+        printPayload(payload);
+    }
+
+    public void printTestTicket() throws Exception {
+        byte[] data = buildTestReceipt();
+        String payload = Base64.getEncoder().encodeToString(data);
+        printPayload(payload);
+    }
+
+    public String buildReceiptPayload(Order order, double remainingBalance) {
+        byte[] data = buildReceipt(order, remainingBalance);
+        return Base64.getEncoder().encodeToString(data);
+    }
+
+    public void printPayload(String payload) throws Exception {
+        if (payload == null || payload.isBlank()) {
+            throw new IllegalArgumentException("Payload vide");
+        }
         try {
             PrintService service = findPrinter();
             if (service == null) {
                 throw new IllegalStateException("Imprimante non disponible");
             }
-            byte[] data = buildReceipt(order, remainingBalance);
+            byte[] data = Base64.getDecoder().decode(payload);
             DocFlavor flavor = DocFlavor.BYTE_ARRAY.AUTOSENSE;
             Doc doc = new SimpleDoc(data, flavor, null);
             DocPrintJob job = service.createPrintJob();
@@ -118,6 +138,24 @@ public class PrinterService {
         appendLine(out, "");
         appendLine(out, "");
         // Coupe papier GS V 0 (si supportee par l'imprimante).
+        appendCommand(out, 0x1D, 0x56, 0x00);
+        return out.toByteArray();
+    }
+
+    private byte[] buildTestReceipt() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        appendCommand(out, 0x1B, 0x40);
+        setAlign(out, 1);
+        setBold(out, true);
+        appendLine(out, "Test Impression");
+        setBold(out, false);
+        appendLine(out, "CafePOS");
+        appendLine(out, repeat('-', LINE_WIDTH));
+        appendLine(out, leftRight("Article", FormatUtils.formatMoney(0)));
+        appendLine(out, repeat('-', LINE_WIDTH));
+        appendLine(out, LocalDateTime.now().format(DATE_FORMAT));
+        appendLine(out, "");
+        appendLine(out, "");
         appendCommand(out, 0x1D, 0x56, 0x00);
         return out.toByteArray();
     }

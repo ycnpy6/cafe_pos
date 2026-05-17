@@ -83,7 +83,16 @@ public final class DatabaseManager {
                 continue;
             }
             try (Statement stmt = conn.createStatement()) {
-                stmt.execute(stmtText);
+                try {
+                    stmt.execute(stmtText);
+                } catch (SQLException ex) {
+                    // Ignore les erreurs de colonne existante pour les ALTER TABLE repetes.
+                    String message = ex.getMessage() == null ? "" : ex.getMessage().toLowerCase();
+                    if (message.contains("duplicate column name")) {
+                        continue;
+                    }
+                    throw ex;
+                }
             }
         }
     }

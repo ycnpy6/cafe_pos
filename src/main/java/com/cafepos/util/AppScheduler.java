@@ -3,6 +3,8 @@ package com.cafepos.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cafepos.service.PrintQueueService;
+
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -25,12 +27,18 @@ public class AppScheduler {
         started = true;
         scheduleDaily(LocalTime.of(23, 55), () -> runEodSafe());
         scheduleDaily(LocalTime.of(0, 5), () -> runBackupSafe());
+        scheduleFixedRate(30, TimeUnit.SECONDS, () -> PrintQueueService.getInstance().dispatchAsync());
     }
 
     private static void scheduleDaily(LocalTime time, Runnable task) {
         long initialDelay = computeDelayMillis(time);
         long period = TimeUnit.DAYS.toMillis(1);
         EXECUTOR.scheduleAtFixedRate(task, initialDelay, period, TimeUnit.MILLISECONDS);
+    }
+
+    private static void scheduleFixedRate(long period, TimeUnit unit, Runnable task) {
+        long initialDelay = period;
+        EXECUTOR.scheduleAtFixedRate(task, initialDelay, period, unit);
     }
 
     private static long computeDelayMillis(LocalTime time) {

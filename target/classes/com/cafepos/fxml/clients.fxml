@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane fx:id="rootStack" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.cafepos.controllers.ClientsController">
+    <VBox spacing="12" styleClass="page-root">
+        <padding>
+            <Insets top="18" right="18" bottom="18" left="18"/>
+        </padding>
+
+        <HBox alignment="CENTER_LEFT" spacing="10" styleClass="page-header">
+            <Label text="Clients" styleClass="page-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <TextField fx:id="searchField" promptText="Rechercher nom ou carte" prefWidth="240"/>
+            <Button fx:id="newCustomerButton" text="Nouveau" onAction="#onToggleNewCustomer" styleClass="ghost-button"/>
+            <Button fx:id="topupToolbarButton" text="Recharge" onAction="#onOpenTopup" styleClass="action-button"/>
+        </HBox>
+
+        <VBox fx:id="newCustomerPane" spacing="8" visible="false" managed="false" styleClass="card">
+            <Label text="Nouveau client" styleClass="section-title"/>
+            <HBox spacing="8">
+                <TextField fx:id="newNameField" promptText="Nom" HBox.hgrow="ALWAYS"/>
+                <TextField fx:id="newCardField" promptText="UID carte" prefWidth="160"/>
+                <TextField fx:id="newBalanceField" promptText="Solde initial" prefWidth="120"/>
+                <Button text="Ajouter" onAction="#onAddCustomer" styleClass="action-button"/>
+                <Button text="Fermer" onAction="#onToggleNewCustomer" styleClass="ghost-button"/>
+            </HBox>
+        </VBox>
+
+        <HBox spacing="12" VBox.vgrow="ALWAYS">
+            <TableView fx:id="clientsTable" prefWidth="560" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="nameColumn" text="Nom" prefWidth="160"/>
+                    <TableColumn fx:id="cardColumn" text="UID" prefWidth="140"/>
+                    <TableColumn fx:id="balanceColumn" text="Solde" prefWidth="120"/>
+                    <TableColumn fx:id="lastTxColumn" text="Derniere" prefWidth="140"/>
+                    <TableColumn fx:id="actionsColumn" text="Actions" prefWidth="120"/>
+                </columns>
+            </TableView>
+
+            <VBox fx:id="detailPane" spacing="8" visible="false" managed="false" styleClass="card" HBox.hgrow="ALWAYS">
+                <Label text="Historique" styleClass="section-title"/>
+                <TableView fx:id="transactionsTable" prefHeight="260" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="txDateColumn" text="Date" prefWidth="140"/>
+                        <TableColumn fx:id="txTypeColumn" text="Type" prefWidth="140"/>
+                        <TableColumn fx:id="txAmountColumn" text="Montant" prefWidth="110"/>
+                        <TableColumn fx:id="txBalanceColumn" text="Solde" prefWidth="110"/>
+                        <TableColumn fx:id="txOrderColumn" text="Cmd" prefWidth="70"/>
+                    </columns>
+                </TableView>
+            </VBox>
+        </HBox>
+
+        <TextField fx:id="rfidField" opacity="0" prefWidth="1" prefHeight="1"/>
+    </VBox>
+
+    <VBox fx:id="topupDialog" spacing="10" visible="false" managed="false" styleClass="dialog-panel"
+          StackPane.alignment="CENTER">
+        <Label text="Recharge" styleClass="subtitle"/>
+        <Label fx:id="topupCustomerLabel" text="" styleClass="subtitle"/>
+        <Label fx:id="topupBalanceLabel" text="" styleClass="hint-label"/>
+        <Separator/>
+        <Label text="Montant recharge" styleClass="hint-label"/>
+        <TextField fx:id="topupAmountField" styleClass="title" alignment="CENTER_RIGHT"/>
+        <HBox spacing="6">
+            <Button text="500" onAction="#onTopupQuick" userData="500"/>
+            <Button text="1000" onAction="#onTopupQuick" userData="1000"/>
+            <Button text="2000" onAction="#onTopupQuick" userData="2000"/>
+            <Button text="5000" onAction="#onTopupQuick" userData="5000"/>
+        </HBox>
+        <Label fx:id="topupAfterLabel" text="" styleClass="hint-label"/>
+        <HBox spacing="8">
+            <Button text="Annuler (ESC)" onAction="#onTopupCancel" styleClass="ghost-button" HBox.hgrow="ALWAYS"/>
+            <Button text="Valider (ENTREE)" onAction="#onTopupConfirm" styleClass="action-button" HBox.hgrow="ALWAYS"/>
+        </HBox>
+    </VBox>
+
+    <VBox fx:id="toastContainer" spacing="6" mouseTransparent="true" pickOnBounds="false"
+          StackPane.alignment="BOTTOM_RIGHT">
+        <StackPane.margin>
+            <Insets top="0" right="12" bottom="12" left="0"/>
+        </StackPane.margin>
+    </VBox>
+</StackPane>

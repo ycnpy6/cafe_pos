@@ -10,6 +10,8 @@ public class Order {
     private PaymentType paymentType;
     private Customer customer;
     private final Instant createdAt;
+    private double cashAmount;
+    private double prepaidAmount;
 
     public Order() {
         this.createdAt = Instant.now();
@@ -33,6 +35,8 @@ public class Order {
         lines.clear();
         customer = null;
         paymentType = null;
+        cashAmount = 0;
+        prepaidAmount = 0;
     }
 
     public double getTotal() {
@@ -57,6 +61,22 @@ public class Order {
 
     public void setCustomer(Customer customer) {
         this.customer = customer;
+    }
+
+    public double getCashAmount() {
+        return cashAmount;
+    }
+
+    public void setCashAmount(double cashAmount) {
+        this.cashAmount = cashAmount;
+    }
+
+    public double getPrepaidAmount() {
+        return prepaidAmount;
+    }
+
+    public void setPrepaidAmount(double prepaidAmount) {
+        this.prepaidAmount = prepaidAmount;
     }
 
     public Instant getCreatedAt() {

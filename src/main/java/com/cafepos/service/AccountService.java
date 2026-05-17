@@ -23,7 +23,7 @@ public class AccountService {
             conn.setAutoCommit(false);
             double newBalance = customer.getBalance() + amount;
             customerDAO.updateBalance(conn, customer.getId(), newBalance);
-            accountTransactionDAO.insertTransaction(conn, customer.getId(), amount, "Recharge", userId);
+            accountTransactionDAO.insertTransaction(conn, customer.getId(), amount, "Recharge", userId, newBalance, null);
             conn.commit();
             return new Customer(customer.getId(), customer.getName(), customer.getCardUid(), newBalance);
         }

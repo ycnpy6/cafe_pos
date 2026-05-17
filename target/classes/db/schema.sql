@@ -67,6 +67,9 @@ CREATE TABLE IF NOT EXISTS account_transactions (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+ALTER TABLE account_transactions ADD COLUMN balance_after REAL DEFAULT 0;
+ALTER TABLE account_transactions ADD COLUMN order_id INTEGER REFERENCES orders(id);
+
 CREATE TABLE IF NOT EXISTS work_periods (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   opened_at TEXT NOT NULL,
@@ -114,6 +117,47 @@ CREATE TABLE IF NOT EXISTS eod_reports (
   total_sales REAL NOT NULL,
   order_count INTEGER NOT NULL,
   created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS print_queue (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER REFERENCES orders(id),
+  ticket_type TEXT DEFAULT 'RECEIPT',
+  payload TEXT NOT NULL,
+  status TEXT DEFAULT 'PENDING',
+  attempts INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  printed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS refunds (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  original_order_id INTEGER REFERENCES orders(id),
+  reason TEXT,
+  refund_method TEXT NOT NULL,
+  total REAL NOT NULL,
+  user_id INTEGER REFERENCES users(id),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS refund_lines (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  refund_id INTEGER REFERENCES refunds(id),
+  order_line_id INTEGER REFERENCES order_lines(id),
+  quantity INTEGER NOT NULL,
+  line_total REAL NOT NULL
+);
+
+ALTER TABLE orders ADD COLUMN cash_amount REAL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN prepaid_amount REAL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS price_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER REFERENCES products(id),
+  old_price REAL NOT NULL,
+  new_price REAL NOT NULL,
+  changed_by INTEGER REFERENCES users(id),
+  changed_at TEXT DEFAULT (datetime('now'))
 );
 
 INSERT OR IGNORE INTO users (name, pin, role)

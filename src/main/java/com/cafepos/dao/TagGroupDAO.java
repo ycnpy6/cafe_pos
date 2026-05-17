@@ -65,4 +65,46 @@ public class TagGroupDAO {
         }
         return -1;
     }
+
+    public void updateName(int groupId, String name) throws Exception {
+        String sql = "UPDATE tag_groups SET name = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setInt(2, groupId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateMultiSelect(int groupId, boolean multiSelect) throws Exception {
+        String sql = "UPDATE tag_groups SET multi_select = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, multiSelect ? 1 : 0);
+            ps.setInt(2, groupId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void deleteGroup(int groupId) throws Exception {
+        String deleteLinks = "DELETE FROM product_tag_groups WHERE group_id = ?";
+        String deleteTags = "DELETE FROM tags WHERE group_id = ?";
+        String deleteGroup = "DELETE FROM tag_groups WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement ps = conn.prepareStatement(deleteLinks)) {
+                ps.setInt(1, groupId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(deleteTags)) {
+                ps.setInt(1, groupId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(deleteGroup)) {
+                ps.setInt(1, groupId);
+                ps.executeUpdate();
+            }
+            conn.commit();
+        }
+    }
 }

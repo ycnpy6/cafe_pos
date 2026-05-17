@@ -18,6 +18,7 @@ public class OrderService {
     private final AccountTransactionDAO accountTransactionDAO = new AccountTransactionDAO();
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final ProductDAO productDAO = new ProductDAO();
+    private final PrintQueueService printQueueService = PrintQueueService.getInstance();
 
     public int saveOrder(Order order, PaymentType paymentType) throws Exception {
         User user = SessionManager.getCurrentUser();
@@ -25,7 +26,31 @@ public class OrderService {
         Integer workPeriodId = SessionManager.getCurrentWorkPeriodId();
         order.setPaymentType(paymentType);
 
-        if (paymentType == PaymentType.PREPAYE) {
+        double remainingBalance = 0;
+
+        switch (paymentType) {
+            case ESPECES -> {
+                order.setCashAmount(order.getTotal());
+                order.setPrepaidAmount(0);
+            }
+            case PREPAYE -> {
+                order.setCashAmount(0);
+                if (order.getPrepaidAmount() <= 0) {
+                    order.setPrepaidAmount(order.getTotal());
+                }
+            }
+            case MIXTE -> {
+                if (order.getCashAmount() <= 0 || order.getPrepaidAmount() <= 0) {
+                    throw new IllegalStateException("Montants mixte invalides");
+                }
+                double totalPaid = order.getCashAmount() + order.getPrepaidAmount();
+                if (totalPaid + 0.001 < order.getTotal()) {
+                    throw new IllegalStateException("Montant insuffisant");
+                }
+            }
+        }
+
+        if (paymentType == PaymentType.PREPAYE || paymentType == PaymentType.MIXTE) {
             Customer customer = order.getCustomer();
             if (customer == null) {
                 throw new IllegalStateException("Client non charge");
@@ -47,20 +72,30 @@ public class OrderService {
                 stockMovementDAO.insertMovement(conn, line.getProduct().getId(), -line.getQuantity(), "Vente");
             }
 
-            if (paymentType == PaymentType.PREPAYE) {
+            if (paymentType == PaymentType.PREPAYE || paymentType == PaymentType.MIXTE) {
                 Customer customer = customerDAO.findByCardUid(order.getCustomer().getCardUid());
                 if (customer == null) {
                     conn.rollback();
                     throw new IllegalStateException("Client introuvable");
                 }
-                if (customer.getBalance() < order.getTotal()) {
+                double prepaid = paymentType == PaymentType.MIXTE ? order.getPrepaidAmount() : order.getTotal();
+                if (prepaid <= 0) {
+                    conn.rollback();
+                    throw new IllegalStateException("Montant prepaid invalide");
+                }
+                if (customer.getBalance() < prepaid) {
                     conn.rollback();
                     throw new IllegalStateException("Solde insuffisant");
                 }
-                double newBalance = customer.getBalance() - order.getTotal();
+                double newBalance = customer.getBalance() - prepaid;
                 customerDAO.updateBalance(conn, customer.getId(), newBalance);
-                accountTransactionDAO.insertTransaction(conn, customer.getId(), -order.getTotal(), "Vente POS", userId);
+                accountTransactionDAO.insertTransaction(conn, customer.getId(), -prepaid, "Vente POS", userId,
+                    newBalance, orderId);
+                remainingBalance = newBalance;
             }
+
+            // Ajout file impression dans la meme transaction.
+            printQueueService.enqueueReceipt(conn, order, orderId, remainingBalance);
             conn.commit();
             return orderId;
         } catch (Exception ex) {
