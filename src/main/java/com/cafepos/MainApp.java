@@ -8,7 +8,7 @@ import com.cafepos.util.AppScheduler;
 import com.cafepos.util.IdleMonitor;
 import com.cafepos.util.WindowUtils;
 
-import atlantafx.base.theme.PrimerDark;
+import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
@@ -22,15 +22,20 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
+import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
+
 public class MainApp extends Application {
     private static final Logger LOG = LoggerFactory.getLogger(MainApp.class);
+    private static ResourceBundle messages;
 
     @Override
     public void start(Stage stage) {
-        Application.setUserAgentStylesheet(new PrimerDark().getUserAgentStylesheet());
+        Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
 
         Scene splashScene = new Scene(buildSplashView(), 520, 320);
-        stage.setTitle("Cafe POS");
+        stage.setTitle(text("app.name", "Cafe POS"));
         stage.setScene(splashScene);
         stage.show();
 
@@ -48,14 +53,14 @@ public class MainApp extends Application {
             try {
                 IdleMonitor.start(() -> {
                     try {
-                        loadLoginScene(stage);
+                        loadLaunchScene(stage);
                     } catch (Exception ex) {
-                        LOG.error("Erreur retour login", ex);
+                        LOG.error("Erreur retour launch", ex);
                     }
                 });
-                loadLoginScene(stage);
+                loadLaunchScene(stage);
             } catch (Exception ex) {
-                LOG.error("Erreur au chargement de login.fxml", ex);
+                LOG.error("Erreur au chargement de launch.fxml", ex);
                 showErrorAndExit("Echec du chargement de l'interface.", ex);
             }
         });
@@ -72,7 +77,7 @@ public class MainApp extends Application {
     }
 
     private Parent buildSplashView() {
-        Label title = new Label("Cafe POS");
+        Label title = new Label(text("app.name", "Cafe POS"));
         title.getStyleClass().addAll("title-2", "text-emphasis");
 
         ProgressIndicator progress = new ProgressIndicator();
@@ -87,14 +92,37 @@ public class MainApp extends Application {
         return pane;
     }
 
-    private void loadLoginScene(Stage stage) throws Exception {
-        FXMLLoader loader = new FXMLLoader(MainApp.class.getResource("/com/cafepos/fxml/login.fxml"));
+    private void loadLaunchScene(Stage stage) throws Exception {
+        FXMLLoader loader = new FXMLLoader(MainApp.class.getResource("/com/cafepos/fxml/launch.fxml"), getMessages());
         Parent root = loader.load();
-        Scene scene = new Scene(root, 820, 520);
+        Scene scene = new Scene(root, 1280, 800);
         scene.getStylesheets().add(MainApp.class.getResource("/com/cafepos/styles/app.css").toExternalForm());
         IdleMonitor.bindScene(scene);
         stage.setScene(scene);
         WindowUtils.applyFullSize(stage);
+    }
+
+    public static ResourceBundle getMessages() {
+        if (messages == null) {
+            try {
+                messages = ResourceBundle.getBundle("i18n.messages", Locale.getDefault());
+            } catch (MissingResourceException ex) {
+                messages = ResourceBundle.getBundle("i18n.messages", Locale.FRENCH);
+            }
+        }
+        return messages;
+    }
+
+    public static String text(String key, String fallback) {
+        try {
+            String value = getMessages().getString(key);
+            if (value == null || value.isBlank()) {
+                return fallback;
+            }
+            return value;
+        } catch (Exception ex) {
+            return fallback;
+        }
     }
 
     private void showErrorAndExit(String message, Throwable ex) {

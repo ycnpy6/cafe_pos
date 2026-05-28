@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+
+<StackPane fx:id="launchRoot" prefWidth="1280" prefHeight="800" styleClass="bg-default"
+           xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.cafepos.controller.LaunchController">
+    <VBox alignment="CENTER" spacing="40">
+        <Label fx:id="appTitle" text="%app.name" styleClass="title-1" style="-fx-font-size: 32px; -fx-font-weight: bold;"/>
+        <Label fx:id="appSubtitle" text="%app.subtitle" styleClass="text-muted" style="-fx-font-size: 16px;"/>
+        <HBox alignment="CENTER" spacing="24">
+            <Button fx:id="btnCaisse" prefWidth="200" prefHeight="160" styleClass="button elevated" style="-fx-font-size: 16px;"
+                    onAction="#onCaisseClicked">
+                <graphic>
+                    <VBox alignment="CENTER" spacing="8">
+                        <Label text="🛒" style="-fx-font-size: 40px;"/>
+                        <Label text="%launch.caisse" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                        <Label text="%launch.caisse.sub" styleClass="text-muted" style="-fx-font-size: 12px;"/>
+                    </VBox>
+                </graphic>
+            </Button>
+            <Button fx:id="btnStock" prefWidth="200" prefHeight="160" styleClass="button elevated" style="-fx-font-size: 16px;"
+                    onAction="#onStockClicked">
+                <graphic>
+                    <VBox alignment="CENTER" spacing="8">
+                        <Label text="📦" style="-fx-font-size: 40px;"/>
+                        <Label text="%launch.stock" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                        <Label text="%launch.admin.required" styleClass="text-muted" style="-fx-font-size: 12px;"/>
+                    </VBox>
+                </graphic>
+            </Button>
+            <Button fx:id="btnGestion" prefWidth="200" prefHeight="160" styleClass="button elevated" style="-fx-font-size: 16px;"
+                    onAction="#onGestionClicked">
+                <graphic>
+                    <VBox alignment="CENTER" spacing="8">
+                        <Label text="📊" style="-fx-font-size: 40px;"/>
+                        <Label text="%launch.gestion" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+                        <Label text="%launch.admin.required" styleClass="text-muted" style="-fx-font-size: 12px;"/>
+                    </VBox>
+                </graphic>
+            </Button>
+        </HBox>
+        <Button fx:id="btnSettings" text="⚙  %launch.settings" styleClass="button flat text-muted" onAction="#onSettingsClicked"/>
+    </VBox>
+
+    <VBox fx:id="pinOverlay" visible="false" managed="false" alignment="CENTER" style="-fx-background-color: -color-bg-overlay;">
+        <VBox alignment="CENTER" spacing="16" prefWidth="320" styleClass="card elevated"
+              style="-fx-padding: 32px; -fx-background-radius: 12px;">
+            <Label text="%pin.title" styleClass="title-3"/>
+            <HBox fx:id="pinDots" alignment="CENTER" spacing="12"/>
+            <GridPane hgap="8" vgap="8" alignment="CENTER">
+                <Button fx:id="pinBtn1" text="1" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                <Button fx:id="pinBtn2" text="2" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                <Button fx:id="pinBtn3" text="3" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
+                <Button fx:id="pinBtn4" text="4" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                <Button fx:id="pinBtn5" text="5" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                <Button fx:id="pinBtn6" text="6" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
+                <Button fx:id="pinBtn7" text="7" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                <Button fx:id="pinBtn8" text="8" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                <Button fx:id="pinBtn9" text="9" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
+                <Button fx:id="pinBtnDel" text="⌫" prefWidth="72" prefHeight="64" styleClass="button danger"
+                        onAction="#onPinDelete" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                <Button fx:id="pinBtn0" text="0" prefWidth="72" prefHeight="64" styleClass="button elevated"
+                        onAction="#onPinDigit" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+                <Button fx:id="pinBtnOk" text="✓" prefWidth="72" prefHeight="64" styleClass="button success"
+                        onAction="#onPinConfirm" GridPane.columnIndex="2" GridPane.rowIndex="3"/>
+            </GridPane>
+            <Label fx:id="pinError" text="%pin.error" styleClass="danger" visible="false" managed="false"/>
+            <Button fx:id="pinCancel" text="%pin.cancel" styleClass="button flat" onAction="#onPinCancel" maxWidth="Infinity"/>
+        </VBox>
+    </VBox>
+</StackPane>

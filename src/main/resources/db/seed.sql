@@ -22,3 +22,27 @@ INSERT OR IGNORE INTO tags (id, group_id, name, price_modifier) VALUES (5, 2, 'C
 
 INSERT OR IGNORE INTO product_tag_groups (product_id, group_id) VALUES (2, 1);
 INSERT OR IGNORE INTO product_tag_groups (product_id, group_id) VALUES (2, 2);
+
+INSERT OR IGNORE INTO ingredients (id, name, unit, package_size, package_price, stock_quantity, min_quantity, active)
+VALUES (1, 'Capsule Espresso', 'UNIT', 10, 650, 120, 20, 1);
+
+INSERT OR IGNORE INTO ingredients (id, name, unit, package_size, package_price, stock_quantity, min_quantity, active)
+VALUES (2, 'Lait', 'L', 1, 170, 20, 3, 1);
+
+INSERT OR IGNORE INTO ingredients (id, name, unit, package_size, package_price, stock_quantity, min_quantity, active)
+VALUES (3, 'Sachet The Vert', 'UNIT', 25, 900, 100, 15, 1);
+
+INSERT OR IGNORE INTO ingredients (id, name, unit, package_size, package_price, stock_quantity, min_quantity, active)
+VALUES (4, 'Sucre', 'KG', 1, 180, 5, 1, 1);
+
+INSERT OR IGNORE INTO product_ingredients (product_id, ingredient_id, quantity)
+VALUES (1, 1, 1.0);
+
+INSERT OR IGNORE INTO product_ingredients (product_id, ingredient_id, quantity)
+VALUES (2, 1, 1.0);
+
+INSERT OR IGNORE INTO product_ingredients (product_id, ingredient_id, quantity)
+VALUES (2, 2, 0.2);
+
+INSERT OR IGNORE INTO product_ingredients (product_id, ingredient_id, quantity)
+VALUES (3, 3, 1.0);

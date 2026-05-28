@@ -84,6 +84,10 @@ public class ReportsController {
     private Label kpiCashLabel;
     @FXML
     private Label kpiPrepaidLabel;
+    @FXML
+    private Label kpiIngredientCostLabel;
+    @FXML
+    private Label kpiGrossProfitLabel;
 
     @FXML
     private VBox topItemsBox;
@@ -323,6 +327,12 @@ public class ReportsController {
         kpiOrdersLabel.setText(String.valueOf(summary.orderCount()));
         kpiCashLabel.setText(FormatUtils.formatMoney(summary.cashTotal()));
         kpiPrepaidLabel.setText(FormatUtils.formatMoney(summary.prepaidTotal()));
+        if (kpiIngredientCostLabel != null) {
+            kpiIngredientCostLabel.setText(FormatUtils.formatMoney(summary.ingredientCost()));
+        }
+        if (kpiGrossProfitLabel != null) {
+            kpiGrossProfitLabel.setText(FormatUtils.formatMoney(summary.grossProfit()));
+        }
     }
 
     private void renderTopItems(List<TopItem> items) {

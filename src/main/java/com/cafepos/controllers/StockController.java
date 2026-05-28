@@ -1,13 +1,19 @@
 package com.cafepos.controllers;
 
+
 import com.cafepos.dao.CategoryDAO;
+import com.cafepos.dao.IngredientDAO;
+import com.cafepos.dao.IngredientMovementDAO;
 import com.cafepos.dao.ProductDAO;
+import com.cafepos.dao.ProductIngredientDAO;
 import com.cafepos.dao.SettingsDAO;
 import com.cafepos.dao.StockMovementDAO;
 import com.cafepos.dao.TagDAO;
 import com.cafepos.dao.TagGroupDAO;
 import com.cafepos.model.Category;
+import com.cafepos.model.Ingredient;
 import com.cafepos.model.Product;
+import com.cafepos.model.ProductIngredientUsage;
 import com.cafepos.model.Tag;
 import com.cafepos.model.TagGroup;
 import com.cafepos.model.User;
@@ -35,6 +41,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
@@ -42,6 +49,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
@@ -64,6 +72,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class StockController {
     private static final Logger LOG = LoggerFactory.getLogger(StockController.class);
@@ -78,12 +87,19 @@ public class StockController {
     private final TagDAO tagDAO = new TagDAO();
     private final StockMovementDAO stockMovementDAO = new StockMovementDAO();
     private final SettingsDAO settingsDAO = new SettingsDAO();
+    private final IngredientDAO ingredientDAO = new IngredientDAO();
+    private final ProductIngredientDAO productIngredientDAO = new ProductIngredientDAO();
+    private final IngredientMovementDAO ingredientMovementDAO = new IngredientMovementDAO();
 
     private final ObservableList<ProductRow> masterProducts = FXCollections.observableArrayList();
     private final FilteredList<ProductRow> filteredProducts = new FilteredList<>(masterProducts, row -> true);
+    private final ObservableList<IngredientRow> ingredientRows = FXCollections.observableArrayList();
+    private final ObservableList<Product> recipeProducts = FXCollections.observableArrayList();
+    private final ObservableList<RecipeRow> recipeRows = FXCollections.observableArrayList();
 
     private final Map<Integer, Category> categoriesById = new HashMap<>();
     private final Map<Integer, String> categoryColors = new HashMap<>();
+    private final Map<Integer, IngredientRow> ingredientById = new HashMap<>();
 
     private int lowStockThreshold = DEFAULT_LOW_STOCK;
 
@@ -110,6 +126,50 @@ public class StockController {
     private TableColumn<ProductRow, Integer> stockColumn;
 
     @FXML
+    private Button newIngredientButton;
+    @FXML
+    private Button purchaseIngredientButton;
+    @FXML
+    private TableView<IngredientRow> ingredientsTable;
+    @FXML
+    private TableColumn<IngredientRow, Boolean> ingredientActiveColumn;
+    @FXML
+    private TableColumn<IngredientRow, String> ingredientNameColumn;
+    @FXML
+    private TableColumn<IngredientRow, String> ingredientUnitColumn;
+    @FXML
+    private TableColumn<IngredientRow, Double> ingredientStockColumn;
+    @FXML
+    private TableColumn<IngredientRow, Double> ingredientMinColumn;
+    @FXML
+    private TableColumn<IngredientRow, Double> ingredientPackageSizeColumn;
+    @FXML
+    private TableColumn<IngredientRow, Double> ingredientPackagePriceColumn;
+    @FXML
+    private TableColumn<IngredientRow, Double> ingredientUnitCostColumn;
+
+    @FXML
+    private ComboBox<Product> recipeProductCombo;
+    @FXML
+    private ComboBox<IngredientRow> recipeIngredientCombo;
+    @FXML
+    private TextField recipeQuantityField;
+    @FXML
+    private Label recipeEstimatedCostLabel;
+    @FXML
+    private TableView<RecipeRow> recipeTable;
+    @FXML
+    private TableColumn<RecipeRow, String> recipeIngredientColumn;
+    @FXML
+    private TableColumn<RecipeRow, String> recipeUnitColumn;
+    @FXML
+    private TableColumn<RecipeRow, Double> recipeQuantityColumn;
+    @FXML
+    private TableColumn<RecipeRow, Double> recipeUnitCostColumn;
+    @FXML
+    private TableColumn<RecipeRow, Double> recipeLineCostColumn;
+
+    @FXML
     private VBox supplementsBox;
     @FXML
     private VBox categoriesBox;
@@ -119,9 +179,13 @@ public class StockController {
     @FXML
     private void initialize() {
         configureTable();
+        configureIngredientsTable();
+        configureRecipeTable();
+        configureRecipeSelectors();
         configureSearch();
         loadThreshold();
         loadCategories();
+        loadIngredients();
         loadSupplements();
 
         if (newProductButton != null) {
@@ -244,6 +308,172 @@ public class StockController {
         });
     }
 
+    private void configureIngredientsTable() {
+        if (ingredientsTable == null) {
+            return;
+        }
+        ingredientsTable.setItems(ingredientRows);
+        ingredientsTable.setEditable(true);
+
+        ingredientActiveColumn.setCellValueFactory(data -> data.getValue().activeProperty());
+        ingredientActiveColumn.setCellFactory(col -> new IngredientActiveCell());
+
+        ingredientNameColumn.setCellValueFactory(data -> data.getValue().nameProperty());
+        ingredientNameColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new StringConverter<>() {
+            @Override
+            public String toString(String object) {
+                return object == null ? "" : object;
+            }
+
+            @Override
+            public String fromString(String string) {
+                return string == null ? "" : string;
+            }
+        }));
+        ingredientNameColumn.setOnEditCommit(evt -> {
+            IngredientRow row = evt.getRowValue();
+            row.setName(safeString(evt.getNewValue()));
+            persistIngredient(row);
+        });
+
+        ingredientUnitColumn.setCellValueFactory(data -> data.getValue().unitProperty());
+        ingredientUnitColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new StringConverter<>() {
+            @Override
+            public String toString(String object) {
+                return object == null ? "" : object;
+            }
+
+            @Override
+            public String fromString(String string) {
+                return normalizeUnit(string);
+            }
+        }));
+        ingredientUnitColumn.setOnEditCommit(evt -> {
+            IngredientRow row = evt.getRowValue();
+            row.setUnit(normalizeUnit(evt.getNewValue()));
+            persistIngredient(row);
+        });
+
+        ingredientStockColumn.setCellValueFactory(data -> data.getValue().stockQuantityProperty().asObject());
+        ingredientStockColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new DoubleConverter()));
+        ingredientStockColumn.setOnEditCommit(evt -> {
+            IngredientRow row = evt.getRowValue();
+            row.setStockQuantity(Math.max(0, safeDouble(evt.getNewValue())));
+            persistIngredient(row);
+            refreshRecipeCost();
+        });
+
+        ingredientMinColumn.setCellValueFactory(data -> data.getValue().minQuantityProperty().asObject());
+        ingredientMinColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new DoubleConverter()));
+        ingredientMinColumn.setOnEditCommit(evt -> {
+            IngredientRow row = evt.getRowValue();
+            row.setMinQuantity(Math.max(0, safeDouble(evt.getNewValue())));
+            persistIngredient(row);
+        });
+
+        ingredientPackageSizeColumn.setCellValueFactory(data -> data.getValue().packageSizeProperty().asObject());
+        ingredientPackageSizeColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new DoubleConverter()));
+        ingredientPackageSizeColumn.setOnEditCommit(evt -> {
+            IngredientRow row = evt.getRowValue();
+            row.setPackageSize(Math.max(0, safeDouble(evt.getNewValue())));
+            persistIngredient(row);
+            ingredientsTable.refresh();
+            refreshRecipeCost();
+        });
+
+        ingredientPackagePriceColumn.setCellValueFactory(data -> data.getValue().packagePriceProperty().asObject());
+        ingredientPackagePriceColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new DoubleConverter()));
+        ingredientPackagePriceColumn.setOnEditCommit(evt -> {
+            IngredientRow row = evt.getRowValue();
+            row.setPackagePrice(Math.max(0, safeDouble(evt.getNewValue())));
+            persistIngredient(row);
+            ingredientsTable.refresh();
+            refreshRecipeCost();
+        });
+
+        ingredientUnitCostColumn.setCellValueFactory(data -> data.getValue().unitCostProperty().asObject());
+
+        ingredientsTable.setRowFactory(table -> new TableRow<>() {
+            @Override
+            protected void updateItem(IngredientRow row, boolean empty) {
+                super.updateItem(row, empty);
+                getStyleClass().removeAll("row-stock-low", "row-stock-zero", "row-inactive");
+                if (empty || row == null) {
+                    return;
+                }
+                if (!row.isActive()) {
+                    getStyleClass().add("row-inactive");
+                } else if (row.getStockQuantity() <= 0.0001) {
+                    getStyleClass().add("row-stock-zero");
+                } else if (row.getStockQuantity() <= row.getMinQuantity()) {
+                    getStyleClass().add("row-stock-low");
+                }
+            }
+        });
+    }
+
+    private void configureRecipeTable() {
+        if (recipeTable == null) {
+            return;
+        }
+        recipeTable.setItems(recipeRows);
+        recipeTable.setEditable(true);
+
+        recipeIngredientColumn.setCellValueFactory(data -> data.getValue().ingredientNameProperty());
+        recipeUnitColumn.setCellValueFactory(data -> data.getValue().unitProperty());
+
+        recipeQuantityColumn.setCellValueFactory(data -> data.getValue().quantityProperty().asObject());
+        recipeQuantityColumn.setCellFactory(col -> new RecipeAutoCommitCell<>(new DoubleConverter()));
+        recipeQuantityColumn.setOnEditCommit(evt -> {
+            RecipeRow row = evt.getRowValue();
+            double quantity = Math.max(0, safeDouble(evt.getNewValue()));
+            if (quantity <= 0) {
+                showToast("warning", "Quantite invalide");
+                loadRecipeRows();
+                return;
+            }
+            upsertRecipeLine(row.getIngredientId(), quantity);
+        });
+
+        recipeUnitCostColumn.setCellValueFactory(data -> data.getValue().unitCostProperty().asObject());
+        recipeLineCostColumn.setCellValueFactory(data -> data.getValue().lineCostProperty().asObject());
+    }
+
+    private void configureRecipeSelectors() {
+        if (recipeProductCombo != null) {
+            recipeProductCombo.setItems(recipeProducts);
+            recipeProductCombo.setConverter(new StringConverter<>() {
+                @Override
+                public String toString(Product product) {
+                    return product == null ? "" : product.getName();
+                }
+
+                @Override
+                public Product fromString(String string) {
+                    return null;
+                }
+            });
+        }
+
+        if (recipeIngredientCombo != null) {
+            recipeIngredientCombo.setItems(ingredientRows.filtered(IngredientRow::isActive));
+            recipeIngredientCombo.setConverter(new StringConverter<>() {
+                @Override
+                public String toString(IngredientRow ingredient) {
+                    if (ingredient == null) {
+                        return "";
+                    }
+                    return ingredient.getName() + " (" + ingredient.getUnit() + ")";
+                }
+
+                @Override
+                public IngredientRow fromString(String string) {
+                    return null;
+                }
+            });
+        }
+    }
+
     private void configureSearch() {
         if (searchField == null) {
             return;
@@ -337,11 +567,15 @@ public class StockController {
             }
         };
         task.setOnSucceeded(evt -> {
+            Integer selectedProductId = getSelectedRecipeProductId();
             masterProducts.clear();
-            for (Product product : task.getValue()) {
+            List<Product> products = task.getValue();
+            for (Product product : products) {
                 Category category = categoriesById.get(product.getCategoryId());
                 masterProducts.add(ProductRow.from(product, category));
             }
+            recipeProducts.setAll(products);
+            restoreRecipeProductSelection(selectedProductId);
         });
         task.setOnFailed(evt -> {
             LOG.error("Erreur produits", task.getException());
@@ -350,6 +584,342 @@ public class StockController {
         Thread thread = new Thread(task, "products-load");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private void loadIngredients() {
+        Integer selectedIngredientId = getSelectedIngredientId();
+        Task<List<Ingredient>> task = new Task<>() {
+            @Override
+            protected List<Ingredient> call() throws Exception {
+                return ingredientDAO.findAll();
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            ingredientRows.clear();
+            ingredientById.clear();
+            for (Ingredient ingredient : task.getValue()) {
+                IngredientRow row = IngredientRow.from(ingredient);
+                ingredientRows.add(row);
+                ingredientById.put(row.getId(), row);
+            }
+
+            if (selectedIngredientId != null && ingredientsTable != null) {
+                IngredientRow selected = ingredientById.get(selectedIngredientId);
+                if (selected != null) {
+                    ingredientsTable.getSelectionModel().select(selected);
+                }
+            }
+
+            if (recipeIngredientCombo != null && recipeIngredientCombo.getSelectionModel().isEmpty()
+                    && !recipeIngredientCombo.getItems().isEmpty()) {
+                recipeIngredientCombo.getSelectionModel().selectFirst();
+            }
+
+            if (ingredientsTable != null) {
+                ingredientsTable.refresh();
+            }
+            loadRecipeRows();
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur ingredients", task.getException());
+            showToast("error", "Ingredients indisponibles");
+        });
+        Thread thread = new Thread(task, "ingredients-load");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    @FXML
+    private void onNewIngredient() {
+        if (ingredientsTable == null) {
+            return;
+        }
+        IngredientRow row = IngredientRow.newRow();
+        ingredientRows.add(0, row);
+        ingredientsTable.getSelectionModel().select(row);
+        Platform.runLater(() -> ingredientsTable.edit(0, ingredientNameColumn));
+    }
+
+    @FXML
+    private void onPurchaseIngredient() {
+        if (ingredientsTable == null) {
+            return;
+        }
+        IngredientRow row = ingredientsTable.getSelectionModel().getSelectedItem();
+        if (row == null || row.isNew()) {
+            showToast("warning", "Selectionnez un ingredient");
+            return;
+        }
+        if (row.getPackageSize() <= 0) {
+            showToast("warning", "Renseignez la taille du pack");
+            return;
+        }
+
+        TextInputDialog dialog = new TextInputDialog("1");
+        dialog.setTitle("Achat ingredient");
+        dialog.setHeaderText("Nombre de packs pour " + row.getName());
+        dialog.setContentText("Packs:");
+        Optional<String> answer = dialog.showAndWait();
+        if (answer.isEmpty()) {
+            return;
+        }
+
+        double packs = parseAmount(answer.get());
+        if (packs <= 0) {
+            showToast("warning", "Valeur invalide");
+            return;
+        }
+
+        double quantity = packs * row.getPackageSize();
+        double totalCost = packs * row.getPackagePrice();
+        Integer userId = getCurrentUserId();
+        Integer workPeriodId = SessionManager.getCurrentWorkPeriodId();
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try (var conn = com.cafepos.db.DatabaseManager.openConnection()) {
+                    conn.setAutoCommit(false);
+                    ingredientDAO.adjustStock(conn, row.getId(), quantity);
+                    ingredientMovementDAO.insertMovement(
+                            conn,
+                            row.getId(),
+                            quantity,
+                            "PURCHASE",
+                            row.getUnitCost(),
+                            totalCost,
+                            workPeriodId,
+                            null,
+                            userId
+                    );
+                    conn.commit();
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            showToast("success", "Achat enregistre");
+            loadIngredients();
+        });
+        runDbTask(task, "Achat impossible");
+    }
+
+    @FXML
+    private void onRecipeProductChanged() {
+        loadRecipeRows();
+    }
+
+    @FXML
+    private void onAddRecipeLine() {
+        Product product = recipeProductCombo == null ? null : recipeProductCombo.getSelectionModel().getSelectedItem();
+        IngredientRow ingredient =
+                recipeIngredientCombo == null ? null : recipeIngredientCombo.getSelectionModel().getSelectedItem();
+        if (product == null || ingredient == null || ingredient.isNew()) {
+            showToast("warning", "Selectionnez produit et ingredient");
+            return;
+        }
+        double quantity = parseAmount(recipeQuantityField == null ? null : recipeQuantityField.getText());
+        if (quantity <= 0) {
+            showToast("warning", "Quantite invalide");
+            return;
+        }
+        upsertRecipeLine(product.getId(), ingredient.getId(), quantity);
+        if (recipeQuantityField != null) {
+            recipeQuantityField.clear();
+        }
+    }
+
+    @FXML
+    private void onRemoveRecipeLine() {
+        Product product = recipeProductCombo == null ? null : recipeProductCombo.getSelectionModel().getSelectedItem();
+        RecipeRow selected = recipeTable == null ? null : recipeTable.getSelectionModel().getSelectedItem();
+        if (product == null || selected == null) {
+            showToast("warning", "Selectionnez une ligne de recette");
+            return;
+        }
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                productIngredientDAO.deleteRecipeLine(product.getId(), selected.getIngredientId());
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            showToast("success", "Ligne supprimee");
+            loadRecipeRows();
+        });
+        runDbTask(task, "Suppression recette impossible");
+    }
+
+    private void persistIngredient(IngredientRow row) {
+        if (row == null) {
+            return;
+        }
+        row.setName(safeString(row.getName()));
+        row.setUnit(normalizeUnit(row.getUnit()));
+        row.setPackageSize(Math.max(0, row.getPackageSize()));
+        row.setPackagePrice(Math.max(0, row.getPackagePrice()));
+        row.setStockQuantity(Math.max(0, row.getStockQuantity()));
+        row.setMinQuantity(Math.max(0, row.getMinQuantity()));
+
+        if (row.getName().isBlank()) {
+            return;
+        }
+        if (row.isNew()) {
+            createIngredient(row);
+        } else {
+            updateIngredient(row);
+        }
+    }
+
+    private void createIngredient(IngredientRow row) {
+        if (row.isSaving()) {
+            return;
+        }
+        row.setSaving(true);
+        Task<Integer> task = new Task<>() {
+            @Override
+            protected Integer call() throws Exception {
+                return ingredientDAO.insertIngredient(row.toIngredient());
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            row.setSaving(false);
+            int id = task.getValue();
+            if (id <= 0) {
+                showToast("error", "Ajout ingredient impossible");
+                return;
+            }
+            row.setId(id);
+            row.setNew(false);
+            showToast("success", "Ingredient ajoute");
+            loadIngredients();
+        });
+        task.setOnFailed(evt -> row.setSaving(false));
+        runDbTask(task, "Ajout ingredient impossible");
+    }
+
+    private void updateIngredient(IngredientRow row) {
+        if (row.isSaving()) {
+            return;
+        }
+        row.setSaving(true);
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                ingredientDAO.updateIngredient(row.toIngredient());
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            row.setSaving(false);
+            loadIngredients();
+        });
+        task.setOnFailed(evt -> row.setSaving(false));
+        runDbTask(task, "Mise a jour ingredient impossible");
+    }
+
+    private void loadRecipeRows() {
+        Product product = recipeProductCombo == null ? null : recipeProductCombo.getSelectionModel().getSelectedItem();
+        if (product == null) {
+            recipeRows.clear();
+            refreshRecipeCost();
+            return;
+        }
+
+        Task<List<ProductIngredientUsage>> task = new Task<>() {
+            @Override
+            protected List<ProductIngredientUsage> call() throws Exception {
+                return productIngredientDAO.findRecipeByProduct(product.getId());
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            recipeRows.clear();
+            for (ProductIngredientUsage usage : task.getValue()) {
+                recipeRows.add(RecipeRow.from(usage));
+            }
+            refreshRecipeCost();
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur recette", task.getException());
+            showToast("error", "Recette indisponible");
+        });
+        Thread thread = new Thread(task, "recipe-load");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void upsertRecipeLine(int productId, int ingredientId, double quantity) {
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                productIngredientDAO.upsertRecipeLine(productId, ingredientId, quantity);
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            showToast("success", "Recette mise a jour");
+            loadRecipeRows();
+        });
+        runDbTask(task, "Mise a jour recette impossible");
+    }
+
+    private void upsertRecipeLine(int ingredientId, double quantity) {
+        Product product = recipeProductCombo == null ? null : recipeProductCombo.getSelectionModel().getSelectedItem();
+        if (product == null) {
+            return;
+        }
+        upsertRecipeLine(product.getId(), ingredientId, quantity);
+    }
+
+    private void refreshRecipeCost() {
+        double totalCost = recipeRows.stream().mapToDouble(RecipeRow::getLineCost).sum();
+        if (recipeEstimatedCostLabel != null) {
+            recipeEstimatedCostLabel.setText("Cout recette: " + formatMoney(totalCost));
+        }
+        if (recipeTable != null) {
+            recipeTable.refresh();
+        }
+    }
+
+    private Integer getSelectedIngredientId() {
+        if (ingredientsTable == null) {
+            return null;
+        }
+        IngredientRow selected = ingredientsTable.getSelectionModel().getSelectedItem();
+        if (selected == null || selected.isNew()) {
+            return null;
+        }
+        return selected.getId();
+    }
+
+    private Integer getSelectedRecipeProductId() {
+        if (recipeProductCombo == null) {
+            return null;
+        }
+        Product selected = recipeProductCombo.getSelectionModel().getSelectedItem();
+        return selected == null ? null : selected.getId();
+    }
+
+    private void restoreRecipeProductSelection(Integer selectedProductId) {
+        if (recipeProductCombo == null) {
+            return;
+        }
+        Product toSelect = null;
+        if (selectedProductId != null) {
+            for (Product product : recipeProducts) {
+                if (product.getId() == selectedProductId) {
+                    toSelect = product;
+                    break;
+                }
+            }
+        }
+        if (toSelect == null && !recipeProducts.isEmpty()) {
+            toSelect = recipeProducts.get(0);
+        }
+        recipeProductCombo.getSelectionModel().select(toSelect);
+        loadRecipeRows();
     }
 
     @FXML
@@ -965,6 +1535,15 @@ public class StockController {
         }
     }
 
+    private double safeDouble(Double value) {
+        return value == null ? 0 : value;
+    }
+
+    private String normalizeUnit(String value) {
+        String normalized = safeString(value).toUpperCase();
+        return normalized.isBlank() ? "UNIT" : normalized;
+    }
+
     private String safeString(String value) {
         return value == null ? "" : value.trim();
     }
@@ -992,7 +1571,11 @@ public class StockController {
     }
 
     private void runDbTask(Task<?> task, String errorMessage) {
+        var previousOnFailed = task.getOnFailed();
         task.setOnFailed(evt -> {
+            if (previousOnFailed != null) {
+                previousOnFailed.handle(evt);
+            }
             LOG.error(errorMessage, task.getException());
             showToast("error", errorMessage);
         });
@@ -1060,6 +1643,436 @@ public class StockController {
             } catch (NumberFormatException ex) {
                 return 0.0;
             }
+        }
+    }
+
+    private class IngredientActiveCell extends TableCell<IngredientRow, Boolean> {
+        private final CheckBox checkBox = new CheckBox();
+
+        IngredientActiveCell() {
+            checkBox.setOnAction(event -> {
+                IngredientRow row = getTableRow() == null ? null : getTableRow().getItem();
+                if (row == null) {
+                    return;
+                }
+                row.setActive(checkBox.isSelected());
+                persistIngredient(row);
+                if (ingredientsTable != null) {
+                    ingredientsTable.refresh();
+                }
+            });
+            setAlignment(Pos.CENTER);
+        }
+
+        @Override
+        protected void updateItem(Boolean value, boolean empty) {
+            super.updateItem(value, empty);
+            if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                setGraphic(null);
+                return;
+            }
+            checkBox.setSelected(Boolean.TRUE.equals(value));
+            setGraphic(checkBox);
+        }
+    }
+
+    private class IngredientAutoCommitCell<T> extends TableCell<IngredientRow, T> {
+        private final TextField editor = new TextField();
+        private final StringConverter<T> converter;
+
+        IngredientAutoCommitCell(StringConverter<T> converter) {
+            this.converter = converter;
+            editor.setOnAction(event -> commit());
+            editor.focusedProperty().addListener((obs, oldVal, newVal) -> {
+                if (!newVal) {
+                    commit();
+                }
+            });
+        }
+
+        @Override
+        public void startEdit() {
+            super.startEdit();
+            editor.setText(converter.toString(getItem()));
+            setGraphic(editor);
+            setText(null);
+            Platform.runLater(editor::requestFocus);
+        }
+
+        @Override
+        public void cancelEdit() {
+            super.cancelEdit();
+            setText(converter.toString(getItem()));
+            setGraphic(null);
+        }
+
+        @Override
+        protected void updateItem(T item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty) {
+                setGraphic(null);
+                setText(null);
+                return;
+            }
+            if (isEditing()) {
+                editor.setText(converter.toString(item));
+                setGraphic(editor);
+                setText(null);
+            } else {
+                setText(converter.toString(item));
+                setGraphic(null);
+            }
+        }
+
+        private void commit() {
+            if (!isEditing()) {
+                return;
+            }
+            commitEdit(converter.fromString(editor.getText()));
+        }
+    }
+
+    private class RecipeAutoCommitCell<T> extends TableCell<RecipeRow, T> {
+        private final TextField editor = new TextField();
+        private final StringConverter<T> converter;
+
+        RecipeAutoCommitCell(StringConverter<T> converter) {
+            this.converter = converter;
+            editor.setOnAction(event -> commit());
+            editor.focusedProperty().addListener((obs, oldVal, newVal) -> {
+                if (!newVal) {
+                    commit();
+                }
+            });
+        }
+
+        @Override
+        public void startEdit() {
+            super.startEdit();
+            editor.setText(converter.toString(getItem()));
+            setGraphic(editor);
+            setText(null);
+            Platform.runLater(editor::requestFocus);
+        }
+
+        @Override
+        public void cancelEdit() {
+            super.cancelEdit();
+            setText(converter.toString(getItem()));
+            setGraphic(null);
+        }
+
+        @Override
+        protected void updateItem(T item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty) {
+                setGraphic(null);
+                setText(null);
+                return;
+            }
+            if (isEditing()) {
+                editor.setText(converter.toString(item));
+                setGraphic(editor);
+                setText(null);
+            } else {
+                setText(converter.toString(item));
+                setGraphic(null);
+            }
+        }
+
+        private void commit() {
+            if (!isEditing()) {
+                return;
+            }
+            commitEdit(converter.fromString(editor.getText()));
+        }
+    }
+
+    public static class IngredientRow {
+        private final IntegerProperty id = new SimpleIntegerProperty();
+        private final StringProperty name = new SimpleStringProperty("");
+        private final StringProperty unit = new SimpleStringProperty("UNIT");
+        private final DoubleProperty packageSize = new SimpleDoubleProperty(1);
+        private final DoubleProperty packagePrice = new SimpleDoubleProperty(0);
+        private final DoubleProperty stockQuantity = new SimpleDoubleProperty(0);
+        private final DoubleProperty minQuantity = new SimpleDoubleProperty(0);
+        private final DoubleProperty unitCost = new SimpleDoubleProperty(0);
+        private final BooleanProperty active = new SimpleBooleanProperty(true);
+        private boolean isNew;
+        private boolean saving;
+
+        IngredientRow() {
+            packageSize.addListener((obs, oldVal, newVal) -> recalcUnitCost());
+            packagePrice.addListener((obs, oldVal, newVal) -> recalcUnitCost());
+            recalcUnitCost();
+        }
+
+        public static IngredientRow from(Ingredient ingredient) {
+            IngredientRow row = new IngredientRow();
+            row.setId(ingredient.getId());
+            row.setName(ingredient.getName());
+            row.setUnit(ingredient.getUnit());
+            row.setPackageSize(ingredient.getPackageSize());
+            row.setPackagePrice(ingredient.getPackagePrice());
+            row.setStockQuantity(ingredient.getStockQuantity());
+            row.setMinQuantity(ingredient.getMinQuantity());
+            row.setActive(ingredient.isActive());
+            row.setNew(false);
+            row.recalcUnitCost();
+            return row;
+        }
+
+        public static IngredientRow newRow() {
+            IngredientRow row = new IngredientRow();
+            row.setNew(true);
+            return row;
+        }
+
+        public Ingredient toIngredient() {
+            return new Ingredient(
+                    getId(),
+                    getName(),
+                    getUnit(),
+                    Math.max(0, getPackageSize()),
+                    Math.max(0, getPackagePrice()),
+                    Math.max(0, getStockQuantity()),
+                    Math.max(0, getMinQuantity()),
+                    isActive()
+            );
+        }
+
+        private void recalcUnitCost() {
+            if (getPackageSize() <= 0) {
+                setUnitCost(0);
+            } else {
+                setUnitCost(getPackagePrice() / getPackageSize());
+            }
+        }
+
+        public int getId() {
+            return id.get();
+        }
+
+        public void setId(int value) {
+            id.set(value);
+        }
+
+        public IntegerProperty idProperty() {
+            return id;
+        }
+
+        public String getName() {
+            return name.get();
+        }
+
+        public void setName(String value) {
+            name.set(value);
+        }
+
+        public StringProperty nameProperty() {
+            return name;
+        }
+
+        public String getUnit() {
+            return unit.get();
+        }
+
+        public void setUnit(String value) {
+            unit.set(value);
+        }
+
+        public StringProperty unitProperty() {
+            return unit;
+        }
+
+        public double getPackageSize() {
+            return packageSize.get();
+        }
+
+        public void setPackageSize(double value) {
+            packageSize.set(value);
+        }
+
+        public DoubleProperty packageSizeProperty() {
+            return packageSize;
+        }
+
+        public double getPackagePrice() {
+            return packagePrice.get();
+        }
+
+        public void setPackagePrice(double value) {
+            packagePrice.set(value);
+        }
+
+        public DoubleProperty packagePriceProperty() {
+            return packagePrice;
+        }
+
+        public double getStockQuantity() {
+            return stockQuantity.get();
+        }
+
+        public void setStockQuantity(double value) {
+            stockQuantity.set(value);
+        }
+
+        public DoubleProperty stockQuantityProperty() {
+            return stockQuantity;
+        }
+
+        public double getMinQuantity() {
+            return minQuantity.get();
+        }
+
+        public void setMinQuantity(double value) {
+            minQuantity.set(value);
+        }
+
+        public DoubleProperty minQuantityProperty() {
+            return minQuantity;
+        }
+
+        public double getUnitCost() {
+            return unitCost.get();
+        }
+
+        public void setUnitCost(double value) {
+            unitCost.set(value);
+        }
+
+        public DoubleProperty unitCostProperty() {
+            return unitCost;
+        }
+
+        public boolean isActive() {
+            return active.get();
+        }
+
+        public void setActive(boolean value) {
+            active.set(value);
+        }
+
+        public BooleanProperty activeProperty() {
+            return active;
+        }
+
+        public boolean isNew() {
+            return isNew;
+        }
+
+        public void setNew(boolean value) {
+            isNew = value;
+        }
+
+        public boolean isSaving() {
+            return saving;
+        }
+
+        public void setSaving(boolean value) {
+            saving = value;
+        }
+    }
+
+    public static class RecipeRow {
+        private final IntegerProperty ingredientId = new SimpleIntegerProperty();
+        private final StringProperty ingredientName = new SimpleStringProperty("");
+        private final StringProperty unit = new SimpleStringProperty("");
+        private final DoubleProperty quantity = new SimpleDoubleProperty(0);
+        private final DoubleProperty unitCost = new SimpleDoubleProperty(0);
+        private final DoubleProperty lineCost = new SimpleDoubleProperty(0);
+
+        RecipeRow() {
+            quantity.addListener((obs, oldVal, newVal) -> recalcLineCost());
+            unitCost.addListener((obs, oldVal, newVal) -> recalcLineCost());
+            recalcLineCost();
+        }
+
+        public static RecipeRow from(ProductIngredientUsage usage) {
+            RecipeRow row = new RecipeRow();
+            row.setIngredientId(usage.ingredientId());
+            row.setIngredientName(usage.ingredientName());
+            row.setUnit(usage.unit());
+            row.setQuantity(usage.quantityPerProduct());
+            row.setUnitCost(usage.unitCost());
+            row.recalcLineCost();
+            return row;
+        }
+
+        private void recalcLineCost() {
+            setLineCost(getQuantity() * getUnitCost());
+        }
+
+        public int getIngredientId() {
+            return ingredientId.get();
+        }
+
+        public void setIngredientId(int value) {
+            ingredientId.set(value);
+        }
+
+        public IntegerProperty ingredientIdProperty() {
+            return ingredientId;
+        }
+
+        public String getIngredientName() {
+            return ingredientName.get();
+        }
+
+        public void setIngredientName(String value) {
+            ingredientName.set(value);
+        }
+
+        public StringProperty ingredientNameProperty() {
+            return ingredientName;
+        }
+
+        public String getUnit() {
+            return unit.get();
+        }
+
+        public void setUnit(String value) {
+            unit.set(value);
+        }
+
+        public StringProperty unitProperty() {
+            return unit;
+        }
+
+        public double getQuantity() {
+            return quantity.get();
+        }
+
+        public void setQuantity(double value) {
+            quantity.set(value);
+        }
+
+        public DoubleProperty quantityProperty() {
+            return quantity;
+        }
+
+        public double getUnitCost() {
+            return unitCost.get();
+        }
+
+        public void setUnitCost(double value) {
+            unitCost.set(value);
+        }
+
+        public DoubleProperty unitCostProperty() {
+            return unitCost;
+        }
+
+        public double getLineCost() {
+            return lineCost.get();
+        }
+
+        public void setLineCost(double value) {
+            lineCost.set(value);
+        }
+
+        public DoubleProperty lineCostProperty() {
+            return lineCost;
         }
     }
 

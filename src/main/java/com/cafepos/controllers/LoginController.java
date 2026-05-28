@@ -1,5 +1,6 @@
 package com.cafepos.controllers;
 
+import com.cafepos.MainApp;
 import com.cafepos.dao.UserDAO;
 import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
@@ -181,7 +182,9 @@ public class LoginController {
 
     private void loadPosScreen(String username, String role) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cafepos/fxml/pos.fxml"));
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/cafepos/fxml/pos.fxml"),
+                    MainApp.getMessages());
             Parent root = loader.load();
             PosController controller = loader.getController();
             controller.setUserInfo(username, role);

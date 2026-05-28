@@ -1,3 +1,4 @@
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\PosOrderSummary.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\Category.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\Product.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\ProductsController.java
@@ -6,6 +7,8 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\Customer
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\MainApp.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\service\AccountService.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\OrderHistoryRow.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\ProductIngredientUsage.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\Ingredient.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\EODService.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\AccountTransactionDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\BackupService.java
@@ -19,10 +22,12 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\BackOffi
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\service\WorkPeriodService.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\OrderLineDetail.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\DashboardController.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\LaunchController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\PosController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\module-info.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\SettingsController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\Customer.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\IngredientDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\PrintQueueDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\ProductDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\TagDAO.java
@@ -33,6 +38,8 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\WorkPeriodDAO.ja
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\WindowUtils.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\FormatUtils.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\StockMovementDAO.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\RefundLineSelection.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\ProductIngredientDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\AppScheduler.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\ReportsController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\TagGroupDAO.java
@@ -47,10 +54,13 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\UserRole.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\ProductTagGroupDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\User.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\TagsController.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\RefundableOrderLine.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\CategoryDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\ReportRow.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\LoginController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\OrderDAO.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controller\LaunchController.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\IngredientMovementDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\PrintQueueItem.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\AccountTransaction.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\db\DatabaseManager.java
@@ -60,3 +70,4 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\PaymentType.ja
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\SecurityUtils.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\service\PrintQueueService.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\service\SessionManager.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controller\POSController.java

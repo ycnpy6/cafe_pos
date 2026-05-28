@@ -63,6 +63,25 @@ public class UserDAO {
         return 0;
     }
 
+    public User findFirstByRole(UserRole role) throws Exception {
+        String sql = "SELECT id, name, pin, role FROM users WHERE role = ? ORDER BY id LIMIT 1";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, role.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new User(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getString("pin"),
+                            UserRole.valueOf(rs.getString("role"))
+                    );
+                }
+            }
+        }
+        return null;
+    }
+
     public User findByPinAndRole(String pinHash, UserRole role) throws Exception {
         String sql = "SELECT id, name, pin, role FROM users WHERE pin = ? AND role = ? LIMIT 1";
         try (Connection conn = DatabaseManager.openConnection();

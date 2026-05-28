@@ -62,6 +62,14 @@
                 <Label fx:id="kpiPrepaidLabel" text="0 DZD" styleClass="kpi-value"/>
                 <Label text="Prepayes" styleClass="kpi-label"/>
             </VBox>
+            <VBox styleClass="kpi-card" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="kpiIngredientCostLabel" text="0 DZD" styleClass="kpi-value"/>
+                <Label text="Cout ingredients" styleClass="kpi-label"/>
+            </VBox>
+            <VBox styleClass="kpi-card" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="kpiGrossProfitLabel" text="0 DZD" styleClass="kpi-value"/>
+                <Label text="Marge brute" styleClass="kpi-label"/>
+            </VBox>
         </HBox>
 
         <TabPane VBox.vgrow="ALWAYS">

@@ -10,6 +10,30 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CustomerDAO {
+    public Customer findById(int customerId) throws Exception {
+        try (Connection conn = DatabaseManager.openConnection()) {
+            return findById(conn, customerId);
+        }
+    }
+
+    public Customer findById(Connection conn, int customerId) throws Exception {
+        String sql = "SELECT id, name, card_uid, balance FROM customers WHERE id = ? LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new Customer(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getString("card_uid"),
+                            rs.getDouble("balance")
+                    );
+                }
+            }
+        }
+        return null;
+    }
+
     public Customer findByCardUid(String cardUid) throws Exception {
         String sql = "SELECT id, name, card_uid, balance FROM customers WHERE card_uid = ? LIMIT 1";
         try (Connection conn = DatabaseManager.openConnection();

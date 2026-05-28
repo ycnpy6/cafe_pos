@@ -7,6 +7,7 @@ module com.cafepos {
     requires java.desktop;
 
     opens com.cafepos to javafx.fxml;
+    opens com.cafepos.controller to javafx.fxml;
     opens com.cafepos.controllers to javafx.fxml;
     opens com.cafepos.model to javafx.fxml;
     exports com.cafepos;

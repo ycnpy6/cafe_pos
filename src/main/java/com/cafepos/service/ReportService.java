@@ -74,24 +74,33 @@ public class ReportService {
         String sql = "SELECT COALESCE(SUM(total), 0) AS total_sales, "
                 + "COUNT(*) AS order_count, "
                 + "COALESCE(SUM(cash_amount), 0) AS cash_total, "
-                + "COALESCE(SUM(prepaid_amount), 0) AS prepaid_total "
+                + "COALESCE(SUM(prepaid_amount), 0) AS prepaid_total, "
+                + "COALESCE((SELECT SUM(im.total_cost) FROM ingredient_movements im "
+                + "WHERE date(im.created_at) BETWEEN ? AND ? "
+                + "AND im.reason IN ('SALE', 'REFUND')), 0) AS ingredient_cost "
                 + "FROM orders WHERE date(created_at) BETWEEN ? AND ?";
         try (Connection conn = DatabaseManager.openConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, start.toString());
             ps.setString(2, end.toString());
+            ps.setString(3, start.toString());
+            ps.setString(4, end.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
+                    double totalSales = rs.getDouble("total_sales");
+                    double ingredientCost = rs.getDouble("ingredient_cost");
                     return new SalesSummary(
-                            rs.getDouble("total_sales"),
+                            totalSales,
                             rs.getInt("order_count"),
                             rs.getDouble("cash_total"),
-                            rs.getDouble("prepaid_total")
+                            rs.getDouble("prepaid_total"),
+                            ingredientCost,
+                            totalSales - ingredientCost
                     );
                 }
             }
         }
-        return new SalesSummary(0, 0, 0, 0);
+        return new SalesSummary(0, 0, 0, 0, 0, 0);
     }
 
     public List<TopItem> getTopItems(LocalDate start, LocalDate end, int limit) throws Exception {

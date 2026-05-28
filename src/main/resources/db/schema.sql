@@ -111,6 +111,43 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS ingredients (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  unit TEXT NOT NULL DEFAULT 'UNIT',
+  package_size REAL NOT NULL DEFAULT 1,
+  package_price REAL NOT NULL DEFAULT 0,
+  stock_quantity REAL NOT NULL DEFAULT 0,
+  min_quantity REAL NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS product_ingredients (
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+  quantity REAL NOT NULL,
+  PRIMARY KEY (product_id, ingredient_id)
+);
+
+CREATE TABLE IF NOT EXISTS ingredient_movements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ingredient_id INTEGER NOT NULL REFERENCES ingredients(id),
+  quantity REAL NOT NULL,
+  reason TEXT NOT NULL,
+  unit_cost REAL NOT NULL DEFAULT 0,
+  total_cost REAL NOT NULL DEFAULT 0,
+  work_period_id INTEGER REFERENCES work_periods(id),
+  order_id INTEGER REFERENCES orders(id),
+  user_id INTEGER REFERENCES users(id),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingredient_movements_created_at
+  ON ingredient_movements(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_ingredient_movements_order_id
+  ON ingredient_movements(order_id);
+
 CREATE TABLE IF NOT EXISTS eod_reports (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   work_period_id INTEGER REFERENCES work_periods(id),

@@ -4,6 +4,21 @@
   -color-fg-on-emphasis: white;
 }
 
+.overlay-backdrop {
+  -fx-background-color: -color-bg-overlay;
+  -fx-padding: 16px;
+}
+
+.popup-card {
+  -fx-background-color: -color-bg-default;
+  -fx-border-color: -color-border-default;
+  -fx-border-width: 1px;
+  -fx-border-radius: 10px;
+  -fx-background-radius: 10px;
+  -fx-padding: 16px;
+  -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.18), 16, 0.3, 0, 6);
+}
+
 .label, .text {
   -fx-text-fill: -color-fg-default;
 }
@@ -36,6 +51,38 @@
   -fx-min-width: 56px;
   -fx-min-height: 56px;
   -fx-background-radius: 6px;
+}
+
+.button.elevated {
+  -fx-background-color: -color-bg-subtle;
+  -fx-border-color: -color-border-default;
+  -fx-border-width: 1px;
+  -fx-text-fill: -color-fg-default;
+}
+
+.button.flat {
+  -fx-background-color: transparent;
+  -fx-text-fill: -color-fg-default;
+}
+
+.button.accent {
+  -fx-background-color: -color-accent-emphasis;
+  -fx-text-fill: -color-fg-on-emphasis;
+}
+
+.button.success {
+  -fx-background-color: -color-success-emphasis;
+  -fx-text-fill: -color-fg-on-emphasis;
+}
+
+.button.warning {
+  -fx-background-color: -color-warning-emphasis;
+  -fx-text-fill: -color-fg-on-emphasis;
+}
+
+.button.danger {
+  -fx-background-color: -color-danger-emphasis;
+  -fx-text-fill: -color-fg-on-emphasis;
 }
 
 .button:disabled, .toggle-button:disabled {
@@ -343,6 +390,10 @@
   -fx-border-width: 0 0 1px 0;
 }
 
+.order-line .hint-label {
+  -fx-wrap-text: true;
+}
+
 .order-line.selected {
   -fx-background-color: -color-bg-subtle;
   -fx-background-radius: 6px;
@@ -453,6 +504,37 @@
   -fx-padding: 6px 4px;
   -fx-border-color: -color-border-default;
   -fx-border-width: 0 0 1px 0;
+}
+
+.launch-tile {
+  -fx-min-width: 200px;
+  -fx-min-height: 160px;
+  -fx-pref-width: 200px;
+  -fx-pref-height: 160px;
+  -fx-background-color: -color-bg-subtle;
+  -fx-border-color: -color-border-default;
+  -fx-border-radius: 8px;
+  -fx-background-radius: 8px;
+  -fx-padding: 12px;
+}
+
+.launch-tile:hover {
+  -fx-border-color: -color-accent-emphasis;
+}
+
+.pin-dialog {
+  -fx-max-width: 300px;
+  -fx-pref-width: 300px;
+  -fx-min-width: 300px;
+  -fx-background-color: -color-bg-inset;
+  -fx-border-color: -color-border-default;
+  -fx-border-radius: 8px;
+  -fx-background-radius: 8px;
+  -fx-padding: 16px;
+}
+
+.pin-dot {
+  -fx-font-size: 20px;
 }
 
 .row-stock-zero {

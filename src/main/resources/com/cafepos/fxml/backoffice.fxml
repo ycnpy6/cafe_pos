@@ -15,12 +15,12 @@
                 <Insets top="16" right="12" bottom="16" left="12"/>
             </padding>
             <Label text="Back-office" styleClass="title"/>
-            <Button text="Dashboard" onAction="#onShowDashboard" styleClass="action-button"/>
-            <Button text="Stock" onAction="#onShowStock" styleClass="action-button"/>
-            <Button text="Clients" onAction="#onShowCustomers" styleClass="action-button"/>
-            <Button text="Rapports" onAction="#onShowReports" styleClass="action-button"/>
-            <Button text="Parametres" onAction="#onShowSettings" styleClass="action-button"/>
-            <Button text="Retour POS" onAction="#onBackToPos" styleClass="action-button"/>
+            <Button text="🏠 Dashboard" onAction="#onShowDashboard" styleClass="action-button"/>
+            <Button text="📦 Stock" onAction="#onShowStock" styleClass="action-button"/>
+            <Button text="👥 Clients" onAction="#onShowCustomers" styleClass="action-button"/>
+            <Button text="📊 Rapports (Admin)" onAction="#onShowReports" styleClass="action-button"/>
+            <Button text="⚙ Parametres" onAction="#onShowSettings" styleClass="action-button"/>
+            <Button text="🛒 Retour POS" onAction="#onBackToPos" styleClass="action-button"/>
         </VBox>
     </left>
     <center>
