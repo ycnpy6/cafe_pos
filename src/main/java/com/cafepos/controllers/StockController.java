@@ -2,6 +2,7 @@ package com.cafepos.controllers;
 
 
 import com.cafepos.dao.CategoryDAO;
+import com.cafepos.dao.CashMovementDAO;
 import com.cafepos.dao.IngredientDAO;
 import com.cafepos.dao.IngredientMovementDAO;
 import com.cafepos.dao.ProductDAO;
@@ -79,7 +80,6 @@ public class StockController {
     private static final int MAX_TOASTS = 3;
     private static final int DEFAULT_LOW_STOCK = 5;
     private static final String STOCK_THRESHOLD_KEY = "stock.low.threshold";
-    private static final String CATEGORY_COLOR_PREFIX = "category.color.";
 
     private final ProductDAO productDAO = new ProductDAO();
     private final CategoryDAO categoryDAO = new CategoryDAO();
@@ -90,6 +90,7 @@ public class StockController {
     private final IngredientDAO ingredientDAO = new IngredientDAO();
     private final ProductIngredientDAO productIngredientDAO = new ProductIngredientDAO();
     private final IngredientMovementDAO ingredientMovementDAO = new IngredientMovementDAO();
+    private final CashMovementDAO cashMovementDAO = new CashMovementDAO();
 
     private final ObservableList<ProductRow> masterProducts = FXCollections.observableArrayList();
     private final FilteredList<ProductRow> filteredProducts = new FilteredList<>(masterProducts, row -> true);
@@ -118,6 +119,8 @@ public class StockController {
     private TableColumn<ProductRow, String> nameColumn;
     @FXML
     private TableColumn<ProductRow, Category> categoryColumn;
+    @FXML
+    private TableColumn<ProductRow, Boolean> preparedColumn;
     @FXML
     private TableColumn<ProductRow, Double> priceColumn;
     @FXML
@@ -258,6 +261,9 @@ public class StockController {
             }
         });
 
+        preparedColumn.setCellValueFactory(data -> data.getValue().preparedProperty());
+        preparedColumn.setCellFactory(col -> new PreparedCell());
+
         priceColumn.setCellValueFactory(data -> data.getValue().priceProperty().asObject());
         priceColumn.setCellFactory(col -> new AutoCommitCell<>(new DoubleConverter()));
         priceColumn.setOnEditCommit(evt -> {
@@ -358,8 +364,16 @@ public class StockController {
         ingredientStockColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new DoubleConverter()));
         ingredientStockColumn.setOnEditCommit(evt -> {
             IngredientRow row = evt.getRowValue();
-            row.setStockQuantity(Math.max(0, safeDouble(evt.getNewValue())));
-            persistIngredient(row);
+            if (row == null) {
+                return;
+            }
+            double newQuantity = Math.max(0, safeDouble(evt.getNewValue()));
+            if (row.isNew()) {
+                row.setStockQuantity(newQuantity);
+                persistIngredient(row);
+            } else {
+                overrideIngredientStock(row, newQuantity);
+            }
             refreshRecipeCost();
         });
 
@@ -515,21 +529,10 @@ public class StockController {
 
     private void loadCategories() {
         CategoryDAO categoryDao = this.categoryDAO;
-        SettingsDAO settingsDao = this.settingsDAO;
         Task<List<Category>> task = new Task<>() {
-            private final Map<Integer, String> colors = new HashMap<>();
-
             @Override
             protected List<Category> call() throws Exception {
-                List<Category> categories = categoryDao.findAll();
-                for (Category category : categories) {
-                    String key = CATEGORY_COLOR_PREFIX + category.getId();
-                    String value = settingsDao.getValue(key);
-                    if (value != null && !value.isBlank()) {
-                        colors.put(category.getId(), value.trim());
-                    }
-                }
-                return categories;
+                return categoryDao.findAll();
             }
 
             @Override
@@ -539,8 +542,8 @@ public class StockController {
                 categoryColors.clear();
                 for (Category category : categories) {
                     categoriesById.put(category.getId(), category);
+                    categoryColors.put(category.getId(), resolveCategoryColor(category));
                 }
-                categoryColors.putAll(colors);
                 updateCategoryColumn(categories);
                 renderCategories(categories);
                 loadProducts();
@@ -672,6 +675,7 @@ public class StockController {
 
         double quantity = packs * row.getPackageSize();
         double totalCost = packs * row.getPackagePrice();
+        String purchaseDescription = "Achat ingredient: " + row.getName() + " (" + packs + " pack)";
         Integer userId = getCurrentUserId();
         Integer workPeriodId = SessionManager.getCurrentWorkPeriodId();
 
@@ -692,6 +696,16 @@ public class StockController {
                             null,
                             userId
                     );
+                            cashMovementDAO.insertMovement(
+                                conn,
+                                CashMovementDAO.TYPE_OUTFLOW,
+                                CashMovementDAO.CATEGORY_INGREDIENT_PURCHASE,
+                                totalCost,
+                                purchaseDescription,
+                                workPeriodId,
+                                row.getId(),
+                                userId
+                            );
                     conn.commit();
                 }
                 return null;
@@ -702,6 +716,65 @@ public class StockController {
             loadIngredients();
         });
         runDbTask(task, "Achat impossible");
+    }
+
+    @FXML
+    private void onWithdrawShoppingCash() {
+        TextInputDialog amountDialog = new TextInputDialog();
+        amountDialog.setTitle("Sortie caisse");
+        amountDialog.setHeaderText("Montant sortie caisse (shopping)");
+        amountDialog.setContentText("Montant:");
+        Optional<String> amountAnswer = amountDialog.showAndWait();
+        if (amountAnswer.isEmpty()) {
+            return;
+        }
+
+        double amount = parseAmount(amountAnswer.get());
+        if (amount <= 0) {
+            showToast("warning", "Montant invalide");
+            return;
+        }
+
+        TextInputDialog reasonDialog = new TextInputDialog("Shopping");
+        reasonDialog.setTitle("Sortie caisse");
+        reasonDialog.setHeaderText("Motif de la sortie");
+        reasonDialog.setContentText("Motif:");
+        Optional<String> reasonAnswer = reasonDialog.showAndWait();
+        if (reasonAnswer.isEmpty()) {
+            return;
+        }
+
+        String reason = safeString(reasonAnswer.get());
+        if (reason.isBlank()) {
+            reason = "Shopping";
+        }
+
+        Integer userId = getCurrentUserId();
+        Integer workPeriodId = SessionManager.getCurrentWorkPeriodId();
+        String description = "Sortie caisse shopping: " + reason;
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try (var conn = com.cafepos.db.DatabaseManager.openConnection()) {
+                    conn.setAutoCommit(false);
+                    cashMovementDAO.insertMovement(
+                            conn,
+                            CashMovementDAO.TYPE_OUTFLOW,
+                            CashMovementDAO.CATEGORY_SHOPPING,
+                            amount,
+                            description,
+                            workPeriodId,
+                            null,
+                            userId
+                    );
+                    conn.commit();
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> showToast("success", "Sortie caisse enregistree"));
+        runDbTask(task, "Sortie caisse impossible");
     }
 
     @FXML
@@ -953,7 +1026,8 @@ public class StockController {
                         row.getCost(),
                         row.getCategory().getId(),
                         row.getStock(),
-                        row.isActive()
+                    row.isActive(),
+                    row.isPrepared()
                 );
                 return productDAO.insertProduct(product);
             }
@@ -1033,6 +1107,17 @@ public class StockController {
         runDbTask(task, "Erreur maj actif");
     }
 
+    private void updateProductPrepared(ProductRow row) {
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                productDAO.updatePrepared(row.getId(), row.isPrepared());
+                return null;
+            }
+        };
+        runDbTask(task, "Erreur maj type produit");
+    }
+
     private void adjustStock(ProductRow row, int delta) {
         Task<Void> task = new Task<>() {
             @Override
@@ -1059,6 +1144,46 @@ public class StockController {
             return;
         }
         adjustStock(row, delta);
+    }
+
+    private void overrideIngredientStock(IngredientRow row, double newQuantity) {
+        double previousQuantity = row.getStockQuantity();
+        double delta = newQuantity - previousQuantity;
+        row.setStockQuantity(newQuantity);
+        if (Math.abs(delta) < 0.000001) {
+            return;
+        }
+
+        Integer userId = getCurrentUserId();
+        Integer workPeriodId = SessionManager.getCurrentWorkPeriodId();
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try (var conn = com.cafepos.db.DatabaseManager.openConnection()) {
+                    conn.setAutoCommit(false);
+                    ingredientDAO.setStockQuantity(conn, row.getId(), newQuantity);
+                    ingredientMovementDAO.insertMovement(
+                            conn,
+                            row.getId(),
+                            delta,
+                            "MANUAL",
+                            row.getUnitCost(),
+                            delta * row.getUnitCost(),
+                            workPeriodId,
+                            null,
+                            userId
+                    );
+                    conn.commit();
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            showToast("success", "Stock ingredient mis a jour");
+            loadIngredients();
+        });
+        runDbTask(task, "Override stock ingredient impossible");
     }
 
     private void loadSupplements() {
@@ -1491,10 +1616,11 @@ public class StockController {
 
     private void saveCategoryColor(int categoryId, Color color) {
         String hex = colorToHex(color);
+        CategoryDAO categoryDao = this.categoryDAO;
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
-                settingsDAO.setValue(CATEGORY_COLOR_PREFIX + categoryId, hex);
+                categoryDao.updateColor(categoryId, hex);
                 return null;
             }
         };
@@ -1504,13 +1630,50 @@ public class StockController {
 
     private Color colorFromStored(String value) {
         if (value == null || value.isBlank()) {
-            return Color.web("#6E7781");
+            return Color.web("#6B2D1A");
         }
         try {
             return Color.web(value.trim());
         } catch (Exception ex) {
-            return Color.web("#6E7781");
+            return Color.web("#6B2D1A");
         }
+    }
+
+    private String resolveCategoryColor(Category category) {
+        if (category == null) {
+            return "#6B2D1A";
+        }
+        String stored = category.getColor();
+        if (stored != null && !stored.isBlank()) {
+            return stored.trim();
+        }
+        return defaultCategoryColor(category.getName());
+    }
+
+    private String defaultCategoryColor(String categoryName) {
+        if (categoryName == null) {
+            return "#6B2D1A";
+        }
+        String normalized = categoryName.trim().toLowerCase();
+        if (normalized.equals("hot beverages")) {
+            return "#6B2D1A";
+        }
+        if (normalized.equals("cold beverages")) {
+            return "#1A4A6B";
+        }
+        if (normalized.equals("sweets")) {
+            return "#A0522D";
+        }
+        if (normalized.equals("salties")) {
+            return "#7A4A1A";
+        }
+        if (normalized.equals("cards")) {
+            return "#2E5A2E";
+        }
+        if (normalized.equals("additions")) {
+            return "#4A3A6B";
+        }
+        return "#6B2D1A";
     }
 
     private String colorToHex(Color color) {
@@ -2106,6 +2269,37 @@ public class StockController {
         }
     }
 
+    private class PreparedCell extends TableCell<ProductRow, Boolean> {
+        private final CheckBox checkBox = new CheckBox();
+
+        PreparedCell() {
+            checkBox.setOnAction(event -> {
+                ProductRow row = getTableRow() == null ? null : getTableRow().getItem();
+                if (row == null) {
+                    return;
+                }
+                row.setPrepared(checkBox.isSelected());
+                if (row.isNew()) {
+                    maybeCreateProduct(row);
+                } else {
+                    updateProductPrepared(row);
+                }
+            });
+            setAlignment(Pos.CENTER);
+        }
+
+        @Override
+        protected void updateItem(Boolean value, boolean empty) {
+            super.updateItem(value, empty);
+            if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                setGraphic(null);
+                return;
+            }
+            checkBox.setSelected(Boolean.TRUE.equals(value));
+            setGraphic(checkBox);
+        }
+    }
+
     private class CategoryCell extends TableCell<ProductRow, Category> {
         private final javafx.scene.control.ComboBox<Category> combo;
 
@@ -2284,6 +2478,7 @@ public class StockController {
         private final DoubleProperty cost = new SimpleDoubleProperty(0);
         private final IntegerProperty stock = new SimpleIntegerProperty(0);
         private final BooleanProperty active = new SimpleBooleanProperty(true);
+        private final BooleanProperty prepared = new SimpleBooleanProperty(false);
         private final ObjectProperty<Category> category = new SimpleObjectProperty<>();
         private boolean isNew;
 
@@ -2295,6 +2490,7 @@ public class StockController {
             row.setCost(product.getCost());
             row.setStock(product.getStock());
             row.setActive(product.isActive());
+            row.setPrepared(product.isPrepared());
             row.setCategory(category);
             row.setNew(false);
             return row;
@@ -2377,6 +2573,18 @@ public class StockController {
 
         public BooleanProperty activeProperty() {
             return active;
+        }
+
+        public boolean isPrepared() {
+            return prepared.get();
+        }
+
+        public void setPrepared(boolean value) {
+            prepared.set(value);
+        }
+
+        public BooleanProperty preparedProperty() {
+            return prepared;
         }
 
         public Category getCategory() {

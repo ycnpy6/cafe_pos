@@ -6,6 +6,8 @@ public record SalesSummary(
 	double cashTotal,
 	double prepaidTotal,
 	double ingredientCost,
-	double grossProfit
+	double grossProfit,
+	double cashWithdrawals,
+	double netRevenue
 ) {
 }

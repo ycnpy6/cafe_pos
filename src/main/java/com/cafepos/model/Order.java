@@ -12,6 +12,9 @@ public class Order {
     private final Instant createdAt;
     private double cashAmount;
     private double prepaidAmount;
+    private double discountPercent;
+    private double discountAmount;
+    private double tvaPercent;
 
     public Order() {
         this.createdAt = Instant.now();
@@ -37,14 +40,42 @@ public class Order {
         paymentType = null;
         cashAmount = 0;
         prepaidAmount = 0;
+        discountPercent = 0;
+        discountAmount = 0;
     }
 
-    public double getTotal() {
+    public double getSubtotal() {
         double total = 0;
         for (OrderLine line : lines) {
             total += line.getLineTotal();
         }
         return total;
+    }
+
+    public double getAppliedDiscountAmount() {
+        double subtotal = getSubtotal();
+        if (subtotal <= 0) {
+            return 0;
+        }
+        if (discountPercent > 0) {
+            return Math.min(subtotal, subtotal * (discountPercent / 100.0));
+        }
+        return Math.min(subtotal, Math.max(0, discountAmount));
+    }
+
+    public double getNetBeforeTva() {
+        return Math.max(0, getSubtotal() - getAppliedDiscountAmount());
+    }
+
+    public double getTvaAmount() {
+        if (tvaPercent <= 0) {
+            return 0;
+        }
+        return getNetBeforeTva() * (tvaPercent / 100.0);
+    }
+
+    public double getTotal() {
+        return getNetBeforeTva() + getTvaAmount();
     }
 
     public PaymentType getPaymentType() {
@@ -81,5 +112,44 @@ public class Order {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public double getDiscountPercent() {
+        return discountPercent;
+    }
+
+    public void setDiscountPercent(double discountPercent) {
+        this.discountPercent = Math.max(0, discountPercent);
+        if (this.discountPercent > 0) {
+            this.discountAmount = 0;
+        }
+    }
+
+    public double getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(double discountAmount) {
+        this.discountAmount = Math.max(0, discountAmount);
+        if (this.discountAmount > 0) {
+            this.discountPercent = 0;
+        }
+    }
+
+    public boolean hasDiscount() {
+        return getAppliedDiscountAmount() > 0.0001;
+    }
+
+    public void clearDiscount() {
+        this.discountPercent = 0;
+        this.discountAmount = 0;
+    }
+
+    public double getTvaPercent() {
+        return tvaPercent;
+    }
+
+    public void setTvaPercent(double tvaPercent) {
+        this.tvaPercent = Math.max(0, tvaPercent);
     }
 }

@@ -194,7 +194,7 @@ public class LoginController {
             }
 
             Scene scene = new Scene(root, 1024, 640);
-            scene.getStylesheets().add(getClass().getResource("/com/cafepos/styles/app.css").toExternalForm());
+            MainApp.applyBrandTheme(scene);
             IdleMonitor.bindScene(scene);
             Stage stage = (Stage) pinField.getScene().getWindow();
             stage.setScene(scene);

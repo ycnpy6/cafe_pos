@@ -10,7 +10,6 @@
 <?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.FlowPane?>
-<?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
@@ -20,11 +19,11 @@
            fx:controller="com.cafepos.controller.POSController">
     <BorderPane fx:id="posRoot" prefWidth="1280" prefHeight="800">
         <top>
-            <HBox fx:id="topBar" prefHeight="48" spacing="12" alignment="CENTER_LEFT" styleClass="bg-subtle"
+            <HBox fx:id="topBar" prefHeight="40" spacing="12" alignment="CENTER_LEFT" styleClass="bg-subtle"
                   style="-fx-padding: 0 12px; -fx-border-color: -color-border-default; -fx-border-width: 0 0 1 0;">
                 <Label fx:id="lblAppName" text="%app.name" styleClass="text-bold" style="-fx-font-size: 14px;" HBox.hgrow="ALWAYS"/>
                 <Label fx:id="lblSessionInfo" styleClass="text-muted" style="-fx-font-size: 12px;"/>
-                <Button fx:id="btnHome" text="🏠" prefWidth="40" prefHeight="40" styleClass="button flat" onAction="#onHomeClicked">
+                <Button fx:id="btnHome" text="🏠" prefWidth="36" prefHeight="36" styleClass="button flat" onAction="#onHomeClicked">
                     <tooltip>
                         <Tooltip text="%home.tooltip"/>
                     </tooltip>
@@ -34,86 +33,23 @@
 
         <center>
             <HBox fx:id="mainArea">
-                <VBox fx:id="productZone" prefWidth="768" HBox.hgrow="ALWAYS"
-                      style="-fx-border-color: -color-border-default; -fx-border-width: 0 1 0 0;">
-                    <ScrollPane fx:id="productScrollPane" VBox.vgrow="ALWAYS" fitToWidth="true"
-                                hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" styleClass="edge-to-edge">
-                        <content>
-                            <FlowPane fx:id="productGrid" hgap="10" vgap="10" style="-fx-padding: 12px;"/>
-                        </content>
-                    </ScrollPane>
+                <ScrollPane fx:id="productScrollPane" fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+                            HBox.hgrow="ALWAYS" styleClass="edge-to-edge">
+                    <content>
+                        <FlowPane fx:id="productGrid" hgap="8" vgap="8" style="-fx-padding: 10px;"/>
+                    </content>
+                </ScrollPane>
 
-                    <HBox fx:id="categoryTabsBar" prefHeight="52" spacing="6" alignment="CENTER_LEFT" styleClass="bg-subtle"
-                          style="-fx-padding: 6px 12px; -fx-border-color: -color-border-default; -fx-border-width: 1 0 0 0;">
-                        <ScrollPane fx:id="categoryScrollPane" prefHeight="44" hbarPolicy="NEVER" vbarPolicy="NEVER"
-                                    fitToHeight="true" HBox.hgrow="ALWAYS" styleClass="edge-to-edge">
-                            <content>
-                                <HBox fx:id="categoryTabsContainer" spacing="6" alignment="CENTER_LEFT"/>
-                            </content>
-                        </ScrollPane>
-                    </HBox>
+                <VBox fx:id="categoryTabsBar" prefWidth="72" minWidth="72" maxWidth="72"
+                      styleClass="bg-subtle"
+                      style="-fx-border-color: -color-border-default; -fx-border-width: 0 1 0 1;">
+                    <VBox fx:id="categoryTabsContainer" VBox.vgrow="ALWAYS" spacing="0"/>
                 </VBox>
 
-                <VBox fx:id="rightZone" prefWidth="512" HBox.hgrow="NEVER">
-                    <FlowPane fx:id="operationBar" hgap="6" vgap="6" styleClass="bg-subtle"
-                              style="-fx-padding: 8px; -fx-border-color: -color-border-default; -fx-border-width: 0 0 1 0;">
-                        <Button fx:id="btnNewOrder" prefWidth="78" prefHeight="68" styleClass="button elevated" onAction="#onNewOrder">
-                            <graphic>
-                                <VBox alignment="CENTER" spacing="2">
-                                    <Label text="➕" style="-fx-font-size: 20px;"/>
-                                    <Label text="%op.new" style="-fx-font-size: 11px;"/>
-                                    <Label text="F6" styleClass="text-muted" style="-fx-font-size: 10px;"/>
-                                </VBox>
-                            </graphic>
-                        </Button>
-                        <Button fx:id="btnCancelOrder" prefWidth="78" prefHeight="68" styleClass="button danger" onAction="#onCancelOrder">
-                            <graphic>
-                                <VBox alignment="CENTER" spacing="2">
-                                    <Label text="✕" style="-fx-font-size: 20px;"/>
-                                    <Label text="%op.cancel" style="-fx-font-size: 11px;"/>
-                                    <Label text="ESC" styleClass="text-muted" style="-fx-font-size: 10px;"/>
-                                </VBox>
-                            </graphic>
-                        </Button>
-                        <Button fx:id="btnReprint" prefWidth="78" prefHeight="68" styleClass="button elevated" onAction="#onReprint">
-                            <graphic>
-                                <VBox alignment="CENTER" spacing="2">
-                                    <Label text="🖨" style="-fx-font-size: 20px;"/>
-                                    <Label text="%op.reprint" style="-fx-font-size: 11px;"/>
-                                    <Label text="F8" styleClass="text-muted" style="-fx-font-size: 10px;"/>
-                                </VBox>
-                            </graphic>
-                        </Button>
-                        <Button fx:id="btnRefund" prefWidth="78" prefHeight="68" styleClass="button warning" onAction="#onRefund">
-                            <graphic>
-                                <VBox alignment="CENTER" spacing="2">
-                                    <Label text="↩" style="-fx-font-size: 20px;"/>
-                                    <Label text="%op.refund" style="-fx-font-size: 11px;"/>
-                                    <Label text="F10" styleClass="text-muted" style="-fx-font-size: 10px;"/>
-                                </VBox>
-                            </graphic>
-                        </Button>
-                        <Button fx:id="btnHistory" prefWidth="78" prefHeight="68" styleClass="button elevated" onAction="#onHistory">
-                            <graphic>
-                                <VBox alignment="CENTER" spacing="2">
-                                    <Label text="📋" style="-fx-font-size: 20px;"/>
-                                    <Label text="%op.history" style="-fx-font-size: 11px;"/>
-                                    <Label text="F11" styleClass="text-muted" style="-fx-font-size: 10px;"/>
-                                </VBox>
-                            </graphic>
-                        </Button>
-                        <Button fx:id="btnTopup" prefWidth="78" prefHeight="68" styleClass="button success" onAction="#onTopup">
-                            <graphic>
-                                <VBox alignment="CENTER" spacing="2">
-                                    <Label text="💳" style="-fx-font-size: 20px;"/>
-                                    <Label text="%op.topup" style="-fx-font-size: 11px;"/>
-                                    <Label text="F9" styleClass="text-muted" style="-fx-font-size: 10px;"/>
-                                </VBox>
-                            </graphic>
-                        </Button>
-                    </FlowPane>
-
-                    <HBox fx:id="rfidCard" prefHeight="56" spacing="10" alignment="CENTER_LEFT" visible="false" managed="false"
+                <VBox fx:id="orderPanel" prefWidth="260" minWidth="260" maxWidth="260"
+                      style="-fx-border-color: -color-border-default; -fx-border-width: 0 1 0 0;">
+                    <HBox fx:id="rfidCard" prefHeight="52" spacing="10" alignment="CENTER_LEFT"
+                          visible="false" managed="false"
                           style="-fx-padding: 8px 12px; -fx-background-radius: 8px; -fx-border-radius: 8px; -fx-border-width: 2px;">
                         <Label fx:id="rfidIcon" text="👤" style="-fx-font-size: 18px;"/>
                         <VBox fx:id="rfidInfo" spacing="2" HBox.hgrow="ALWAYS">
@@ -126,50 +62,144 @@
                     <ScrollPane fx:id="orderScrollPane" VBox.vgrow="ALWAYS" fitToWidth="true" hbarPolicy="NEVER"
                                 vbarPolicy="AS_NEEDED" styleClass="edge-to-edge">
                         <content>
-                            <VBox fx:id="orderLinesContainer" style="-fx-padding: 4px 8px;"/>
+                            <VBox fx:id="orderLinesContainer" spacing="4" style="-fx-padding: 8px;">
+                                <Label fx:id="emptyOrderLabel" text="Aucun article" styleClass="text-muted"
+                                       style="-fx-padding: 12px; -fx-alignment: center;" maxWidth="Infinity"/>
+                            </VBox>
                         </content>
                     </ScrollPane>
 
-                    <Label fx:id="emptyOrderLabel" text="%order.empty" styleClass="text-muted"
-                           style="-fx-padding: 4px 12px 8px 12px;"/>
+                    <HBox fx:id="discountRow" prefHeight="28" spacing="8" alignment="CENTER"
+                          visible="false" managed="false"
+                          style="-fx-padding: 0 12px; -fx-border-color: -color-border-default; -fx-border-width: 1 0 0 0;">
+                        <Label text="Remise:" styleClass="text-muted" HBox.hgrow="ALWAYS"/>
+                        <Label fx:id="lblDiscount" text="-0 DZD" styleClass="warning"/>
+                    </HBox>
 
-                    <HBox fx:id="totalRow" prefHeight="52" spacing="8" alignment="CENTER" styleClass="bg-subtle"
+                    <HBox fx:id="tvaRow" prefHeight="28" spacing="8" alignment="CENTER"
+                          visible="false" managed="false"
+                          style="-fx-padding: 0 12px; -fx-border-color: -color-border-default; -fx-border-width: 1 0 0 0;">
+                        <Label fx:id="lblTvaTitle" text="TVA:" styleClass="text-muted" HBox.hgrow="ALWAYS"/>
+                        <Label fx:id="lblTva" text="0 DZD" styleClass="text-muted"/>
+                    </HBox>
+
+                    <HBox fx:id="totalRow" prefHeight="48" spacing="8" alignment="CENTER" styleClass="bg-subtle"
                           style="-fx-padding: 0 16px; -fx-border-color: -color-border-default; -fx-border-width: 1 0 0 0;">
-                        <Label text="%order.total" styleClass="text-muted" style="-fx-font-size: 14px;" HBox.hgrow="ALWAYS"/>
-                        <Label fx:id="lblTotal" styleClass="text-bold" style="-fx-font-size: 28px;"/>
+                        <Label text="TOTAL" styleClass="text-muted" style="-fx-font-size: 14px;" HBox.hgrow="ALWAYS"/>
+                        <Label fx:id="lblTotal" styleClass="text-bold" style="-fx-font-size: 24px;"/>
                         <Label text=" DZD" styleClass="text-muted" style="-fx-font-size: 14px;"/>
                     </HBox>
 
-                    <HBox fx:id="paymentRow" prefHeight="68" spacing="8" style="-fx-padding: 8px;">
-                        <Button fx:id="btnCash" text="💵  %pay.cash&#10;      F11" prefHeight="68" styleClass="button success"
-                                style="-fx-font-size: 16px; -fx-font-weight: bold;" HBox.hgrow="ALWAYS" maxWidth="Infinity"
+                    <HBox fx:id="paymentButtons" prefHeight="64" spacing="6" style="-fx-padding: 6px;">
+                        <Button fx:id="btnCash" text="Espèces&#10;F11" prefHeight="60" styleClass="button success"
+                                style="-fx-font-size: 14px; -fx-font-weight: bold;" HBox.hgrow="ALWAYS" maxWidth="Infinity"
                                 onAction="#onPayCash"/>
-                        <Button fx:id="btnPrepaid" text="💳  %pay.prepaid&#10;       F12" prefHeight="68" styleClass="button accent"
-                                style="-fx-font-size: 16px; -fx-font-weight: bold;" HBox.hgrow="ALWAYS" maxWidth="Infinity"
+                        <Button fx:id="btnPrepaid" text="Prépayé&#10;F12" prefHeight="60" styleClass="button accent"
+                                style="-fx-font-size: 14px; -fx-font-weight: bold;" HBox.hgrow="ALWAYS" maxWidth="Infinity"
                                 disable="true" onAction="#onPayPrepaid"/>
                     </HBox>
+                </VBox>
 
-                        <HBox fx:id="quickNavRow" prefHeight="52" spacing="8" styleClass="bg-subtle"
-                          style="-fx-padding: 8px; -fx-border-color: -color-border-default; -fx-border-width: 1 0 0 0;">
-                        <Button fx:id="navStock" text="📦 Stock" styleClass="button elevated" HBox.hgrow="ALWAYS"
-                            maxWidth="Infinity" onAction="#onNavStock"/>
-                        <Button fx:id="navClients" text="👥 Clients" styleClass="button elevated" HBox.hgrow="ALWAYS"
-                            maxWidth="Infinity" onAction="#onNavClients"/>
-                        <Button fx:id="navParametres" text="⚙ Settings" styleClass="button elevated" HBox.hgrow="ALWAYS"
-                            maxWidth="Infinity" onAction="#onNavSettings"/>
-                        <Button fx:id="navRapports" text="📊 Rapports" styleClass="button warning" HBox.hgrow="ALWAYS"
-                            maxWidth="Infinity" onAction="#onNavRapports"/>
-                        <Button fx:id="navLock" text="🔒 Lock" styleClass="button flat" onAction="#onLock"/>
-                        </HBox>
+                    <VBox fx:id="rightColumn" prefWidth="236" minWidth="236" maxWidth="236"
+                      style="-fx-border-color: -color-border-default; -fx-border-width: 0 0 0 1;">
+                    <FlowPane fx:id="operationBar" hgap="4" vgap="4" styleClass="bg-subtle"
+                              style="-fx-padding: 6px; -fx-border-color: -color-border-default; -fx-border-width: 0 0 1 0;">
+                        <Button fx:id="btnNewOrder" prefWidth="52" prefHeight="58" styleClass="button elevated" onAction="#onNewOrder">
+                            <graphic>
+                                <VBox alignment="CENTER" spacing="1">
+                                    <Label text="＋" style="-fx-font-size: 18px;"/>
+                                    <Label text="Nouvelle" style="-fx-font-size: 10px;"/>
+                                    <Label text="F6" styleClass="text-muted" style="-fx-font-size: 9px;"/>
+                                </VBox>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="btnDiscount" prefWidth="52" prefHeight="58" styleClass="button accent" onAction="#onDiscount">
+                            <graphic>
+                                <VBox alignment="CENTER" spacing="1">
+                                    <Label text="\%" style="-fx-font-size: 18px;"/>
+                                    <Label text="Remise" style="-fx-font-size: 10px;"/>
+                                    <Label text="F7" styleClass="text-muted" style="-fx-font-size: 9px;"/>
+                                </VBox>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="btnHold" prefWidth="52" prefHeight="58" styleClass="button warning" onAction="#onHoldOrder">
+                            <graphic>
+                                <VBox alignment="CENTER" spacing="1">
+                                    <Label text="⏸" style="-fx-font-size: 18px;"/>
+                                    <Label text="Attente" style="-fx-font-size: 10px;"/>
+                                    <Label text="Hold" styleClass="text-muted" style="-fx-font-size: 9px;"/>
+                                </VBox>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="btnWaiting" prefWidth="52" prefHeight="58" styleClass="button elevated" onAction="#onWaitingOrders">
+                            <graphic>
+                                <StackPane>
+                                    <VBox alignment="CENTER" spacing="1">
+                                        <Label text="🗂" style="-fx-font-size: 18px;"/>
+                                        <Label text="Liste" style="-fx-font-size: 10px;"/>
+                                        <Label text="Files" styleClass="text-muted" style="-fx-font-size: 9px;"/>
+                                    </VBox>
+                                    <Label fx:id="waitingCountBadge" text="0" styleClass="warning"
+                                           visible="false" managed="false" StackPane.alignment="TOP_RIGHT"/>
+                                </StackPane>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="btnReprint" prefWidth="52" prefHeight="58" styleClass="button elevated" onAction="#onReprint">
+                            <graphic>
+                                <VBox alignment="CENTER" spacing="1">
+                                    <Label text="🖨" style="-fx-font-size: 18px;"/>
+                                    <Label text="Réimpr." style="-fx-font-size: 10px;"/>
+                                    <Label text="F8" styleClass="text-muted" style="-fx-font-size: 9px;"/>
+                                </VBox>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="btnRefund" prefWidth="52" prefHeight="58" styleClass="button warning" onAction="#onRefund">
+                            <graphic>
+                                <VBox alignment="CENTER" spacing="1">
+                                    <Label text="↩" style="-fx-font-size: 18px;"/>
+                                    <Label text="Remb." style="-fx-font-size: 10px;"/>
+                                    <Label text="F10" styleClass="text-muted" style="-fx-font-size: 9px;"/>
+                                </VBox>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="btnHistory" prefWidth="52" prefHeight="58" styleClass="button elevated" onAction="#onHistory">
+                            <graphic>
+                                <VBox alignment="CENTER" spacing="1">
+                                    <Label text="📋" style="-fx-font-size: 18px;"/>
+                                    <Label text="Histor." style="-fx-font-size: 10px;"/>
+                                    <Label text="F11" styleClass="text-muted" style="-fx-font-size: 9px;"/>
+                                </VBox>
+                            </graphic>
+                        </Button>
+                        <Button fx:id="btnTopup" prefWidth="52" prefHeight="58" styleClass="button success" onAction="#onTopup">
+                            <graphic>
+                                <VBox alignment="CENTER" spacing="1">
+                                    <Label text="💳" style="-fx-font-size: 18px;"/>
+                                    <Label text="Recharge" style="-fx-font-size: 10px;"/>
+                                    <Label text="F9" styleClass="text-muted" style="-fx-font-size: 9px;"/>
+                                </VBox>
+                            </graphic>
+                        </Button>
+                    </FlowPane>
+
+                    <VBox fx:id="numpadArea" VBox.vgrow="ALWAYS" spacing="4" style="-fx-padding: 6px; -fx-alignment: center;">
+                        <Label text="Sélectionnez un article" styleClass="text-muted"/>
+                    </VBox>
+
+                    <HBox fx:id="statusRow" prefHeight="26" alignment="CENTER_LEFT" styleClass="bg-subtle"
+                          style="-fx-padding: 0 8px; -fx-border-color: -color-border-default; -fx-border-width: 1 0 0 0;">
+                        <Label fx:id="lblPrintQueue" styleClass="text-muted" style="-fx-font-size: 11px;"
+                               visible="false" managed="false"/>
+                    </HBox>
                 </VBox>
             </HBox>
         </center>
 
         <bottom>
-            <HBox fx:id="statusBar" prefHeight="28" spacing="12" alignment="CENTER_LEFT" styleClass="bg-subtle"
+            <HBox fx:id="statusBar" prefHeight="26" spacing="12" alignment="CENTER_LEFT" styleClass="bg-subtle"
                   style="-fx-padding: 0 12px; -fx-border-color: -color-border-default; -fx-border-width: 1 0 0 0;">
                 <Label fx:id="lblWorkPeriod" text="%status.workperiod" styleClass="text-muted" style="-fx-font-size: 12px;" HBox.hgrow="ALWAYS"/>
-                <Label fx:id="lblPrintQueue" styleClass="warning" style="-fx-font-size: 12px;" visible="false" managed="false"/>
+                <Label fx:id="printBadge" styleClass="warning" style="-fx-font-size: 11px;" visible="false" managed="false"/>
             </HBox>
         </bottom>
     </BorderPane>
@@ -194,73 +224,6 @@
         </VBox>
     </StackPane>
 
-    <VBox fx:id="cashTenderOverlay" visible="false" managed="false" spacing="12" styleClass="bg-inset"
-          style="-fx-padding: 20px; -fx-background-radius: 8px;" StackPane.alignment="CENTER_RIGHT">
-        <StackPane.margin>
-            <Insets top="56" right="8" bottom="36" left="0"/>
-        </StackPane.margin>
-        <Label text="%cash.amount.received" styleClass="text-muted" style="-fx-font-size: 13px;"/>
-        <TextField fx:id="cashInput" styleClass="text-input" style="-fx-font-size: 28px; -fx-alignment: center-right;" alignment="CENTER_RIGHT"/>
-        <HBox spacing="6">
-            <Button text="200" prefWidth="68" prefHeight="44" styleClass="button elevated" onAction="#onQuickAmount"/>
-            <Button text="500" prefWidth="68" prefHeight="44" styleClass="button elevated" onAction="#onQuickAmount"/>
-            <Button text="1000" prefWidth="68" prefHeight="44" styleClass="button elevated" onAction="#onQuickAmount"/>
-            <Button text="2000" prefWidth="68" prefHeight="44" styleClass="button elevated" onAction="#onQuickAmount"/>
-        </HBox>
-        <GridPane hgap="6" vgap="6">
-            <Button text="1" userData="1" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
-            <Button text="2" userData="2" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
-            <Button text="3" userData="3" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="2" GridPane.rowIndex="0"/>
-            <Button text="4" userData="4" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
-            <Button text="5" userData="5" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
-            <Button text="6" userData="6" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="2" GridPane.rowIndex="1"/>
-            <Button text="7" userData="7" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
-            <Button text="8" userData="8" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
-            <Button text="9" userData="9" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
-            <Button text="⌫" prefWidth="68" prefHeight="44" onAction="#onCashBackspace" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
-            <Button text="0" userData="0" prefWidth="68" prefHeight="44" onAction="#onCashKey" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
-            <Button text="✓" prefWidth="68" prefHeight="44" onAction="#onCashConfirm" GridPane.columnIndex="2" GridPane.rowIndex="3"/>
-        </GridPane>
-        <Separator/>
-        <HBox alignment="CENTER_LEFT">
-            <Label text="%cash.total" styleClass="text-muted" HBox.hgrow="ALWAYS"/>
-            <Label fx:id="lblCashTotal" styleClass="text-bold" style="-fx-font-size: 16px;"/>
-        </HBox>
-        <HBox alignment="CENTER_LEFT">
-            <Label text="%cash.change" styleClass="text-muted" HBox.hgrow="ALWAYS"/>
-            <Label fx:id="lblChange" styleClass="success" style="-fx-font-size: 28px; -fx-font-weight: bold;"/>
-        </HBox>
-        <HBox spacing="8">
-            <Button fx:id="btnCashCancel" text="%cancel" styleClass="button elevated" HBox.hgrow="ALWAYS"
-                    maxWidth="Infinity" prefHeight="56" onAction="#onCashCancel"/>
-            <Button fx:id="btnCashConfirm" text="✓  %confirm" styleClass="button success" HBox.hgrow="ALWAYS"
-                    maxWidth="Infinity" prefHeight="56" onAction="#onCashConfirm"/>
-        </HBox>
-    </VBox>
-
-    <VBox fx:id="splitPaymentOverlay" visible="false" managed="false" spacing="12" styleClass="bg-inset"
-          style="-fx-padding: 20px; -fx-background-radius: 8px;" StackPane.alignment="CENTER_RIGHT">
-        <StackPane.margin>
-            <Insets top="56" right="8" bottom="36" left="0"/>
-        </StackPane.margin>
-        <Label text="%split.title" styleClass="title-4" style="-fx-font-weight: bold; -fx-font-size: 15px;"/>
-        <Label fx:id="lblSplitCardAmount" styleClass="warning" style="-fx-font-size: 13px;"/>
-        <Label fx:id="lblSplitRemaining" style="-fx-font-size: 13px;"/>
-        <Separator/>
-        <Label text="%split.cash.received" styleClass="text-muted" style="-fx-font-size: 13px;"/>
-        <TextField fx:id="splitCashInput" style="-fx-font-size: 28px; -fx-alignment: center-right;"/>
-        <HBox alignment="CENTER_LEFT">
-            <Label text="%cash.change" styleClass="text-muted" HBox.hgrow="ALWAYS"/>
-            <Label fx:id="lblSplitChange" styleClass="success" style="-fx-font-size: 28px; -fx-font-weight: bold;"/>
-        </HBox>
-        <HBox spacing="8">
-            <Button fx:id="btnSplitCancel" text="%cancel" styleClass="button elevated" HBox.hgrow="ALWAYS"
-                    maxWidth="Infinity" prefHeight="56" onAction="#onSplitCancel"/>
-            <Button fx:id="btnSplitConfirm" text="✓  %confirm" styleClass="button success" HBox.hgrow="ALWAYS"
-                    maxWidth="Infinity" prefHeight="56" onAction="#onSplitConfirm"/>
-        </HBox>
-    </VBox>
-
     <VBox fx:id="historyPanel" visible="false" managed="false" prefWidth="380" spacing="10" styleClass="popup-card"
           StackPane.alignment="CENTER_RIGHT">
         <HBox alignment="CENTER_LEFT" spacing="8">
@@ -271,6 +234,20 @@
         <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" hbarPolicy="NEVER" styleClass="edge-to-edge">
             <content>
                 <VBox fx:id="historyRowsBox" spacing="6" style="-fx-padding: 4px;"/>
+            </content>
+        </ScrollPane>
+    </VBox>
+
+    <VBox fx:id="waitingPanel" visible="false" managed="false" prefWidth="380" spacing="10" styleClass="popup-card"
+          StackPane.alignment="CENTER_RIGHT">
+        <HBox alignment="CENTER_LEFT" spacing="8">
+            <Label text="🗂 Commandes en attente" styleClass="title-4" style="-fx-font-size: 15px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button text="Fermer" styleClass="button flat" onAction="#onWaitingClose"/>
+        </HBox>
+        <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" hbarPolicy="NEVER" styleClass="edge-to-edge">
+            <content>
+                <VBox fx:id="waitingRowsBox" spacing="6" style="-fx-padding: 4px;"/>
             </content>
         </ScrollPane>
     </VBox>

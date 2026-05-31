@@ -114,7 +114,7 @@ public class ProductsController {
                 String.valueOf(data.getValue().getStock())));
         activeColumn.setCellValueFactory(data -> new SimpleStringProperty(
                 data.getValue().isActive() ? "Oui" : "Non"));
-        productsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        productsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         productsTable.setPlaceholder(new Label("Aucun produit"));
     }
 

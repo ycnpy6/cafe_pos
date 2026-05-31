@@ -29,7 +29,7 @@ public final class PrintQueueService {
     }
 
     public void enqueueReceipt(Connection conn, Order order, int orderId, double remainingBalance) throws Exception {
-        String payload = printerService.buildReceiptPayload(order, remainingBalance);
+        String payload = printerService.buildReceiptPayload(order, orderId, remainingBalance);
         printQueueDAO.insert(conn, orderId, "RECEIPT", payload);
     }
 

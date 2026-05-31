@@ -10,7 +10,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>17</maven.compiler.release>
-    <javafx.version>17.0.10</javafx.version>
+    <javafx.version>21.0.5</javafx.version>
     <atlantafx.version>1.2.0</atlantafx.version>
   </properties>
 
@@ -29,6 +29,12 @@
       <groupId>io.github.mkpaz</groupId>
       <artifactId>atlantafx-base</artifactId>
       <version>${atlantafx.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-controls</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.xerial</groupId>
@@ -59,7 +65,7 @@
         <artifactId>javafx-maven-plugin</artifactId>
         <version>0.0.8</version>
         <configuration>
-          <mainClass>com.cafepos.MainApp</mainClass>
+          <mainClass>com.cafepos/com.cafepos.MainApp</mainClass>
         </configuration>
       </plugin>
       <plugin>

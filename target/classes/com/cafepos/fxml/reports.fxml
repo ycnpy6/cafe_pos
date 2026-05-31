@@ -70,6 +70,14 @@
                 <Label fx:id="kpiGrossProfitLabel" text="0 DZD" styleClass="kpi-value"/>
                 <Label text="Marge brute" styleClass="kpi-label"/>
             </VBox>
+            <VBox styleClass="kpi-card" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="kpiWithdrawalsLabel" text="0 DZD" styleClass="kpi-value"/>
+                <Label text="Sorties caisse" styleClass="kpi-label"/>
+            </VBox>
+            <VBox styleClass="kpi-card" spacing="4" HBox.hgrow="ALWAYS">
+                <Label fx:id="kpiNetRevenueLabel" text="0 DZD" styleClass="kpi-value"/>
+                <Label text="Revenu net" styleClass="kpi-label"/>
+            </VBox>
         </HBox>
 
         <TabPane VBox.vgrow="ALWAYS">
@@ -88,7 +96,7 @@
                         <Insets top="10" right="10" bottom="10" left="10"/>
                     </padding>
                     <HBox spacing="8" alignment="CENTER_LEFT">
-                        <TextField fx:id="historySearchField" promptText="Recherche commande ou caissier" HBox.hgrow="ALWAYS"/>
+                        <TextField fx:id="historySearchField" promptText="Recherche commande, client ou caissier" HBox.hgrow="ALWAYS"/>
                         <ComboBox fx:id="paymentFilter" promptText="Paiement" prefWidth="140"/>
                         <ComboBox fx:id="userFilter" promptText="Caissier" prefWidth="160"/>
                     </HBox>
@@ -98,7 +106,10 @@
                             <TableColumn fx:id="historyDateColumn" text="Date" prefWidth="160"/>
                             <TableColumn fx:id="historyItemsColumn" text="Items" prefWidth="70"/>
                             <TableColumn fx:id="historyTotalColumn" text="Total" prefWidth="110"/>
+                            <TableColumn fx:id="historyCostColumn" text="Cout" prefWidth="110"/>
+                            <TableColumn fx:id="historyGrossColumn" text="Marge" prefWidth="110"/>
                             <TableColumn fx:id="historyPaymentColumn" text="Paiement" prefWidth="110"/>
+                            <TableColumn fx:id="historyClientColumn" text="Client" prefWidth="170"/>
                             <TableColumn fx:id="historyUserColumn" text="Caissier" prefWidth="140"/>
                         </columns>
                     </TableView>
@@ -130,6 +141,24 @@
                         </columns>
                     </TableView>
                     <Label fx:id="sessionsSummaryLabel" text="" styleClass="hint-label"/>
+                </VBox>
+            </Tab>
+            <Tab text="Depenses caisse" closable="false">
+                <VBox spacing="10">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+                    <TableView fx:id="expensesTable" prefHeight="280" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="expenseDateColumn" text="Date" prefWidth="160"/>
+                            <TableColumn fx:id="expenseTypeColumn" text="Type" prefWidth="90"/>
+                            <TableColumn fx:id="expenseCategoryColumn" text="Categorie" prefWidth="170"/>
+                            <TableColumn fx:id="expenseAmountColumn" text="Montant" prefWidth="110"/>
+                            <TableColumn fx:id="expenseUserColumn" text="Utilisateur" prefWidth="130"/>
+                            <TableColumn fx:id="expenseNoteColumn" text="Detail" prefWidth="260"/>
+                        </columns>
+                    </TableView>
+                    <Label fx:id="expensesSummaryLabel" text="" styleClass="hint-label"/>
                 </VBox>
             </Tab>
         </TabPane>

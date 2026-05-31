@@ -1,5 +1,6 @@
 package com.cafepos.controllers;
 
+import com.cafepos.MainApp;
 import com.cafepos.dao.SettingsDAO;
 import com.cafepos.dao.UserDAO;
 import com.cafepos.hardware.PrinterService;
@@ -15,24 +16,60 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 import javafx.util.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 
 public class SettingsController {
     private static final Logger LOG = LoggerFactory.getLogger(SettingsController.class);
+
     private static final String PRINTER_KEY = "printer.name";
     private static final String STOCK_THRESHOLD_KEY = "stock.low.threshold";
+    private static final String TVA_PERCENT_KEY = "tva_percent";
+    private static final String BACKUP_TARGET_DIR_KEY = "backup.target.dir";
+    private static final String APP_LANGUAGE_KEY = "app.language";
+
+    private static final String RFID_MODE_KEY = "rfid.mode";
+    private static final String RFID_DEVICE_NAME_KEY = "rfid.device.name";
+    private static final String RFID_MODE_KEYBOARD = "KEYBOARD";
+    private static final String RFID_MODE_DISABLED = "DISABLED";
+
+    private static final String RECEIPT_STORE_NAME_KEY = "receipt.store.name";
+    private static final String RECEIPT_PHONE_KEY = "receipt.store.phone";
+    private static final String RECEIPT_TICKET_PREFIX_KEY = "receipt.ticket.prefix";
+    private static final String RECEIPT_FOOTER_KEY = "receipt.footer";
+    private static final String RECEIPT_CURRENCY_KEY = "receipt.currency.label";
+    private static final String RECEIPT_SEPARATOR_KEY = "receipt.separator.char";
+    private static final String RECEIPT_SHOW_CUSTOMER_KEY = "receipt.show.customer.block";
+
+    private static final String DEFAULT_RECEIPT_STORE_NAME = "COMMON GROUNDS";
+    private static final String DEFAULT_RECEIPT_PHONE = "Tel: 023 484 524";
+    private static final String DEFAULT_RECEIPT_TICKET_PREFIX = "TICKET Num";
+    private static final String DEFAULT_RECEIPT_FOOTER = "Common Grounds, Uncommon Flavors";
+    private static final String DEFAULT_RECEIPT_CURRENCY = "DA";
+    private static final String DEFAULT_RECEIPT_SEPARATOR = "*";
+    private static final String SUPPORT_PHONE = "+213 771175933";
+
     private static final int MAX_TOASTS = 3;
 
     private final SettingsDAO settingsDAO = new SettingsDAO();
@@ -47,8 +84,38 @@ public class SettingsController {
     private ComboBox<String> printerBox;
     @FXML
     private Label printQueueStatusLabel;
+
+    @FXML
+    private TextField receiptStoreNameField;
+    @FXML
+    private TextField receiptPhoneField;
+    @FXML
+    private TextField receiptTicketPrefixField;
+    @FXML
+    private TextField receiptFooterField;
+    @FXML
+    private TextField receiptCurrencyField;
+    @FXML
+    private TextField receiptSeparatorField;
+    @FXML
+    private CheckBox receiptShowCustomerCheckBox;
+
+    @FXML
+    private ComboBox<String> languageBox;
+
+    @FXML
+    private ComboBox<String> rfidModeBox;
+    @FXML
+    private TextField rfidDeviceNameField;
+
+    @FXML
+    private TextField backupDriveField;
+
     @FXML
     private TextField stockThresholdField;
+    @FXML
+    private TextField tvaInput;
+
     @FXML
     private TableView<User> usersTable;
     @FXML
@@ -69,12 +136,33 @@ public class SettingsController {
     @FXML
     private void initialize() {
         configureUsersTable();
+        configureLanguageBox();
+        configureRfidModeBox();
+
         newUserRoleBox.getItems().setAll(UserRole.values());
         newUserRoleBox.getSelectionModel().select(UserRole.BARISTA);
+
         loadPrinters();
+        loadReceiptSettings();
+        loadLanguageSettings();
+        loadRfidSettings();
+        loadBackupSettings();
         loadStockThreshold();
+        loadTvaPercent();
         loadUsers();
         refreshQueueStatus();
+    }
+
+    private void configureLanguageBox() {
+        if (languageBox != null) {
+            languageBox.getItems().setAll("Francais", "English");
+        }
+    }
+
+    private void configureRfidModeBox() {
+        if (rfidModeBox != null) {
+            rfidModeBox.getItems().setAll("Clavier RFID (USB)", "Desactive");
+        }
     }
 
     private void loadPrinters() {
@@ -94,11 +182,139 @@ public class SettingsController {
                 printerBox.getItems().setAll(names);
                 if (saved != null) {
                     printerBox.getSelectionModel().select(saved);
+                } else if (!names.isEmpty()) {
+                    printerBox.getSelectionModel().selectFirst();
                 }
             }
         };
         task.setOnFailed(evt -> LOG.error("Erreur chargement imprimantes", task.getException()));
         Thread thread = new Thread(task, "printer-load");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void loadReceiptSettings() {
+        Task<Void> task = new Task<>() {
+            private String storeName;
+            private String phone;
+            private String ticketPrefix;
+            private String footer;
+            private String currency;
+            private String separator;
+            private String showCustomer;
+
+            @Override
+            protected Void call() throws Exception {
+                storeName = readOrDefault(RECEIPT_STORE_NAME_KEY, DEFAULT_RECEIPT_STORE_NAME);
+                phone = readOrDefault(RECEIPT_PHONE_KEY, DEFAULT_RECEIPT_PHONE);
+                ticketPrefix = readOrDefault(RECEIPT_TICKET_PREFIX_KEY, DEFAULT_RECEIPT_TICKET_PREFIX);
+                footer = readOrDefault(RECEIPT_FOOTER_KEY, DEFAULT_RECEIPT_FOOTER);
+                currency = readOrDefault(RECEIPT_CURRENCY_KEY, DEFAULT_RECEIPT_CURRENCY);
+                separator = readOrDefault(RECEIPT_SEPARATOR_KEY, DEFAULT_RECEIPT_SEPARATOR);
+                showCustomer = readOrDefault(RECEIPT_SHOW_CUSTOMER_KEY, "true");
+                return null;
+            }
+
+            @Override
+            protected void succeeded() {
+                if (receiptStoreNameField != null) {
+                    receiptStoreNameField.setText(storeName);
+                }
+                if (receiptPhoneField != null) {
+                    receiptPhoneField.setText(phone);
+                }
+                if (receiptTicketPrefixField != null) {
+                    receiptTicketPrefixField.setText(ticketPrefix);
+                }
+                if (receiptFooterField != null) {
+                    receiptFooterField.setText(footer);
+                }
+                if (receiptCurrencyField != null) {
+                    receiptCurrencyField.setText(currency);
+                }
+                if (receiptSeparatorField != null) {
+                    receiptSeparatorField.setText(separator);
+                }
+                if (receiptShowCustomerCheckBox != null) {
+                    receiptShowCustomerCheckBox.setSelected(Boolean.parseBoolean(showCustomer));
+                }
+            }
+        };
+        task.setOnFailed(evt -> LOG.error("Erreur chargement parametres ticket", task.getException()));
+        Thread thread = new Thread(task, "receipt-settings-load");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void loadLanguageSettings() {
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() throws Exception {
+                String value = settingsDAO.getValue(APP_LANGUAGE_KEY);
+                if (value == null || value.isBlank()) {
+                    return Locale.getDefault().getLanguage();
+                }
+                return value.trim();
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            if (languageBox == null) {
+                return;
+            }
+            languageBox.getSelectionModel().select(labelFromLanguageCode(task.getValue()));
+        });
+        task.setOnFailed(evt -> LOG.error("Erreur chargement langue", task.getException()));
+        Thread thread = new Thread(task, "language-settings-load");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void loadRfidSettings() {
+        Task<Void> task = new Task<>() {
+            private String mode;
+            private String deviceName;
+
+            @Override
+            protected Void call() throws Exception {
+                mode = readOrDefault(RFID_MODE_KEY, RFID_MODE_KEYBOARD);
+                deviceName = readOrDefault(RFID_DEVICE_NAME_KEY, "");
+                return null;
+            }
+
+            @Override
+            protected void succeeded() {
+                if (rfidModeBox != null) {
+                    rfidModeBox.getSelectionModel().select(labelFromRfidMode(mode));
+                }
+                if (rfidDeviceNameField != null) {
+                    rfidDeviceNameField.setText(deviceName);
+                }
+            }
+        };
+        task.setOnFailed(evt -> LOG.error("Erreur chargement pairing RFID", task.getException()));
+        Thread thread = new Thread(task, "rfid-settings-load");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void loadBackupSettings() {
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() throws Exception {
+                String saved = settingsDAO.getValue(BACKUP_TARGET_DIR_KEY);
+                if (saved == null || saved.isBlank()) {
+                    return backupService.getDefaultBackupDir().toString();
+                }
+                return saved.trim();
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            if (backupDriveField != null) {
+                backupDriveField.setText(task.getValue());
+            }
+        });
+        task.setOnFailed(evt -> LOG.error("Erreur chargement dossier backup", task.getException()));
+        Thread thread = new Thread(task, "backup-settings-load");
         thread.setDaemon(true);
         thread.start();
     }
@@ -125,6 +341,115 @@ public class SettingsController {
         Thread thread = new Thread(task, "printer-save");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    @FXML
+    private void onSaveReceiptTemplate() {
+        String storeName = nonBlankOrDefault(textOrEmpty(receiptStoreNameField), DEFAULT_RECEIPT_STORE_NAME);
+        String phone = nonBlankOrDefault(textOrEmpty(receiptPhoneField), DEFAULT_RECEIPT_PHONE);
+        String ticketPrefix = nonBlankOrDefault(textOrEmpty(receiptTicketPrefixField), DEFAULT_RECEIPT_TICKET_PREFIX);
+        String footer = nonBlankOrDefault(textOrEmpty(receiptFooterField), DEFAULT_RECEIPT_FOOTER);
+        String currency = nonBlankOrDefault(textOrEmpty(receiptCurrencyField), DEFAULT_RECEIPT_CURRENCY)
+                .toUpperCase(Locale.ROOT);
+        String separatorRaw = nonBlankOrDefault(textOrEmpty(receiptSeparatorField), DEFAULT_RECEIPT_SEPARATOR);
+        String separator = String.valueOf(separatorRaw.charAt(0));
+        boolean showCustomer = receiptShowCustomerCheckBox != null && receiptShowCustomerCheckBox.isSelected();
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                settingsDAO.setValue(RECEIPT_STORE_NAME_KEY, storeName);
+                settingsDAO.setValue(RECEIPT_PHONE_KEY, phone);
+                settingsDAO.setValue(RECEIPT_TICKET_PREFIX_KEY, ticketPrefix);
+                settingsDAO.setValue(RECEIPT_FOOTER_KEY, footer);
+                settingsDAO.setValue(RECEIPT_CURRENCY_KEY, currency);
+                settingsDAO.setValue(RECEIPT_SEPARATOR_KEY, separator);
+                settingsDAO.setValue(RECEIPT_SHOW_CUSTOMER_KEY, String.valueOf(showCustomer));
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> showToast("success", "Format ticket enregistre"));
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur sauvegarde ticket", task.getException());
+            showToast("error", "Sauvegarde ticket impossible");
+        });
+        Thread thread = new Thread(task, "receipt-settings-save");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    @FXML
+    private void onSaveLanguage() {
+        if (languageBox == null || languageBox.getValue() == null) {
+            showToast("warning", "Selectionnez une langue");
+            return;
+        }
+        String code = languageCodeFromLabel(languageBox.getValue());
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                settingsDAO.setValue(APP_LANGUAGE_KEY, code);
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            MainApp.setAppLocale(MainApp.localeFromCode(code));
+            showToast("success", "Langue enregistree. Redemarrez l'application");
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur sauvegarde langue", task.getException());
+            showToast("error", "Sauvegarde langue impossible");
+        });
+        Thread thread = new Thread(task, "language-save");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    @FXML
+    private void onSaveRfidPairing() {
+        if (rfidModeBox == null || rfidModeBox.getValue() == null) {
+            showToast("warning", "Selectionnez un mode RFID");
+            return;
+        }
+        String mode = rfidModeFromLabel(rfidModeBox.getValue());
+        String deviceName = textOrEmpty(rfidDeviceNameField);
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                settingsDAO.setValue(RFID_MODE_KEY, mode);
+                settingsDAO.setValue(RFID_DEVICE_NAME_KEY, deviceName);
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> showToast("success", "Pairing RFID enregistre"));
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur sauvegarde RFID", task.getException());
+            showToast("error", "Sauvegarde RFID impossible");
+        });
+        Thread thread = new Thread(task, "rfid-save");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    @FXML
+    private void onSelectBackupDrive() {
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle("Selectionner dossier de sauvegarde");
+        Path initial = resolveBackupTargetDir();
+        if (initial != null && Files.isDirectory(initial)) {
+            chooser.setInitialDirectory(initial.toFile());
+        }
+
+        Window window = currentWindow();
+        File selected = chooser.showDialog(window);
+        if (selected == null) {
+            return;
+        }
+        if (backupDriveField != null) {
+            backupDriveField.setText(selected.getAbsolutePath());
+        }
+        showToast("info", "Lecteur selectionne");
     }
 
     @FXML
@@ -198,6 +523,61 @@ public class SettingsController {
             showToast("error", "Sauvegarde impossible");
         });
         Thread thread = new Thread(task, "stock-threshold-save");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void loadTvaPercent() {
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() throws Exception {
+                String value = settingsDAO.getValue(TVA_PERCENT_KEY);
+                if (value == null || value.isBlank()) {
+                    return "0";
+                }
+                return value.trim();
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            if (tvaInput != null) {
+                tvaInput.setText(task.getValue());
+            }
+        });
+        task.setOnFailed(evt -> LOG.error("Erreur chargement TVA", task.getException()));
+        Thread thread = new Thread(task, "tva-load");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    @FXML
+    private void onSaveTvaPercent() {
+        String raw = textOrEmpty(tvaInput);
+        double tva;
+        try {
+            tva = raw.isBlank() ? 0 : Double.parseDouble(raw.replace(',', '.'));
+        } catch (NumberFormatException ex) {
+            showToast("warning", "TVA invalide");
+            return;
+        }
+        if (tva < 0) {
+            showToast("warning", "TVA invalide");
+            return;
+        }
+
+        String saved = String.valueOf(tva);
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                settingsDAO.setValue(TVA_PERCENT_KEY, saved);
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> showToast("success", "TVA enregistree"));
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur sauvegarde TVA", task.getException());
+            showToast("error", "Sauvegarde TVA impossible");
+        });
+        Thread thread = new Thread(task, "tva-save");
         thread.setDaemon(true);
         thread.start();
     }
@@ -312,15 +692,22 @@ public class SettingsController {
 
     @FXML
     private void onBackupNow() {
-        Task<Void> task = new Task<>() {
+        Path targetDir = resolveBackupTargetDir();
+        if (targetDir == null) {
+            showToast("warning", "Lecteur de sauvegarde invalide");
+            return;
+        }
+
+        Task<Path> task = new Task<>() {
             @Override
-            protected Void call() throws Exception {
-                backupService.runBackup();
-                return null;
+            protected Path call() throws Exception {
+                settingsDAO.setValue(BACKUP_TARGET_DIR_KEY, targetDir.toString());
+                return backupService.runBackup(targetDir);
             }
         };
         task.setOnSucceeded(evt -> {
-            backupStatusLabel.setText("Sauvegarde terminee");
+            Path backupPath = task.getValue();
+            backupStatusLabel.setText("Sauvegarde: " + backupPath.toAbsolutePath());
             showToast("success", "Sauvegarde terminee");
         });
         task.setOnFailed(evt -> {
@@ -328,6 +715,54 @@ public class SettingsController {
             showToast("error", "Sauvegarde impossible");
         });
         Thread thread = new Thread(task, "backup-now");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    @FXML
+    private void onCopySupportNumber() {
+        ClipboardContent content = new ClipboardContent();
+        content.putString(SUPPORT_PHONE);
+        Clipboard.getSystemClipboard().setContent(content);
+        showToast("success", "Numero support copie");
+    }
+
+    @FXML
+    private void onRestoreFromBackup() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Restaurer depuis une sauvegarde");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Fichiers DB", "*.db"));
+        Path initial = resolveBackupTargetDir();
+        if (initial != null && Files.isDirectory(initial)) {
+            chooser.setInitialDirectory(initial.toFile());
+        }
+
+        File selected = chooser.showOpenDialog(currentWindow());
+        if (selected == null) {
+            return;
+        }
+
+        Path selectedFile = selected.toPath();
+        Task<Path> task = new Task<>() {
+            @Override
+            protected Path call() throws Exception {
+                Path safeBackupDir = resolveBackupTargetDir();
+                if (safeBackupDir != null) {
+                    backupService.runBackup(safeBackupDir);
+                    settingsDAO.setValue(BACKUP_TARGET_DIR_KEY, safeBackupDir.toString());
+                }
+                return backupService.stageRestore(selectedFile);
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            backupStatusLabel.setText("Restauration preparee. Redemarrez l'application.");
+            showToast("warning", "Restauration prete. Redemarrage requis");
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur restauration", task.getException());
+            showToast("error", "Restauration impossible");
+        });
+        Thread thread = new Thread(task, "restore-stage");
         thread.setDaemon(true);
         thread.start();
     }
@@ -370,5 +805,81 @@ public class SettingsController {
             case "warning" -> "!";
             default -> "i";
         };
+    }
+
+    private String languageCodeFromLabel(String label) {
+        if (label == null) {
+            return "fr";
+        }
+        String normalized = label.trim().toLowerCase(Locale.ROOT);
+        return normalized.startsWith("en") ? "en" : "fr";
+    }
+
+    private String labelFromLanguageCode(String code) {
+        if (code == null) {
+            return "Francais";
+        }
+        String normalized = code.trim().toLowerCase(Locale.ROOT);
+        return normalized.startsWith("en") ? "English" : "Francais";
+    }
+
+    private String rfidModeFromLabel(String label) {
+        if (label == null) {
+            return RFID_MODE_KEYBOARD;
+        }
+        String normalized = label.trim().toLowerCase(Locale.ROOT);
+        return normalized.startsWith("desactive") ? RFID_MODE_DISABLED : RFID_MODE_KEYBOARD;
+    }
+
+    private String labelFromRfidMode(String mode) {
+        if (mode == null) {
+            return "Clavier RFID (USB)";
+        }
+        return RFID_MODE_DISABLED.equalsIgnoreCase(mode) ? "Desactive" : "Clavier RFID (USB)";
+    }
+
+    private String readOrDefault(String key, String fallback) throws Exception {
+        String value = settingsDAO.getValue(key);
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value.trim();
+    }
+
+    private String textOrEmpty(TextField field) {
+        if (field == null || field.getText() == null) {
+            return "";
+        }
+        return field.getText().trim();
+    }
+
+    private String nonBlankOrDefault(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value;
+    }
+
+    private Path resolveBackupTargetDir() {
+        try {
+            String raw = textOrEmpty(backupDriveField);
+            if (raw.isBlank()) {
+                return backupService.getDefaultBackupDir();
+            }
+            return Path.of(raw);
+        } catch (Exception ex) {
+            LOG.warn("Chemin backup invalide", ex);
+            return null;
+        }
+    }
+
+    private Window currentWindow() {
+        if (toastContainer != null && toastContainer.getScene() != null) {
+            return toastContainer.getScene().getWindow();
+        }
+        if (printerBox != null && printerBox.getScene() != null) {
+            return printerBox.getScene().getWindow();
+        }
+        return null;
     }
 }

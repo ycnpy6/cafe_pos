@@ -1,5 +1,7 @@
 package com.cafepos.service;
 
+import com.cafepos.dao.CashMovementDAO;
+import com.cafepos.model.CashMovementRow;
 import com.cafepos.db.DatabaseManager;
 import com.cafepos.model.OrderHistoryRow;
 import com.cafepos.model.OrderLineDetail;
@@ -17,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ReportService {
+    private final CashMovementDAO cashMovementDAO = new CashMovementDAO();
+
     public List<ReportRow> getOrders(LocalDate start, LocalDate end) throws Exception {
         String sql = "SELECT id, total, payment_type, created_at FROM orders " +
                 "WHERE date(created_at) BETWEEN ? AND ? ORDER BY created_at DESC";
@@ -77,7 +81,10 @@ public class ReportService {
                 + "COALESCE(SUM(prepaid_amount), 0) AS prepaid_total, "
                 + "COALESCE((SELECT SUM(im.total_cost) FROM ingredient_movements im "
                 + "WHERE date(im.created_at) BETWEEN ? AND ? "
-                + "AND im.reason IN ('SALE', 'REFUND')), 0) AS ingredient_cost "
+                + "AND im.reason IN ('SALE', 'REFUND')), 0) AS ingredient_cost, "
+                + "COALESCE((SELECT SUM(cm.amount) FROM cash_movements cm "
+                + "WHERE date(cm.created_at) BETWEEN ? AND ? "
+                + "AND cm.movement_type = 'OUTFLOW'), 0) AS cash_withdrawals "
                 + "FROM orders WHERE date(created_at) BETWEEN ? AND ?";
         try (Connection conn = DatabaseManager.openConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -85,22 +92,32 @@ public class ReportService {
             ps.setString(2, end.toString());
             ps.setString(3, start.toString());
             ps.setString(4, end.toString());
+            ps.setString(5, start.toString());
+            ps.setString(6, end.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     double totalSales = rs.getDouble("total_sales");
                     double ingredientCost = rs.getDouble("ingredient_cost");
+                    double cashWithdrawals = rs.getDouble("cash_withdrawals");
+                    double grossProfit = totalSales - ingredientCost;
                     return new SalesSummary(
                             totalSales,
                             rs.getInt("order_count"),
                             rs.getDouble("cash_total"),
                             rs.getDouble("prepaid_total"),
                             ingredientCost,
-                            totalSales - ingredientCost
+                            grossProfit,
+                            cashWithdrawals,
+                            grossProfit - cashWithdrawals
                     );
                 }
             }
         }
-        return new SalesSummary(0, 0, 0, 0, 0, 0);
+        return new SalesSummary(0, 0, 0, 0, 0, 0, 0, 0);
+    }
+
+    public List<CashMovementRow> getCashMovements(LocalDate start, LocalDate end) throws Exception {
+        return cashMovementDAO.findByDateRange(start, end);
     }
 
     public List<TopItem> getTopItems(LocalDate start, LocalDate end, int limit) throws Exception {
@@ -132,12 +149,16 @@ public class ReportService {
 
     public List<OrderHistoryRow> getOrderHistory(LocalDate start, LocalDate end) throws Exception {
         String sql = "SELECT o.id, o.created_at, o.total, o.payment_type, "
+                + "COALESCE((SELECT SUM(im.total_cost) FROM ingredient_movements im "
+                + "WHERE im.order_id = o.id AND im.reason IN ('SALE', 'REFUND')), 0) AS ingredient_cost, "
+            + "c.id AS client_id, COALESCE(c.name, '') AS client_name, "
                 + "COALESCE(u.name, '') AS user_name, SUM(ol.quantity) AS items "
                 + "FROM orders o "
                 + "JOIN order_lines ol ON ol.order_id = o.id "
+            + "LEFT JOIN customers c ON c.id = o.customer_id "
                 + "LEFT JOIN users u ON u.id = o.user_id "
                 + "WHERE date(o.created_at) BETWEEN ? AND ? "
-                + "GROUP BY o.id, o.created_at, o.total, o.payment_type, u.name "
+            + "GROUP BY o.id, o.created_at, o.total, o.payment_type, c.id, c.name, u.name "
                 + "ORDER BY o.created_at DESC";
         List<OrderHistoryRow> results = new ArrayList<>();
         try (Connection conn = DatabaseManager.openConnection();
@@ -146,12 +167,20 @@ public class ReportService {
             ps.setString(2, end.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    double total = rs.getDouble("total");
+                    double ingredientCost = rs.getDouble("ingredient_cost");
+                    int rawClientId = rs.getInt("client_id");
+                    Integer clientId = rs.wasNull() ? null : rawClientId;
                     results.add(new OrderHistoryRow(
                             rs.getInt("id"),
                             rs.getString("created_at"),
                             rs.getInt("items"),
-                            rs.getDouble("total"),
+                            total,
+                            ingredientCost,
+                            total - ingredientCost,
                             PaymentType.valueOf(rs.getString("payment_type")),
+                            clientId,
+                            rs.getString("client_name"),
                             rs.getString("user_name")
                     ));
                 }

@@ -35,6 +35,7 @@
                                 <TableColumn fx:id="activeColumn" text="" prefWidth="40"/>
                                 <TableColumn fx:id="nameColumn" text="Nom" prefWidth="200"/>
                                 <TableColumn fx:id="categoryColumn" text="Catégorie" prefWidth="140"/>
+                                <TableColumn fx:id="preparedColumn" text="Préparé" prefWidth="90"/>
                                 <TableColumn fx:id="priceColumn" text="Prix" prefWidth="100"/>
                                 <TableColumn fx:id="costColumn" text="Coût" prefWidth="100"/>
                                 <TableColumn fx:id="stockColumn" text="Stock" prefWidth="160"/>
@@ -51,6 +52,7 @@
                             <HBox spacing="8" alignment="CENTER_LEFT">
                                 <Button fx:id="newIngredientButton" text="+ Ingredient" onAction="#onNewIngredient" styleClass="action-button"/>
                                 <Button fx:id="purchaseIngredientButton" text="Achat / Reappro" onAction="#onPurchaseIngredient" styleClass="ghost-button"/>
+                                <Button fx:id="withdrawShoppingButton" text="Sortie caisse shopping" onAction="#onWithdrawShoppingCash" styleClass="ghost-button"/>
                                 <Region HBox.hgrow="ALWAYS"/>
                                 <Label text="Unites: UNIT, L, KG, PACK" styleClass="hint-label"/>
                             </HBox>

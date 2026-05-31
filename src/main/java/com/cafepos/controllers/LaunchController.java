@@ -15,19 +15,28 @@ import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.SVGPath;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class LaunchController {
     private static final Logger LOG = LoggerFactory.getLogger(LaunchController.class);
@@ -59,11 +68,16 @@ public class LaunchController {
     private Label pinDot4;
     @FXML
     private Label pinError;
+    @FXML
+    private StackPane brandLogoContainer;
+    @FXML
+    private Label appTitle;
 
     private final List<Label> dynamicPinDots = new ArrayList<>(4);
 
     @FXML
     private void initialize() {
+        applyLaunchBranding();
         if (pinDialog == null) {
             pinDialog = pinOverlay;
         }
@@ -254,6 +268,57 @@ public class LaunchController {
         renderPinDots();
     }
 
+    private void applyLaunchBranding() {
+        if (appTitle != null) {
+            String title = MainApp.text("app.name", "Common Grounds");
+            appTitle.setText(title.toUpperCase(Locale.ROOT));
+        }
+        if (brandLogoContainer != null) {
+            brandLogoContainer.getChildren().setAll(buildBrandLogo());
+        }
+    }
+
+    private Node buildBrandLogo() {
+        URL logoUrl = getClass().getResource("/com/cafepos/images/logo.png");
+        if (logoUrl != null) {
+            ImageView imageView = new ImageView(new Image(logoUrl.toExternalForm(), true));
+            imageView.setFitWidth(160);
+            imageView.setFitHeight(160);
+            imageView.setPreserveRatio(true);
+            imageView.setSmooth(true);
+            imageView.setClip(new Circle(80, 80, 80));
+
+            Circle ring = new Circle(80);
+            ring.setFill(Color.TRANSPARENT);
+            ring.setStroke(Color.web("#6B2D1A"));
+            ring.setStrokeWidth(2);
+
+            StackPane wrapper = new StackPane(imageView, ring);
+            wrapper.setPrefSize(160, 160);
+            return wrapper;
+        }
+
+        Circle outer = new Circle(80);
+        outer.setFill(Color.web("#F5ECD7"));
+        outer.setStroke(Color.web("#6B2D1A"));
+        outer.setStrokeWidth(2);
+
+        SVGPath drop = new SVGPath();
+        drop.setContent("M 0 -44 C -22 -20 -24 2 -24 18 C -24 38 -12 54 0 58 C 12 54 24 38 24 18 C 24 2 22 -20 0 -44 Z");
+        drop.setFill(Color.web("#6B2D1A"));
+
+        Circle inner = new Circle(8);
+        inner.setFill(Color.web("#F5ECD7"));
+        inner.setTranslateY(18);
+
+        StackPane icon = new StackPane(drop, inner);
+        icon.setPrefSize(120, 120);
+
+        StackPane wrapper = new StackPane(outer, icon);
+        wrapper.setPrefSize(160, 160);
+        return wrapper;
+    }
+
     private void renderPinDots() {
         setDot(pinDot1, pinBuffer.length() > 0);
         setDot(pinDot2, pinBuffer.length() > 1);
@@ -342,7 +407,7 @@ public class LaunchController {
                 controller.restoreOrder(locked);
             }
             Scene scene = new Scene(root, 1100, 700);
-            scene.getStylesheets().add(getClass().getResource("/com/cafepos/styles/app.css").toExternalForm());
+            MainApp.applyBrandTheme(scene);
             IdleMonitor.bindScene(scene);
             Stage stage = (Stage) pinDialog.getScene().getWindow();
             stage.setScene(scene);
@@ -359,7 +424,7 @@ public class LaunchController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cafepos/fxml/backoffice.fxml"), MainApp.getMessages());
             Parent root = loader.load();
             Scene scene = new Scene(root, 1100, 700);
-            scene.getStylesheets().add(getClass().getResource("/com/cafepos/styles/app.css").toExternalForm());
+            MainApp.applyBrandTheme(scene);
             IdleMonitor.bindScene(scene);
             Stage stage = (Stage) pinDialog.getScene().getWindow();
             stage.setScene(scene);

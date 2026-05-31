@@ -1,10 +1,12 @@
 package com.cafepos;
 
+import com.cafepos.dao.SettingsDAO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cafepos.db.DatabaseManager;
 import com.cafepos.util.AppScheduler;
+import com.cafepos.util.BackupService;
 import com.cafepos.util.IdleMonitor;
 import com.cafepos.util.WindowUtils;
 
@@ -25,16 +27,22 @@ import javafx.stage.Stage;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import java.net.URL;
 
 public class MainApp extends Application {
     private static final Logger LOG = LoggerFactory.getLogger(MainApp.class);
+    private static final String APP_LANGUAGE_KEY = "app.language";
+    private static final String APP_CSS_PATH = "/com/cafepos/styles/app.css";
+    private static final String BRAND_CSS_PATH = "/com/cafepos/css/common-grounds.css";
     private static ResourceBundle messages;
+    private static Locale appLocale;
 
     @Override
     public void start(Stage stage) {
         Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
 
         Scene splashScene = new Scene(buildSplashView(), 520, 320);
+        applyBrandTheme(splashScene);
         stage.setTitle(text("app.name", "Cafe POS"));
         stage.setScene(splashScene);
         stage.show();
@@ -43,7 +51,13 @@ public class MainApp extends Application {
         Task<Void> initTask = new Task<>() {
             @Override
             protected Void call() throws Exception {
+                try {
+                    BackupService.applyPendingRestoreIfAny();
+                } catch (Exception ex) {
+                    LOG.error("Echec application restauration en attente", ex);
+                }
                 DatabaseManager.initialize();
+                applySavedLocaleFromSettings();
                 AppScheduler.start();
                 return null;
             }
@@ -96,21 +110,74 @@ public class MainApp extends Application {
         FXMLLoader loader = new FXMLLoader(MainApp.class.getResource("/com/cafepos/fxml/launch.fxml"), getMessages());
         Parent root = loader.load();
         Scene scene = new Scene(root, 1280, 800);
-        scene.getStylesheets().add(MainApp.class.getResource("/com/cafepos/styles/app.css").toExternalForm());
+        applyBrandTheme(scene);
         IdleMonitor.bindScene(scene);
         stage.setScene(scene);
         WindowUtils.applyFullSize(stage);
     }
 
+    public static void applyBrandTheme(Scene scene) {
+        if (scene == null) {
+            return;
+        }
+        addStylesheetIfMissing(scene, APP_CSS_PATH);
+        addStylesheetIfMissing(scene, BRAND_CSS_PATH);
+    }
+
+    private static void addStylesheetIfMissing(Scene scene, String resourcePath) {
+        URL resource = MainApp.class.getResource(resourcePath);
+        if (resource == null) {
+            LOG.warn("Feuille CSS introuvable: {}", resourcePath);
+            return;
+        }
+        String externalForm = resource.toExternalForm();
+        if (!scene.getStylesheets().contains(externalForm)) {
+            scene.getStylesheets().add(externalForm);
+        }
+    }
+
     public static ResourceBundle getMessages() {
         if (messages == null) {
+            Locale locale = appLocale == null ? Locale.getDefault() : appLocale;
             try {
-                messages = ResourceBundle.getBundle("i18n.messages", Locale.getDefault());
+                messages = ResourceBundle.getBundle("i18n.messages", locale);
             } catch (MissingResourceException ex) {
                 messages = ResourceBundle.getBundle("i18n.messages", Locale.FRENCH);
             }
         }
         return messages;
+    }
+
+    public static void setAppLocale(Locale locale) {
+        if (locale == null) {
+            return;
+        }
+        appLocale = locale;
+        Locale.setDefault(locale);
+        messages = null;
+    }
+
+    public static Locale localeFromCode(String code) {
+        if (code == null) {
+            return Locale.FRENCH;
+        }
+        String normalized = code.trim().toLowerCase(Locale.ROOT);
+        if (normalized.startsWith("en")) {
+            return Locale.ENGLISH;
+        }
+        return Locale.FRENCH;
+    }
+
+    private static void applySavedLocaleFromSettings() {
+        try {
+            SettingsDAO settingsDAO = new SettingsDAO();
+            String savedLanguage = settingsDAO.getValue(APP_LANGUAGE_KEY);
+            if (savedLanguage != null && !savedLanguage.isBlank()) {
+                setAppLocale(localeFromCode(savedLanguage));
+            }
+        } catch (Exception ex) {
+            LOG.warn("Chargement langue enregistree impossible", ex);
+        }
     }
 
     public static String text(String key, String fallback) {

@@ -11,8 +11,12 @@
            xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.cafepos.controller.LaunchController">
     <VBox alignment="CENTER" spacing="40">
-        <Label fx:id="appTitle" text="%app.name" styleClass="title-1" style="-fx-font-size: 32px; -fx-font-weight: bold;"/>
-        <Label fx:id="appSubtitle" text="%app.subtitle" styleClass="text-muted" style="-fx-font-size: 16px;"/>
+        <VBox alignment="CENTER" spacing="8">
+            <StackPane fx:id="brandLogoContainer" prefWidth="170" prefHeight="170" minWidth="170" minHeight="170" maxWidth="170" maxHeight="170"/>
+            <Label fx:id="appTitle" text="%app.name" styleClass="title-1" style="-fx-font-size: 32px; -fx-font-weight: bold; -fx-text-fill: #6B2D1A;"/>
+            <Label fx:id="launchCafeLabel" text="%launch.cafe" styleClass="text-muted" style="-fx-font-size: 14px; -fx-text-fill: #7A5C4A;"/>
+            <Label fx:id="appSubtitle" text="%app.subtitle" styleClass="text-muted" style="-fx-font-size: 14px; -fx-text-fill: #7A5C4A;"/>
+        </VBox>
         <HBox alignment="CENTER" spacing="24">
             <Button fx:id="btnCaisse" prefWidth="200" prefHeight="160" styleClass="button elevated" style="-fx-font-size: 16px;"
                     onAction="#onCaisseClicked">

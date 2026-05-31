@@ -1,5 +1,6 @@
 package com.cafepos.controllers;
 
+import com.cafepos.model.CashMovementRow;
 import com.cafepos.model.OrderHistoryRow;
 import com.cafepos.model.OrderLineDetail;
 import com.cafepos.model.PaymentType;
@@ -19,7 +20,9 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
@@ -55,6 +58,7 @@ public class ReportsController {
     private final ObservableList<OrderHistoryRow> historyMaster = FXCollections.observableArrayList();
     private final FilteredList<OrderHistoryRow> historyFiltered = new FilteredList<>(historyMaster, row -> true);
     private final ObservableList<SessionRow> sessionMaster = FXCollections.observableArrayList();
+    private final ObservableList<CashMovementRow> expenseMaster = FXCollections.observableArrayList();
 
     private LocalDate rangeStart = LocalDate.now();
     private LocalDate rangeEnd = LocalDate.now();
@@ -88,6 +92,10 @@ public class ReportsController {
     private Label kpiIngredientCostLabel;
     @FXML
     private Label kpiGrossProfitLabel;
+    @FXML
+    private Label kpiWithdrawalsLabel;
+    @FXML
+    private Label kpiNetRevenueLabel;
 
     @FXML
     private VBox topItemsBox;
@@ -110,7 +118,13 @@ public class ReportsController {
     @FXML
     private TableColumn<OrderHistoryRow, String> historyTotalColumn;
     @FXML
+    private TableColumn<OrderHistoryRow, String> historyCostColumn;
+    @FXML
+    private TableColumn<OrderHistoryRow, String> historyGrossColumn;
+    @FXML
     private TableColumn<OrderHistoryRow, String> historyPaymentColumn;
+    @FXML
+    private TableColumn<OrderHistoryRow, String> historyClientColumn;
     @FXML
     private TableColumn<OrderHistoryRow, String> historyUserColumn;
 
@@ -142,6 +156,23 @@ public class ReportsController {
     @FXML
     private Label sessionsSummaryLabel;
 
+    @FXML
+    private TableView<CashMovementRow> expensesTable;
+    @FXML
+    private TableColumn<CashMovementRow, String> expenseDateColumn;
+    @FXML
+    private TableColumn<CashMovementRow, String> expenseTypeColumn;
+    @FXML
+    private TableColumn<CashMovementRow, String> expenseCategoryColumn;
+    @FXML
+    private TableColumn<CashMovementRow, String> expenseAmountColumn;
+    @FXML
+    private TableColumn<CashMovementRow, String> expenseUserColumn;
+    @FXML
+    private TableColumn<CashMovementRow, String> expenseNoteColumn;
+    @FXML
+    private Label expensesSummaryLabel;
+
 
     @FXML
     private VBox toastContainer;
@@ -151,6 +182,7 @@ public class ReportsController {
         configurePeriodButtons();
         configureHistoryTable();
         configureSessionsTable();
+        configureExpensesTable();
         configureFilters();
         refreshAll();
     }
@@ -235,7 +267,44 @@ public class ReportsController {
         historyItemsColumn.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().itemCount())));
         historyTotalColumn.setCellValueFactory(data -> new SimpleStringProperty(
                 FormatUtils.formatMoney(data.getValue().total())));
+        if (historyCostColumn != null) {
+            historyCostColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                FormatUtils.formatMoney(data.getValue().ingredientCost())));
+        }
+        if (historyGrossColumn != null) {
+            historyGrossColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                FormatUtils.formatMoney(data.getValue().grossProfit())));
+        }
         historyPaymentColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().paymentType().name()));
+        if (historyClientColumn != null) {
+            historyClientColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                    formatClientLabel(data.getValue())));
+            historyClientColumn.setCellFactory(column -> new TableCell<>() {
+                private final Hyperlink link = new Hyperlink();
+
+                {
+                    link.setOnAction(evt -> {
+                        OrderHistoryRow row = getTableRow() == null ? null : (OrderHistoryRow) getTableRow().getItem();
+                        if (row != null && row.clientId() != null) {
+                            filterByClient(row);
+                        }
+                    });
+                }
+
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null || item.isBlank() || "Sans client".equals(item)) {
+                        setGraphic(null);
+                        setText(item == null ? "" : item);
+                        return;
+                    }
+                    link.setText(item);
+                    setText(null);
+                    setGraphic(link);
+                }
+            });
+        }
         historyUserColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().userName()));
         historyTable.setItems(historyFiltered);
         historyTable.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
@@ -265,6 +334,23 @@ public class ReportsController {
         sessionsTable.setItems(sessionMaster);
     }
 
+        private void configureExpensesTable() {
+        if (expensesTable == null) {
+            return;
+        }
+        expenseDateColumn.setCellValueFactory(data -> new SimpleStringProperty(
+            FormatUtils.formatDateTime(data.getValue().createdAt())));
+        expenseTypeColumn.setCellValueFactory(data -> new SimpleStringProperty(
+            normalizeMovementType(data.getValue().movementType())));
+        expenseCategoryColumn.setCellValueFactory(data -> new SimpleStringProperty(
+            formatExpenseCategory(data.getValue().category())));
+        expenseAmountColumn.setCellValueFactory(data -> new SimpleStringProperty(
+            FormatUtils.formatMoney(data.getValue().amount())));
+        expenseUserColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().userName()));
+        expenseNoteColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().description()));
+        expensesTable.setItems(expenseMaster);
+        }
+
     private void configureFilters() {
         paymentFilter.getItems().setAll("Tous", PaymentType.ESPECES.name(), PaymentType.PREPAYE.name(), PaymentType.MIXTE.name());
         paymentFilter.setValue("Tous");
@@ -283,6 +369,8 @@ public class ReportsController {
         historyFiltered.setPredicate(row -> {
             boolean matchQuery = query.isBlank()
                     || String.valueOf(row.orderId()).contains(query)
+                    || (row.clientId() != null && String.valueOf(row.clientId()).contains(query))
+                    || safeLower(row.clientName()).contains(query)
                     || safeLower(row.userName()).contains(query);
             boolean matchPayment = payment == null || payment.equals("Tous") || row.paymentType().name().equals(payment);
             boolean matchUser = user == null || user.equals("Tous") || row.userName().equalsIgnoreCase(user);
@@ -300,7 +388,8 @@ public class ReportsController {
                 List<TopItem> topItems = reportService.getTopItems(start, end, TOP_LIMIT);
                 List<OrderHistoryRow> history = reportService.getOrderHistory(start, end);
                 List<SessionRow> sessions = reportService.getSessions(start, end);
-                return new ReportBundle(summary, topItems, history, sessions);
+                List<CashMovementRow> expenses = reportService.getCashMovements(start, end);
+                return new ReportBundle(summary, topItems, history, sessions, expenses);
             }
         };
         task.setOnSucceeded(evt -> {
@@ -311,6 +400,8 @@ public class ReportsController {
             updateUserFilter(bundle.history());
             sessionMaster.setAll(bundle.sessions());
             updateSessionSummary();
+            expenseMaster.setAll(bundle.expenses());
+            updateExpenseSummary();
             applyFilters();
         });
         task.setOnFailed(evt -> {
@@ -332,6 +423,12 @@ public class ReportsController {
         }
         if (kpiGrossProfitLabel != null) {
             kpiGrossProfitLabel.setText(FormatUtils.formatMoney(summary.grossProfit()));
+        }
+        if (kpiWithdrawalsLabel != null) {
+            kpiWithdrawalsLabel.setText(FormatUtils.formatMoney(summary.cashWithdrawals()));
+        }
+        if (kpiNetRevenueLabel != null) {
+            kpiNetRevenueLabel.setText(FormatUtils.formatMoney(summary.netRevenue()));
         }
     }
 
@@ -399,6 +496,42 @@ public class ReportsController {
         double total = sessionMaster.stream().mapToDouble(SessionRow::total).sum();
         int orders = sessionMaster.stream().mapToInt(SessionRow::orderCount).sum();
         sessionsSummaryLabel.setText("Total: " + FormatUtils.formatMoney(total) + " / Commandes: " + orders);
+    }
+
+    private void updateExpenseSummary() {
+        if (expensesSummaryLabel == null) {
+            return;
+        }
+        double totalOutflow = expenseMaster.stream()
+                .filter(row -> "OUTFLOW".equalsIgnoreCase(row.movementType()))
+                .mapToDouble(CashMovementRow::amount)
+                .sum();
+        int count = expenseMaster.size();
+        expensesSummaryLabel.setText("Sorties: " + FormatUtils.formatMoney(totalOutflow)
+                + " / Mouvements: " + count);
+    }
+
+    private String normalizeMovementType(String movementType) {
+        if (movementType == null) {
+            return "";
+        }
+        return switch (movementType.toUpperCase()) {
+            case "OUTFLOW" -> "Sortie";
+            case "INFLOW" -> "Entree";
+            default -> movementType;
+        };
+    }
+
+    private String formatExpenseCategory(String category) {
+        if (category == null) {
+            return "";
+        }
+        return switch (category.toUpperCase()) {
+            case "INGREDIENT_PURCHASE" -> "Achat ingredients";
+            case "SHOPPING" -> "Shopping";
+            case "OTHER" -> "Autre";
+            default -> category;
+        };
     }
 
     private void showOrderDetails(OrderHistoryRow row) {
@@ -488,10 +621,13 @@ public class ReportsController {
             return;
         }
         try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-            writer.write("id;date;items;total;paiement;utilisateur\n");
+            writer.write("id;date;items;total;cout_ingredients;marge_brute;paiement;client_id;client_nom;utilisateur\n");
             for (OrderHistoryRow row : rows) {
+                String clientId = row.clientId() == null ? "" : String.valueOf(row.clientId());
                 writer.write(row.orderId() + ";" + escape(row.createdAt()) + ";" + row.itemCount() + ";"
-                        + row.total() + ";" + row.paymentType().name() + ";" + escape(row.userName()));
+                        + row.total() + ";" + row.ingredientCost() + ";" + row.grossProfit() + ";"
+                        + row.paymentType().name() + ";" + clientId + ";" + escape(row.clientName()) + ";"
+                        + escape(row.userName()));
                 writer.write("\n");
             }
             showToast("success", "Export CSV termine");
@@ -514,14 +650,19 @@ public class ReportsController {
         }
         StringBuilder sb = new StringBuilder();
         sb.append("<html><head><meta charset=\"UTF-8\"></head><body><table border=\"1\">");
-        sb.append("<tr><th>ID</th><th>Date</th><th>Items</th><th>Total</th><th>Paiement</th><th>Utilisateur</th></tr>");
+        sb.append("<tr><th>ID</th><th>Date</th><th>Items</th><th>Total</th><th>Cout ingredients</th>"
+            + "<th>Marge brute</th><th>Paiement</th><th>Client ID</th><th>Client</th><th>Utilisateur</th></tr>");
         for (OrderHistoryRow row : rows) {
             sb.append("<tr>")
                     .append("<td>").append(row.orderId()).append("</td>")
                     .append("<td>").append(escapeHtml(row.createdAt())).append("</td>")
                     .append("<td>").append(row.itemCount()).append("</td>")
                     .append("<td>").append(row.total()).append("</td>")
+                .append("<td>").append(row.ingredientCost()).append("</td>")
+                .append("<td>").append(row.grossProfit()).append("</td>")
                     .append("<td>").append(escapeHtml(row.paymentType().name())).append("</td>")
+                    .append("<td>").append(row.clientId() == null ? "" : row.clientId()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.clientName())).append("</td>")
                     .append("<td>").append(escapeHtml(row.userName())).append("</td>")
                     .append("</tr>");
         }
@@ -563,6 +704,23 @@ public class ReportsController {
         return value.replace("&", "&amp;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;");
+    }
+
+    private String formatClientLabel(OrderHistoryRow row) {
+        if (row == null || row.clientId() == null) {
+            return "Sans client";
+        }
+        String name = row.clientName() == null || row.clientName().isBlank() ? "Client" : row.clientName();
+        return "#" + row.clientId() + " " + name;
+    }
+
+    private void filterByClient(OrderHistoryRow row) {
+        if (row == null || row.clientId() == null || historySearchField == null) {
+            return;
+        }
+        historySearchField.setText(String.valueOf(row.clientId()));
+        applyFilters();
+        showToast("info", "Filtre client applique");
     }
 
     private String safeLower(String value) {
@@ -613,7 +771,8 @@ public class ReportsController {
             SalesSummary summary,
             List<TopItem> topItems,
             List<OrderHistoryRow> history,
-            List<SessionRow> sessions
+            List<SessionRow> sessions,
+            List<CashMovementRow> expenses
     ) {
     }
 }

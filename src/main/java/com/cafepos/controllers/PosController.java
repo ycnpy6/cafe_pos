@@ -5,10 +5,12 @@ import com.cafepos.dao.CategoryDAO;
 import com.cafepos.dao.CustomerDAO;
 import com.cafepos.dao.OrderDAO;
 import com.cafepos.dao.ProductDAO;
+import com.cafepos.dao.ProductIngredientDAO;
 import com.cafepos.dao.SettingsDAO;
 import com.cafepos.dao.TagDAO;
 import com.cafepos.dao.TagGroupDAO;
 import com.cafepos.dao.UserDAO;
+import com.cafepos.dao.WaitingOrderDAO;
 import com.cafepos.hardware.RFIDHandler;
 import com.cafepos.model.Category;
 import com.cafepos.model.Customer;
@@ -17,21 +19,26 @@ import com.cafepos.model.OrderLine;
 import com.cafepos.model.PaymentType;
 import com.cafepos.model.PosOrderSummary;
 import com.cafepos.model.Product;
+import com.cafepos.model.ProductIngredientUsage;
 import com.cafepos.model.RefundLineSelection;
 import com.cafepos.model.RefundableOrderLine;
 import com.cafepos.model.Tag;
 import com.cafepos.model.TagGroup;
 import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
+import com.cafepos.model.WaitingOrderSummary;
 import com.cafepos.service.AccountService;
 import com.cafepos.service.OrderService;
 import com.cafepos.service.PrintQueueService;
 import com.cafepos.service.SessionManager;
+import com.cafepos.ui.CashTenderDialog;
+import com.cafepos.ui.DiscountDialog;
+import com.cafepos.ui.QuickNewClientDialog;
 import com.cafepos.util.FormatUtils;
 import com.cafepos.util.IdleMonitor;
 import com.cafepos.util.SecurityUtils;
+import com.cafepos.util.ToastService;
 import com.cafepos.util.WindowUtils;
-import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
@@ -44,6 +51,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyCode;
@@ -64,11 +72,17 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class PosController {
     private static final Logger LOG = LoggerFactory.getLogger(PosController.class);
     private static final int MAX_TOASTS = 3;
+    private static final String STOCK_THRESHOLD_KEY = "stock.low.threshold";
+    private static final String TVA_PERCENT_KEY = "tva_percent";
+    private static final String RFID_MODE_KEY = "rfid.mode";
+    private static final String RFID_DEVICE_NAME_KEY = "rfid.device.name";
+    private static final String RFID_MODE_DISABLED = "DISABLED";
 
     private final CategoryDAO categoryDAO = new CategoryDAO();
     private final ProductDAO productDAO = new ProductDAO();
@@ -77,6 +91,8 @@ public class PosController {
     private final TagGroupDAO tagGroupDAO = new TagGroupDAO();
     private final TagDAO tagDAO = new TagDAO();
     private final UserDAO userDAO = new UserDAO();
+    private final ProductIngredientDAO productIngredientDAO = new ProductIngredientDAO();
+    private final WaitingOrderDAO waitingOrderDAO = new WaitingOrderDAO();
     private final OrderService orderService = new OrderService();
     private final AccountService accountService = new AccountService();
     private final PrintQueueService printQueueService = PrintQueueService.getInstance();
@@ -86,9 +102,15 @@ public class PosController {
     private final List<Button> categoryButtons = new ArrayList<>();
     private final List<TagControl> tagControls = new ArrayList<>();
     private final Map<Integer, String> categoryColors = new HashMap<>();
+    private final Map<Integer, Category> categoriesById = new HashMap<>();
+    private final Map<Integer, Boolean> preparedLowStockWarnings = new HashMap<>();
 
     private Customer currentCustomer;
     private int currentCategoryId = -1;
+    private int lowStockThreshold = 5;
+    private double tvaPercent;
+    private String lastScannedCardUid;
+    private boolean lastScannedCardUnknown;
     private OrderLine selectedLine;
     private Product currentTagProduct;
     private long newOrderConfirmAt;
@@ -100,15 +122,19 @@ public class PosController {
     @FXML
     private HBox topBar;
     @FXML
+    private HBox statusBar;
+    @FXML
     private Label lblSessionInfo;
     @FXML
     private Label lblWorkPeriod;
     @FXML
     private Label lblPrintQueue;
     @FXML
-    private HBox categoryBar;
+    private VBox categoryBar;
     @FXML
-    private HBox categoryTabsContainer;
+    private VBox categoryTabsBar;
+    @FXML
+    private VBox categoryTabsContainer;
     @FXML
     private FlowPane productGrid;
     @FXML
@@ -138,6 +164,16 @@ public class PosController {
     private Label totalLabel;
     @FXML
     private Label lblTotal;
+    @FXML
+    private HBox discountRow;
+    @FXML
+    private Label lblDiscount;
+    @FXML
+    private HBox tvaRow;
+    @FXML
+    private Label lblTvaTitle;
+    @FXML
+    private Label lblTva;
 
     @FXML
     private HBox customerCard;
@@ -158,6 +194,12 @@ public class PosController {
     private Button btnCash;
     @FXML
     private Button btnPrepaid;
+    @FXML
+    private Button btnDiscount;
+    @FXML
+    private Button btnHold;
+    @FXML
+    private Button btnWaiting;
 
     @FXML
     private VBox cashDialog;
@@ -208,6 +250,12 @@ public class PosController {
     private VBox historyPanel;
     @FXML
     private VBox historyRowsBox;
+    @FXML
+    private VBox waitingPanel;
+    @FXML
+    private VBox waitingRowsBox;
+    @FXML
+    private Label waitingCountBadge;
 
     @FXML
     private VBox refundDialog;
@@ -270,6 +318,12 @@ public class PosController {
             currentOrder.addLine(new OrderLine(line.getProduct(), line.getQuantity(), line.getTags()));
         }
         currentOrder.setCustomer(order.getCustomer());
+        if (order.getDiscountPercent() > 0) {
+            currentOrder.setDiscountPercent(order.getDiscountPercent());
+        } else if (order.getDiscountAmount() > 0) {
+            currentOrder.setDiscountAmount(order.getDiscountAmount());
+        }
+        currentOrder.setTvaPercent(tvaPercent > 0 ? tvaPercent : order.getTvaPercent());
         currentCustomer = order.getCustomer();
         refreshOrderView();
     }
@@ -277,11 +331,15 @@ public class PosController {
     @FXML
     private void initialize() {
         bindLayoutAliases();
+        ToastService.install(rootStack, statusBar);
+        loadLowStockThreshold();
+        loadTvaPercent();
         setupRfid();
         loadCategories();
         refreshOrderView();
         updateCustomerCard();
         refreshPrintBadge();
+        refreshWaitingBadge();
         applyRoleVisibility(SessionManager.getCurrentUser() == null ? null : SessionManager.getCurrentUser().getRole());
         setActiveNav(navCaisse);
 
@@ -319,7 +377,35 @@ public class PosController {
         }
     }
 
+    private void loadTvaPercent() {
+        Task<Double> task = new Task<>() {
+            @Override
+            protected Double call() throws Exception {
+                String value = settingsDAO.getValue(TVA_PERCENT_KEY);
+                if (value == null || value.isBlank()) {
+                    return 0.0;
+                }
+                try {
+                    return Math.max(0, Double.parseDouble(value.trim().replace(',', '.')));
+                } catch (NumberFormatException ignored) {
+                    return 0.0;
+                }
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            tvaPercent = task.getValue();
+            currentOrder.setTvaPercent(tvaPercent);
+            refreshOrderView();
+        });
+        Thread thread = new Thread(task, "pos-load-tva");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     private void bindLayoutAliases() {
+        if (categoryBar == null) {
+            categoryBar = categoryTabsBar;
+        }
         if (categoryBar == null) {
             categoryBar = categoryTabsContainer;
         }
@@ -393,11 +479,33 @@ public class PosController {
         if (rfidField == null) {
             return;
         }
+
+        String rfidMode = null;
+        String rfidDeviceName = null;
+        try {
+            rfidMode = settingsDAO.getValue(RFID_MODE_KEY);
+            rfidDeviceName = settingsDAO.getValue(RFID_DEVICE_NAME_KEY);
+        } catch (Exception ex) {
+            LOG.warn("Lecture parametres RFID impossible", ex);
+        }
+
+        if (RFID_MODE_DISABLED.equalsIgnoreCase(rfidMode)) {
+            rfidField.setDisable(true);
+            rfidField.setPromptText("RFID desactive");
+            return;
+        }
+
+        rfidField.setDisable(false);
+        if (rfidDeviceName != null && !rfidDeviceName.isBlank()) {
+            rfidField.setPromptText("RFID: " + rfidDeviceName.trim());
+        }
+
         RFIDHandler handler = new RFIDHandler(rfidField);
         handler.setOnCard(this::onCardScanned);
     }
 
     private void onCardScanned(String uid) {
+        lastScannedCardUid = uid == null ? null : uid.trim();
         Task<Customer> task = new Task<>() {
             @Override
             protected Customer call() throws Exception {
@@ -407,9 +515,11 @@ public class PosController {
         task.setOnSucceeded(evt -> {
             Customer customer = task.getValue();
             if (customer == null) {
+                lastScannedCardUnknown = true;
                 showToast("warning", "Carte non reconnue");
                 return;
             }
+            lastScannedCardUnknown = false;
             currentCustomer = customer;
             currentOrder.setCustomer(customer);
             updateCustomerCard();
@@ -462,28 +572,50 @@ public class PosController {
         customerCard.setStyle("-fx-border-color: " + color + "; -fx-border-width: 2px;");
     }
 
+    private void loadLowStockThreshold() {
+        Task<Integer> task = new Task<>() {
+            @Override
+            protected Integer call() throws Exception {
+                String value = settingsDAO.getValue(STOCK_THRESHOLD_KEY);
+                if (value == null || value.isBlank()) {
+                    return 5;
+                }
+                try {
+                    int parsed = Integer.parseInt(value.trim());
+                    return Math.max(0, parsed);
+                } catch (NumberFormatException ignored) {
+                    return 5;
+                }
+            }
+        };
+        task.setOnSucceeded(evt -> lowStockThreshold = task.getValue());
+        Thread thread = new Thread(task, "pos-low-stock-threshold");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     private void loadCategories() {
-        Map<Integer, String> colorMap = new HashMap<>();
         Task<List<Category>> task = new Task<>() {
             @Override
             protected List<Category> call() throws Exception {
-                List<Category> categories = categoryDAO.findAll();
-                for (Category category : categories) {
-                    String value = settingsDAO.getValue("category.color." + category.getId());
-                    if (value != null && !value.isBlank()) {
-                        colorMap.put(category.getId(), value.trim());
-                    }
-                }
-                return categories;
+                return categoryDAO.findAll();
             }
         };
         task.setOnSucceeded(evt -> {
             List<Category> categories = task.getValue();
+            categoriesById.clear();
             categoryColors.clear();
-            categoryColors.putAll(colorMap);
             if (categories.isEmpty()) {
                 showToast("warning", "Aucune categorie");
                 return;
+            }
+            for (Category category : categories) {
+                categoriesById.put(category.getId(), category);
+                String color = category.getColor();
+                if (color == null || color.isBlank()) {
+                    color = defaultCategoryColor(category.getName());
+                }
+                categoryColors.put(category.getId(), color);
             }
             renderCategoryButtons(categories);
             loadProducts(categories.get(0).getId());
@@ -498,46 +630,149 @@ public class PosController {
     }
 
     private void renderCategoryButtons(List<Category> categories) {
+        if (categoryBar == null) {
+            return;
+        }
         categoryBar.getChildren().clear();
         categoryButtons.clear();
-        int index = 1;
         for (Category category : categories) {
-            Button button = new Button(category.getName());
-            button.getStyleClass().add("category-tab");
-            int shortcutIndex = index;
-            button.setOnAction(event -> {
-                loadProducts(category.getId());
-                setActiveCategory(button);
-                currentCategoryId = category.getId();
-            });
-            button.setUserData(shortcutIndex);
+            Button button = new Button(shortCategoryLabel(category.getName()));
+            button.setWrapText(true);
+            button.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+            button.setPrefWidth(72);
+            button.setMaxWidth(Double.MAX_VALUE);
+            button.setMaxHeight(Double.MAX_VALUE);
+            button.getStyleClass().add("button");
+            button.setStyle(categoryTabInactiveStyle());
+            button.setUserData(category.getId());
+            button.setOnAction(this::onCategorySelected);
+            VBox.setVgrow(button, Priority.ALWAYS);
             categoryButtons.add(button);
             categoryBar.getChildren().add(button);
-            index++;
         }
         if (!categoryButtons.isEmpty()) {
             setActiveCategory(categoryButtons.get(0));
         }
     }
 
+    @FXML
+    private void onCategorySelected(ActionEvent event) {
+        Object source = event.getSource();
+        if (!(source instanceof Button button)) {
+            return;
+        }
+        Object rawCategoryId = button.getUserData();
+        if (!(rawCategoryId instanceof Integer categoryId)) {
+            return;
+        }
+        loadProducts(categoryId);
+        setActiveCategory(button);
+        currentCategoryId = categoryId;
+    }
+
     private void setActiveCategory(Button selected) {
         for (Button button : categoryButtons) {
-            button.getStyleClass().remove("active");
+            button.setStyle(categoryTabInactiveStyle());
         }
         if (selected != null) {
-            selected.getStyleClass().add("active");
+            selected.setStyle(categoryTabActiveStyle());
         }
+    }
+
+    private String categoryTabInactiveStyle() {
+        return "-fx-font-size: 11px;"
+                + " -fx-wrap-text: true;"
+                + " -fx-text-alignment: center;"
+                + " -fx-background-color: #EDE0C4;"
+                + " -fx-text-fill: #2C1810;"
+                + " -fx-border-color: #D4B896;"
+                + " -fx-border-width: 1px;"
+                + " -fx-background-radius: 8px;"
+                + " -fx-border-radius: 8px;";
+    }
+
+    private String categoryTabActiveStyle() {
+        return "-fx-font-size: 11px;"
+                + " -fx-wrap-text: true;"
+                + " -fx-text-alignment: center;"
+                + " -fx-background-color: #6B2D1A;"
+                + " -fx-text-fill: #F5ECD7;"
+                + " -fx-border-color: #6B2D1A;"
+                + " -fx-border-width: 1px;"
+                + " -fx-background-radius: 8px;"
+                + " -fx-border-radius: 8px;";
+    }
+
+    private String shortCategoryLabel(String rawName) {
+        if (rawName == null) {
+            return "";
+        }
+        String value = rawName.trim();
+        if (value.length() <= 12) {
+            return value;
+        }
+        return value.substring(0, 12);
+    }
+
+    private String defaultCategoryColor(String categoryName) {
+        if (categoryName == null) {
+            return "#6B2D1A";
+        }
+        String normalized = categoryName.trim().toLowerCase();
+        if (normalized.equals("hot beverages")) {
+            return "#6B2D1A";
+        }
+        if (normalized.equals("cold beverages")) {
+            return "#1A4A6B";
+        }
+        if (normalized.equals("sweets")) {
+            return "#A0522D";
+        }
+        if (normalized.equals("salties")) {
+            return "#7A4A1A";
+        }
+        if (normalized.equals("cards")) {
+            return "#2E5A2E";
+        }
+        if (normalized.equals("additions")) {
+            return "#4A3A6B";
+        }
+        return "#6B2D1A";
     }
 
     private void loadProducts(int categoryId) {
         currentCategoryId = categoryId;
+        Map<Integer, Boolean> warningMap = new HashMap<>();
         Task<List<Product>> task = new Task<>() {
             @Override
             protected List<Product> call() throws Exception {
-                return productDAO.findActiveByCategory(categoryId);
+                List<Product> products = productDAO.findActiveByCategory(categoryId);
+                for (Product product : products) {
+                    if (!product.isPrepared()) {
+                        continue;
+                    }
+                    List<ProductIngredientUsage> recipe = productIngredientDAO.findRecipeByProduct(product.getId());
+                    if (recipe == null || recipe.isEmpty()) {
+                        warningMap.put(product.getId(), false);
+                        continue;
+                    }
+                    boolean lowStock = false;
+                    for (ProductIngredientUsage usage : recipe) {
+                        if (usage.availableStock() <= lowStockThreshold) {
+                            lowStock = true;
+                            break;
+                        }
+                    }
+                    warningMap.put(product.getId(), lowStock);
+                }
+                return products;
             }
         };
-        task.setOnSucceeded(evt -> renderProducts(task.getValue()));
+        task.setOnSucceeded(evt -> {
+            preparedLowStockWarnings.clear();
+            preparedLowStockWarnings.putAll(warningMap);
+            renderProducts(task.getValue());
+        });
         task.setOnFailed(evt -> {
             LOG.error("Erreur chargement produits", task.getException());
             showToast("error", "Produits indisponibles");
@@ -561,43 +796,113 @@ public class PosController {
     }
 
     private StackPane createProductTile(Product product) {
-        StackPane tile = new StackPane();
-        tile.getStyleClass().add("product-tile");
-        String color = categoryColors.get(product.getCategoryId());
-        if (color != null && !color.isBlank()) {
-            String rgba = toRgba(color, 0.1);
-            if (rgba != null) {
-                tile.setStyle("-fx-background-color: " + rgba + ";");
-            }
+        Button tileButton = new Button();
+        tileButton.setPrefWidth(120);
+        tileButton.setMinWidth(120);
+        tileButton.setMaxWidth(120);
+        tileButton.setPrefHeight(75);
+        tileButton.setMinHeight(75);
+        tileButton.setMaxHeight(75);
+        tileButton.getStyleClass().addAll("button", "elevated");
+
+        Category category = categoriesById.get(product.getCategoryId());
+        String categoryColor = category == null ? null : category.getColor();
+        if (categoryColor == null || categoryColor.isBlank()) {
+            categoryColor = categoryColors.get(product.getCategoryId());
+        }
+        boolean useDefaultColor = categoryColor == null || categoryColor.isBlank();
+        if (useDefaultColor) {
+            String rgba = toRgba("#6B2D1A", 0.20);
+            String fallback = rgba == null ? "#F0E2CC" : rgba;
+            tileButton.setStyle("-fx-background-color: " + fallback + "; -fx-background-radius: 8px;");
+        } else {
+            tileButton.setStyle("-fx-background-color: " + categoryColor + "; -fx-background-radius: 8px;");
         }
 
-        VBox content = new VBox(4);
+        VBox content = new VBox(3);
+        content.setAlignment(javafx.geometry.Pos.CENTER);
+
         Label name = new Label(product.getName());
         name.setWrapText(true);
-        Label price = new Label(formatMoney(product.getPrice()));
-        price.getStyleClass().add("hint-label");
+        name.setMaxWidth(106);
+        String textColor = useDefaultColor ? "#2C1810" : "#F5ECD7";
+        name.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: " + textColor + ";");
+        name.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+
+        Label price = new Label(formatAmount(product.getPrice()) + " DZD");
+        price.setStyle("-fx-font-size: 11px; -fx-text-fill: " + textColor + "; -fx-opacity: 0.85;");
         content.getChildren().addAll(name, price);
+        tileButton.setGraphic(content);
 
-        tile.getChildren().add(content);
+        PauseTransition longPress = new PauseTransition(Duration.millis(500));
+        longPress.setOnFinished(evt -> onProductTileLongPress(product));
+        tileButton.setOnMousePressed(evt -> longPress.playFromStart());
+        tileButton.setOnMouseReleased(evt -> longPress.stop());
+        tileButton.setOnMouseExited(evt -> longPress.stop());
+        tileButton.setOnAction(evt -> onProductTileClicked(product));
 
-        if (product.getStock() <= 0) {
-            tile.getStyleClass().add("out-of-stock");
-            Label badge = new Label("Rupture");
-            badge.getStyleClass().add("badge-out");
-            StackPane.setAlignment(badge, javafx.geometry.Pos.CENTER);
-            tile.getChildren().add(badge);
-            tile.setDisable(true);
-        } else if (product.getStock() <= 5) {
+        StackPane wrapper = new StackPane(tileButton);
+        if (shouldShowStockWarning(product)) {
             Label warn = new Label("\u26A0");
-            warn.getStyleClass().addAll("badge", "badge-warning");
+            warn.setStyle("-fx-font-size: 14px;");
+            warn.getStyleClass().addAll("badge", "warning");
             StackPane.setAlignment(warn, javafx.geometry.Pos.TOP_RIGHT);
             StackPane.setMargin(warn, new Insets(4, 4, 0, 0));
-            tile.getChildren().add(warn);
-            tile.getStyleClass().add("low-stock");
+            wrapper.getChildren().add(warn);
+        }
+        return wrapper;
+    }
+
+    private boolean shouldShowStockWarning(Product product) {
+        if (product.isPrepared()) {
+            return preparedLowStockWarnings.getOrDefault(product.getId(), false);
+        }
+        return product.getStock() <= lowStockThreshold;
+    }
+
+    private void onProductTileClicked(Product product) {
+        onProductSelected(product);
+    }
+
+    private void onProductTileLongPress(Product product) {
+        if (product == null || !isManager()) {
+            showToast("warning", "Edition prix reservee manager");
+            return;
         }
 
-        tile.setOnMouseClicked(event -> onProductSelected(product));
-        return tile;
+        TextInputDialog dialog = new TextInputDialog(formatAmount(product.getPrice()));
+        dialog.setTitle("Modifier le prix");
+        dialog.setHeaderText("Nouveau prix pour " + product.getName());
+        dialog.setContentText("Prix DZD:");
+
+        dialog.showAndWait().ifPresent(value -> {
+            double newPrice = parseAmount(value);
+            if (newPrice < 0) {
+                showToast("warning", "Prix invalide");
+                return;
+            }
+            Integer userId = SessionManager.getCurrentUser() == null ? null : SessionManager.getCurrentUser().getId();
+            Task<Void> task = new Task<>() {
+                @Override
+                protected Void call() throws Exception {
+                    productDAO.updatePriceWithHistory(product.getId(), newPrice, userId);
+                    return null;
+                }
+            };
+            task.setOnSucceeded(evt -> {
+                showToast("success", "Prix mis a jour");
+                if (currentCategoryId > 0) {
+                    loadProducts(currentCategoryId);
+                }
+            });
+            task.setOnFailed(evt -> {
+                LOG.error("Erreur mise a jour prix", task.getException());
+                showToast("error", "Mise a jour prix impossible");
+            });
+            Thread thread = new Thread(task, "pos-price-update");
+            thread.setDaemon(true);
+            thread.start();
+        });
     }
 
     private String toRgba(String hex, double alpha) {
@@ -743,11 +1048,13 @@ public class PosController {
         if (orderLinesBox == null) {
             return;
         }
+        currentOrder.setTvaPercent(tvaPercent);
         orderLinesBox.getChildren().clear();
         if (currentOrder.getLines().isEmpty()) {
             if (emptyOrderLabel != null) {
                 emptyOrderLabel.setVisible(true);
                 emptyOrderLabel.setManaged(true);
+                orderLinesBox.getChildren().add(emptyOrderLabel);
             }
         } else {
             if (emptyOrderLabel != null) {
@@ -759,6 +1066,28 @@ public class PosController {
         for (OrderLine line : currentOrder.getLines()) {
             orderLinesBox.getChildren().add(buildOrderLine(line));
         }
+
+        if (discountRow != null && lblDiscount != null) {
+            boolean showDiscount = currentOrder.hasDiscount();
+            discountRow.setVisible(showDiscount);
+            discountRow.setManaged(showDiscount);
+            if (showDiscount) {
+                lblDiscount.setText("-" + formatMoney(currentOrder.getAppliedDiscountAmount()));
+            }
+        }
+
+        if (tvaRow != null && lblTva != null) {
+            boolean showTva = tvaPercent > 0;
+            tvaRow.setVisible(showTva);
+            tvaRow.setManaged(showTva);
+            if (showTva) {
+                if (lblTvaTitle != null) {
+                    lblTvaTitle.setText("TVA (" + formatPercent(tvaPercent) + "%):");
+                }
+                lblTva.setText(formatMoney(currentOrder.getTvaAmount()));
+            }
+        }
+
         if (totalLabel != null) {
             totalLabel.setText(formatAmount(currentOrder.getTotal()));
         }
@@ -849,7 +1178,18 @@ public class PosController {
             showToast("warning", "Ajoutez un produit");
             return;
         }
-        showCashDialog();
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        Double tendered = CashTenderDialog.showDialog(owner, currentOrder.getTotal());
+        if (tendered == null) {
+            return;
+        }
+        if (tendered + 0.0001 < currentOrder.getTotal()) {
+            showToast("warning", "Montant insuffisant");
+            return;
+        }
+        processPayment(PaymentType.ESPECES, currentOrder.getTotal(), 0);
     }
 
     @FXML
@@ -868,7 +1208,20 @@ public class PosController {
             currentOrder.setPrepaidAmount(total);
             processPayment(PaymentType.PREPAYE, 0, total);
         } else {
-            showSplitDialog(balance, total - Math.max(0, balance));
+            double prepaid = Math.max(0, balance);
+            double remaining = total - prepaid;
+            Stage owner = rootStack == null || rootStack.getScene() == null
+                    ? null
+                    : (Stage) rootStack.getScene().getWindow();
+            Double tendered = CashTenderDialog.showDialog(owner, remaining);
+            if (tendered == null) {
+                return;
+            }
+            if (tendered + 0.0001 < remaining) {
+                showToast("warning", "Montant insuffisant");
+                return;
+            }
+            processPayment(PaymentType.MIXTE, remaining, prepaid);
         }
     }
 
@@ -893,6 +1246,7 @@ public class PosController {
     @FXML
     private void onRefund() {
         hideHistoryPanel();
+        onWaitingClose();
         if (refundDialog == null) {
             showToast("info", "Remboursement indisponible");
             return;
@@ -903,6 +1257,7 @@ public class PosController {
     @FXML
     private void onHistory() {
         hideRefundDialog();
+        onWaitingClose();
         if (historyPanel == null) {
             showToast("info", "Historique indisponible");
             return;
@@ -942,6 +1297,35 @@ public class PosController {
     }
 
     @FXML
+    private void onDiscount() {
+        if (currentOrder.getLines().isEmpty()) {
+            showToast("warning", "Commande vide");
+            return;
+        }
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        DiscountDialog.DiscountSelection currentSelection = new DiscountDialog.DiscountSelection(
+                currentOrder.getDiscountPercent(),
+                currentOrder.getDiscountAmount()
+        );
+        DiscountDialog.DiscountSelection selection = DiscountDialog.showDialog(owner, currentOrder.getSubtotal(), currentSelection);
+        if (selection == null) {
+            return;
+        }
+
+        if (selection.percent() > 0) {
+            currentOrder.setDiscountPercent(selection.percent());
+        } else if (selection.amount() > 0) {
+            currentOrder.setDiscountAmount(selection.amount());
+        } else {
+            currentOrder.clearDiscount();
+        }
+        refreshOrderView();
+        showToast("success", "Remise appliquee");
+    }
+
+    @FXML
     private void onCancelOrder() {
         onNewOrder();
     }
@@ -949,6 +1333,216 @@ public class PosController {
     @FXML
     private void onReprint() {
         onReprintLast();
+    }
+
+    @FXML
+    private void onHoldOrder() {
+        if (currentOrder.getLines().isEmpty()) {
+            showToast("warning", "Commande vide");
+            return;
+        }
+        Task<Integer> task = new Task<>() {
+            @Override
+            protected Integer call() throws Exception {
+                return waitingOrderDAO.save(currentOrder);
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            Integer waitingIdValue = task.getValue();
+            int waitingId = waitingIdValue == null ? -1 : waitingIdValue;
+            currentOrder.clear();
+            currentCustomer = null;
+            refreshOrderView();
+            if (currentCategoryId > 0) {
+                loadProducts(currentCategoryId);
+            }
+            refreshWaitingBadge();
+            showToast("success", waitingId > 0
+                    ? "Commande en attente #" + waitingId
+                    : "Commande en attente");
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur mise en attente", task.getException());
+            showToast("error", "Mise en attente impossible");
+        });
+        Thread thread = new Thread(task, "hold-order");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    @FXML
+    private void onWaitingOrders() {
+        hideRefundDialog();
+        hideHistoryPanel();
+        if (waitingPanel == null) {
+            showToast("info", "Liste attente indisponible");
+            return;
+        }
+        if (waitingPanel.isVisible()) {
+            onWaitingClose();
+            return;
+        }
+        waitingPanel.setVisible(true);
+        waitingPanel.setManaged(true);
+        loadWaitingRows();
+    }
+
+    @FXML
+    private void onWaitingClose() {
+        if (waitingPanel == null) {
+            return;
+        }
+        waitingPanel.setVisible(false);
+        waitingPanel.setManaged(false);
+    }
+
+    private void loadWaitingRows() {
+        if (waitingRowsBox == null) {
+            return;
+        }
+        waitingRowsBox.getChildren().clear();
+
+        Task<List<WaitingOrderSummary>> task = new Task<>() {
+            @Override
+            protected List<WaitingOrderSummary> call() throws Exception {
+                return waitingOrderDAO.findAll();
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            List<WaitingOrderSummary> rows = task.getValue();
+            if (rows == null || rows.isEmpty()) {
+                Label empty = new Label("Aucune commande en attente");
+                empty.getStyleClass().add("text-muted");
+                waitingRowsBox.getChildren().add(empty);
+                return;
+            }
+            for (WaitingOrderSummary row : rows) {
+                waitingRowsBox.getChildren().add(buildWaitingRow(row));
+            }
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur chargement attentes", task.getException());
+            Label failed = new Label("Chargement impossible");
+            failed.getStyleClass().add("danger");
+            waitingRowsBox.getChildren().add(failed);
+        });
+        Thread thread = new Thread(task, "waiting-orders-load");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private HBox buildWaitingRow(WaitingOrderSummary row) {
+        HBox container = new HBox(8);
+        container.setStyle("-fx-padding: 8; -fx-border-color: -color-border-default; -fx-border-width: 0 0 1 0;");
+
+        VBox info = new VBox(2);
+        Label title = new Label("#" + row.id() + " - " + row.customerName());
+        title.getStyleClass().add("text-bold");
+        Label details = new Label(row.lineCount() + " ligne(s) • " + formatMoney(row.total()));
+        details.getStyleClass().add("text-muted");
+        info.getChildren().addAll(title, details);
+        HBox.setHgrow(info, Priority.ALWAYS);
+
+        Button resume = new Button("Reprendre");
+        resume.getStyleClass().addAll("button", "success");
+        resume.setOnAction(evt -> resumeWaitingOrder(row.id()));
+
+        Button delete = new Button("Supprimer");
+        delete.getStyleClass().addAll("button", "danger");
+        delete.setOnAction(evt -> deleteWaitingOrder(row.id()));
+
+        container.getChildren().addAll(info, resume, delete);
+        return container;
+    }
+
+    private void resumeWaitingOrder(int waitingOrderId) {
+        Task<Order> task = new Task<>() {
+            @Override
+            protected Order call() throws Exception {
+                return waitingOrderDAO.load(waitingOrderId);
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            Order waitingOrder = task.getValue();
+            if (waitingOrder == null || waitingOrder.getLines().isEmpty()) {
+                showToast("warning", "Commande indisponible");
+                return;
+            }
+            restoreOrder(waitingOrder);
+            Task<Void> deleteTask = new Task<>() {
+                @Override
+                protected Void call() throws Exception {
+                    waitingOrderDAO.delete(waitingOrderId);
+                    return null;
+                }
+            };
+            deleteTask.setOnSucceeded(done -> {
+                refreshWaitingBadge();
+                loadWaitingRows();
+                showToast("success", "Commande reprise");
+            });
+            deleteTask.setOnFailed(done -> LOG.error("Erreur suppression attente reprise", deleteTask.getException()));
+            Thread deleteThread = new Thread(deleteTask, "waiting-order-delete-after-resume");
+            deleteThread.setDaemon(true);
+            deleteThread.start();
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur reprise attente", task.getException());
+            showToast("error", "Reprise impossible");
+        });
+        Thread thread = new Thread(task, "waiting-order-resume");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void deleteWaitingOrder(int waitingOrderId) {
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                waitingOrderDAO.delete(waitingOrderId);
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            refreshWaitingBadge();
+            loadWaitingRows();
+            showToast("info", "Commande attente supprimee");
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur suppression attente", task.getException());
+            showToast("error", "Suppression impossible");
+        });
+        Thread thread = new Thread(task, "waiting-order-delete");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void refreshWaitingBadge() {
+        Task<Integer> task = new Task<>() {
+            @Override
+            protected Integer call() throws Exception {
+                return waitingOrderDAO.count();
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            Integer countValue = task.getValue();
+            int count = countValue == null ? 0 : countValue;
+            if (waitingCountBadge == null) {
+                return;
+            }
+            if (count <= 0) {
+                waitingCountBadge.setVisible(false);
+                waitingCountBadge.setManaged(false);
+                return;
+            }
+            waitingCountBadge.setText(String.valueOf(count));
+            waitingCountBadge.setVisible(true);
+            waitingCountBadge.setManaged(true);
+        });
+        task.setOnFailed(evt -> LOG.error("Erreur badge attente", task.getException()));
+        Thread thread = new Thread(task, "waiting-orders-count");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     @FXML
@@ -1455,13 +2049,26 @@ public class PosController {
 
     @FXML
     private void onTopup() {
+        if (currentCustomer != null) {
+            showTopupDialogForCurrentCustomer();
+            return;
+        }
+
+        if (lastScannedCardUnknown && lastScannedCardUid != null && !lastScannedCardUid.isBlank()) {
+            startQuickClientFlow(lastScannedCardUid);
+            return;
+        }
+
+        startQuickClientFlow(null);
+    }
+
+    private void showTopupDialogForCurrentCustomer() {
         if (topupDialog == null || topupCustomerLabel == null || topupBalanceLabel == null
                 || topupAmountInput == null || topupAfterLabel == null) {
             showToast("info", "Recharge disponible dans Clients");
             return;
         }
         if (currentCustomer == null) {
-            showToast("warning", "Scannez une carte");
             return;
         }
         topupCustomerLabel.setText(currentCustomer.getName());
@@ -1471,6 +2078,48 @@ public class PosController {
         topupDialog.setVisible(true);
         topupDialog.setManaged(true);
         Platform.runLater(() -> topupAmountInput.requestFocus());
+    }
+
+    private void startQuickClientFlow(String suggestedCardUid) {
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        QuickNewClientDialog.QuickClientData data = QuickNewClientDialog.showDialog(owner, suggestedCardUid);
+        if (data == null) {
+            return;
+        }
+
+        Task<Customer> task = new Task<>() {
+            @Override
+            protected Customer call() throws Exception {
+                int customerId = customerDAO.insertCustomer(data.name(), data.cardUid(), 0);
+                if (customerId <= 0) {
+                    return null;
+                }
+                return customerDAO.findById(customerId);
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            Customer created = task.getValue();
+            if (created == null) {
+                showToast("error", "Creation client impossible");
+                return;
+            }
+            currentCustomer = created;
+            currentOrder.setCustomer(created);
+            lastScannedCardUid = created.getCardUid();
+            lastScannedCardUnknown = false;
+            updateCustomerCard();
+            showTopupDialogForCurrentCustomer();
+            showToast("success", "Client cree, recharge prete");
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur creation client rapide", task.getException());
+            showToast("error", "Creation client impossible");
+        });
+        Thread thread = new Thread(task, "quick-client-create");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     @FXML
@@ -1795,7 +2444,7 @@ public class PosController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cafepos/fxml/backoffice.fxml"), MainApp.getMessages());
             Parent root = loader.load();
             Scene scene = new Scene(root, 1100, 700);
-            scene.getStylesheets().add(getClass().getResource("/com/cafepos/styles/app.css").toExternalForm());
+            MainApp.applyBrandTheme(scene);
             IdleMonitor.bindScene(scene);
             Stage stage = (Stage) rootStack.getScene().getWindow();
             stage.setScene(scene);
@@ -1811,7 +2460,7 @@ public class PosController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cafepos/fxml/launch.fxml"), MainApp.getMessages());
             Parent root = loader.load();
             Scene scene = new Scene(root, 1100, 700);
-            scene.getStylesheets().add(getClass().getResource("/com/cafepos/styles/app.css").toExternalForm());
+            MainApp.applyBrandTheme(scene);
             IdleMonitor.bindScene(scene);
             Stage stage = (Stage) rootStack.getScene().getWindow();
             stage.setScene(scene);
@@ -1874,6 +2523,9 @@ public class PosController {
             } else if (event.getCode() == KeyCode.F6) {
                 onNewOrder();
                 event.consume();
+            } else if (event.getCode() == KeyCode.F7) {
+                onDiscount();
+                event.consume();
             } else if (event.getCode() == KeyCode.F8) {
                 onReprintLast();
                 event.consume();
@@ -1910,6 +2562,9 @@ public class PosController {
                     event.consume();
                 } else if (refundDialog != null && refundDialog.isVisible()) {
                     onRefundCancel();
+                    event.consume();
+                } else if (waitingPanel != null && waitingPanel.isVisible()) {
+                    onWaitingClose();
                     event.consume();
                 } else if (historyPanel != null && historyPanel.isVisible()) {
                     onHistoryClose();
@@ -1974,6 +2629,13 @@ public class PosController {
         return formatted.replace(" DZD", "");
     }
 
+    private String formatPercent(double value) {
+        if (Math.abs(value - Math.rint(value)) < 0.0001) {
+            return String.valueOf((int) Math.rint(value));
+        }
+        return String.format(Locale.US, "%.2f", value);
+    }
+
     private void appendDigit(TextField field, String digit) {
         if (field == null || digit == null || digit.isBlank()) {
             return;
@@ -2012,43 +2674,13 @@ public class PosController {
     }
 
     private void showToast(String type, String message) {
-        if (toastContainer == null) {
-            return;
-        }
-        HBox toast = new HBox(8);
-        toast.getStyleClass().add("toast");
-        if (type != null && !type.isBlank()) {
-            toast.getStyleClass().add(type);
-        }
-        Label icon = new Label(iconFor(type));
-        Label text = new Label(message == null ? "" : message);
-        text.setWrapText(true);
-        toast.getChildren().addAll(icon, text);
-
-        toastContainer.getChildren().add(0, toast);
-        while (toastContainer.getChildren().size() > MAX_TOASTS) {
-            toastContainer.getChildren().remove(toastContainer.getChildren().size() - 1);
-        }
-
-        PauseTransition delay = new PauseTransition(Duration.millis(3000));
-        delay.setOnFinished(evt -> fadeOutToast(toast));
-        delay.play();
-    }
-
-    private void fadeOutToast(HBox toast) {
-        FadeTransition fade = new FadeTransition(Duration.millis(200), toast);
-        fade.setToValue(0);
-        fade.setOnFinished(evt -> toastContainer.getChildren().remove(toast));
-        fade.play();
-    }
-
-    private String iconFor(String type) {
-        return switch (type == null ? "" : type) {
-            case "success" -> "✓";
-            case "warning" -> "!";
-            case "error" -> "×";
-            default -> "i";
+        ToastService.ToastType toastType = switch (type == null ? "" : type.toLowerCase()) {
+            case "success" -> ToastService.ToastType.SUCCESS;
+            case "warning" -> ToastService.ToastType.WARNING;
+            case "error" -> ToastService.ToastType.DANGER;
+            default -> ToastService.ToastType.INFO;
         };
+        ToastService.show(message, toastType);
     }
 
     private static class TagControl {

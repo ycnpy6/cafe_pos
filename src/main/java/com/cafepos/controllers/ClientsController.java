@@ -2,6 +2,7 @@ package com.cafepos.controllers;
 
 import com.cafepos.dao.AccountTransactionDAO;
 import com.cafepos.dao.CustomerDAO;
+import com.cafepos.dao.SettingsDAO;
 import com.cafepos.db.DatabaseManager;
 import com.cafepos.hardware.RFIDHandler;
 import com.cafepos.model.AccountTransaction;
@@ -40,10 +41,14 @@ import java.util.Map;
 public class ClientsController {
     private static final Logger LOG = LoggerFactory.getLogger(ClientsController.class);
     private static final int MAX_TOASTS = 3;
+    private static final String RFID_MODE_KEY = "rfid.mode";
+    private static final String RFID_DEVICE_NAME_KEY = "rfid.device.name";
+    private static final String RFID_MODE_DISABLED = "DISABLED";
 
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final AccountTransactionDAO accountTransactionDAO = new AccountTransactionDAO();
     private final AccountService accountService = new AccountService();
+    private final SettingsDAO settingsDAO = new SettingsDAO();
 
     private final ObservableList<ClientRow> master = FXCollections.observableArrayList();
     private final FilteredList<ClientRow> filtered = new FilteredList<>(master, row -> true);
@@ -424,6 +429,27 @@ public class ClientsController {
         if (rfidField == null) {
             return;
         }
+
+        String rfidMode = null;
+        String rfidDeviceName = null;
+        try {
+            rfidMode = settingsDAO.getValue(RFID_MODE_KEY);
+            rfidDeviceName = settingsDAO.getValue(RFID_DEVICE_NAME_KEY);
+        } catch (Exception ex) {
+            LOG.warn("Lecture parametres RFID impossible", ex);
+        }
+
+        if (RFID_MODE_DISABLED.equalsIgnoreCase(rfidMode)) {
+            rfidField.setDisable(true);
+            rfidField.setPromptText("RFID desactive");
+            return;
+        }
+
+        rfidField.setDisable(false);
+        if (rfidDeviceName != null && !rfidDeviceName.isBlank()) {
+            rfidField.setPromptText("RFID: " + rfidDeviceName.trim());
+        }
+
         RFIDHandler handler = new RFIDHandler(rfidField);
         handler.setOnCard(this::lookupCard);
         Platform.runLater(rfidField::requestFocus);

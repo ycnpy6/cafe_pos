@@ -8,8 +8,14 @@ public class Product {
     private final int categoryId;
     private final int stock;
     private final boolean active;
+    private final boolean prepared;
 
     public Product(int id, String name, double price, double cost, int categoryId, int stock, boolean active) {
+        this(id, name, price, cost, categoryId, stock, active, false);
+    }
+
+    public Product(int id, String name, double price, double cost, int categoryId, int stock,
+                   boolean active, boolean prepared) {
         this.id = id;
         this.name = name;
         this.price = price;
@@ -17,6 +23,7 @@ public class Product {
         this.categoryId = categoryId;
         this.stock = stock;
         this.active = active;
+        this.prepared = prepared;
     }
 
     public int getId() {
@@ -45,5 +52,9 @@ public class Product {
 
     public boolean isActive() {
         return active;
+    }
+
+    public boolean isPrepared() {
+        return prepared;
     }
 }

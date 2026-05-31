@@ -85,7 +85,7 @@ public class BackOfficeController {
                 controller.setUserInfo(user.getName(), user.getRole().name());
             }
             Scene scene = new Scene(root, 1100, 700);
-            scene.getStylesheets().add(getClass().getResource("/com/cafepos/styles/app.css").toExternalForm());
+            MainApp.applyBrandTheme(scene);
             IdleMonitor.bindScene(scene);
             Stage stage = (Stage) contentPane.getScene().getWindow();
             stage.setScene(scene);

@@ -17,8 +17,8 @@ import java.util.List;
 
 public class OrderDAO {
     public int insertOrder(Connection conn, Order order, Integer userId, Integer workPeriodId) throws Exception {
-        String sql = "INSERT INTO orders (customer_id, payment_type, total, user_id, work_period_id, cash_amount, prepaid_amount) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO orders (customer_id, payment_type, total, user_id, work_period_id, cash_amount, prepaid_amount, discount_percent, discount_amount) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             Customer customer = order.getCustomer();
             if (customer == null) {
@@ -41,6 +41,8 @@ public class OrderDAO {
             }
             ps.setDouble(6, order.getCashAmount());
             ps.setDouble(7, order.getPrepaidAmount());
+            ps.setDouble(8, order.getDiscountPercent());
+            ps.setDouble(9, order.getAppliedDiscountAmount());
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {

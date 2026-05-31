@@ -14,6 +14,7 @@ import com.cafepos.model.Ingredient;
 import com.cafepos.model.Order;
 import com.cafepos.model.OrderLine;
 import com.cafepos.model.PaymentType;
+import com.cafepos.model.Product;
 import com.cafepos.model.ProductIngredientUsage;
 import com.cafepos.model.RefundLineSelection;
 import com.cafepos.model.RefundableOrderLine;
@@ -76,17 +77,25 @@ public class OrderService {
             conn.setAutoCommit(false);
 
             Map<Integer, Double> requiredIngredients = new HashMap<>();
-            Map<Integer, Ingredient> ingredientById = new HashMap<>();
 
+            int orderId = orderDAO.insertOrder(conn, order, userId, workPeriodId);
             for (OrderLine line : order.getLines()) {
-                int available = productDAO.getStockById(conn, line.getProduct().getId());
-                if (available < line.getQuantity()) {
-                    conn.rollback();
-                    throw new IllegalStateException("Stock insuffisant pour " + line.getProduct().getName());
+                int productId = line.getProduct().getId();
+                Product soldProduct = productDAO.findById(conn, productId);
+                boolean isPrepared = soldProduct != null && soldProduct.isPrepared();
+
+                if (!isPrepared) {
+                    // Produit non prepare: on suit le stock unitaire, sans bloquer la vente.
+                    productDAO.decrementStock(conn, productId, line.getQuantity());
+                    stockMovementDAO.insertMovement(conn, productId, -line.getQuantity(), "Vente");
+                    continue;
                 }
 
-                List<ProductIngredientUsage> recipeLines =
-                        productIngredientDAO.findRecipeByProduct(conn, line.getProduct().getId());
+                // Produit prepare: recette optionnelle, decrement ingredient en mode best effort.
+                List<ProductIngredientUsage> recipeLines = productIngredientDAO.findRecipeByProduct(conn, productId);
+                if (recipeLines == null || recipeLines.isEmpty()) {
+                    continue;
+                }
                 for (ProductIngredientUsage usage : recipeLines) {
                     double required = usage.quantityPerProduct() * line.getQuantity();
                     if (required <= 0) {
@@ -97,28 +106,12 @@ public class OrderService {
             }
 
             for (Map.Entry<Integer, Double> entry : requiredIngredients.entrySet()) {
-                Ingredient ingredient = ingredientDAO.findById(conn, entry.getKey());
-                if (ingredient == null || !ingredient.isActive()) {
-                    conn.rollback();
-                    throw new IllegalStateException("Ingredient indisponible: #" + entry.getKey());
-                }
-                ingredientById.put(entry.getKey(), ingredient);
-                if (ingredient.getStockQuantity() + 0.0001 < entry.getValue()) {
-                    conn.rollback();
-                    throw new IllegalStateException("Stock ingredient insuffisant pour " + ingredient.getName());
-                }
-            }
-
-            int orderId = orderDAO.insertOrder(conn, order, userId, workPeriodId);
-            for (OrderLine line : order.getLines()) {
-                productDAO.decrementStock(conn, line.getProduct().getId(), line.getQuantity());
-                stockMovementDAO.insertMovement(conn, line.getProduct().getId(), -line.getQuantity(), "Vente");
-            }
-
-            for (Map.Entry<Integer, Double> entry : requiredIngredients.entrySet()) {
                 int ingredientId = entry.getKey();
                 double usedQuantity = entry.getValue();
-                Ingredient ingredient = ingredientById.get(ingredientId);
+                Ingredient ingredient = ingredientDAO.findById(conn, ingredientId);
+                if (ingredient == null) {
+                    continue;
+                }
                 double unitCost = ingredient == null ? 0 : ingredient.getUnitCost();
 
                 ingredientDAO.adjustStock(conn, ingredientId, -usedQuantity);
@@ -227,17 +220,24 @@ public class OrderService {
                 RefundableOrderLine available = refundableByLineId.get(selection.orderLineId());
                 double lineTotal = available.unitPrice() * selection.quantity();
                 orderDAO.insertRefundLine(conn, refundId, selection.orderLineId(), selection.quantity(), lineTotal);
-                productDAO.adjustStock(conn, selection.productId(), selection.quantity());
-                stockMovementDAO.insertMovement(conn, selection.productId(), selection.quantity(), "Remboursement");
+                Product soldProduct = productDAO.findById(conn, selection.productId());
+                boolean isPrepared = soldProduct != null && soldProduct.isPrepared();
 
-                List<ProductIngredientUsage> recipeLines =
-                        productIngredientDAO.findRecipeByProduct(conn, selection.productId());
-                for (ProductIngredientUsage usage : recipeLines) {
-                    double restoredQty = usage.quantityPerProduct() * selection.quantity();
-                    if (restoredQty <= 0) {
-                        continue;
+                if (!isPrepared) {
+                    productDAO.adjustStock(conn, selection.productId(), selection.quantity());
+                    stockMovementDAO.insertMovement(conn, selection.productId(), selection.quantity(), "Remboursement");
+                }
+
+                if (isPrepared) {
+                    List<ProductIngredientUsage> recipeLines =
+                            productIngredientDAO.findRecipeByProduct(conn, selection.productId());
+                    for (ProductIngredientUsage usage : recipeLines) {
+                        double restoredQty = usage.quantityPerProduct() * selection.quantity();
+                        if (restoredQty <= 0) {
+                            continue;
+                        }
+                        restoredIngredients.merge(usage.ingredientId(), restoredQty, Double::sum);
                     }
-                    restoredIngredients.merge(usage.ingredientId(), restoredQty, Double::sum);
                 }
             }
 

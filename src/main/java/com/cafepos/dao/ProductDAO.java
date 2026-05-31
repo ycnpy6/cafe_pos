@@ -12,7 +12,7 @@ import java.util.List;
 
 public class ProductDAO {
     public List<Product> findActiveByCategory(int categoryId) throws Exception {
-        String sql = "SELECT id, name, price, cost, category_id, stock, active " +
+        String sql = "SELECT id, name, price, cost, category_id, stock, active, is_prepared " +
                 "FROM products WHERE active = 1 AND category_id = ? ORDER BY name";
         List<Product> results = new ArrayList<>();
         try (Connection conn = DatabaseManager.openConnection();
@@ -27,7 +27,8 @@ public class ProductDAO {
                             rs.getDouble("cost"),
                             rs.getInt("category_id"),
                             rs.getInt("stock"),
-                            rs.getInt("active") == 1
+                            rs.getInt("active") == 1,
+                            rs.getInt("is_prepared") == 1
                     ));
                 }
             }
@@ -36,7 +37,7 @@ public class ProductDAO {
     }
 
     public List<Product> findAll() throws Exception {
-        String sql = "SELECT id, name, price, cost, category_id, stock, active FROM products ORDER BY name";
+        String sql = "SELECT id, name, price, cost, category_id, stock, active, is_prepared FROM products ORDER BY name";
         List<Product> results = new ArrayList<>();
         try (Connection conn = DatabaseManager.openConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -49,7 +50,8 @@ public class ProductDAO {
                         rs.getDouble("cost"),
                         rs.getInt("category_id"),
                         rs.getInt("stock"),
-                        rs.getInt("active") == 1
+                        rs.getInt("active") == 1,
+                        rs.getInt("is_prepared") == 1
                 ));
             }
         }
@@ -57,7 +59,7 @@ public class ProductDAO {
     }
 
     public int insertProduct(Product product) throws Exception {
-        String sql = "INSERT INTO products (name, price, cost, category_id, stock, active) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.openConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, product.getName());
@@ -66,6 +68,7 @@ public class ProductDAO {
             ps.setInt(4, product.getCategoryId());
             ps.setInt(5, product.getStock());
             ps.setInt(6, product.isActive() ? 1 : 0);
+            ps.setInt(7, product.isPrepared() ? 1 : 0);
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
@@ -74,6 +77,28 @@ public class ProductDAO {
             }
         }
         return -1;
+    }
+
+    public Product findById(Connection conn, int productId) throws Exception {
+        String sql = "SELECT id, name, price, cost, category_id, stock, active, is_prepared FROM products WHERE id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new Product(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getDouble("price"),
+                            rs.getDouble("cost"),
+                            rs.getInt("category_id"),
+                            rs.getInt("stock"),
+                            rs.getInt("active") == 1,
+                            rs.getInt("is_prepared") == 1
+                    );
+                }
+            }
+        }
+        return null;
     }
 
     public int getStockById(Connection conn, int productId) throws Exception {
@@ -136,6 +161,16 @@ public class ProductDAO {
         try (Connection conn = DatabaseManager.openConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, active ? 1 : 0);
+            ps.setInt(2, productId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updatePrepared(int productId, boolean prepared) throws Exception {
+        String sql = "UPDATE products SET is_prepared = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, prepared ? 1 : 0);
             ps.setInt(2, productId);
             ps.executeUpdate();
         }

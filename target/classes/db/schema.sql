@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
+  color TEXT,
   sort_order INTEGER DEFAULT 0
 );
 
@@ -28,7 +29,8 @@ CREATE TABLE IF NOT EXISTS products (
   cost REAL DEFAULT 0,
   category_id INTEGER REFERENCES categories(id),
   stock INTEGER DEFAULT 0,
-  active INTEGER DEFAULT 1
+  active INTEGER DEFAULT 1,
+  is_prepared INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS tag_groups (
@@ -148,6 +150,24 @@ CREATE INDEX IF NOT EXISTS idx_ingredient_movements_created_at
 CREATE INDEX IF NOT EXISTS idx_ingredient_movements_order_id
   ON ingredient_movements(order_id);
 
+CREATE TABLE IF NOT EXISTS cash_movements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  movement_type TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount REAL NOT NULL,
+  description TEXT,
+  work_period_id INTEGER REFERENCES work_periods(id),
+  ingredient_id INTEGER REFERENCES ingredients(id),
+  user_id INTEGER REFERENCES users(id),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_cash_movements_created_at
+  ON cash_movements(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_cash_movements_category
+  ON cash_movements(category);
+
 CREATE TABLE IF NOT EXISTS eod_reports (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   work_period_id INTEGER REFERENCES work_periods(id),
@@ -185,8 +205,42 @@ CREATE TABLE IF NOT EXISTS refund_lines (
   line_total REAL NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS waiting_orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER REFERENCES customers(id),
+  customer_name TEXT,
+  customer_card_uid TEXT,
+  discount_percent REAL DEFAULT 0,
+  discount_amount REAL DEFAULT 0,
+  tva_percent REAL DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS waiting_order_lines (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  waiting_order_id INTEGER NOT NULL REFERENCES waiting_orders(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  quantity INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS waiting_order_line_tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  waiting_line_id INTEGER NOT NULL REFERENCES waiting_order_lines(id) ON DELETE CASCADE,
+  tag_id INTEGER NOT NULL REFERENCES tags(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_waiting_order_lines_waiting_order_id
+  ON waiting_order_lines(waiting_order_id);
+
+CREATE INDEX IF NOT EXISTS idx_waiting_order_line_tags_waiting_line_id
+  ON waiting_order_line_tags(waiting_line_id);
+
 ALTER TABLE orders ADD COLUMN cash_amount REAL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN prepaid_amount REAL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN discount_percent REAL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0;
+ALTER TABLE products ADD COLUMN is_prepared INTEGER DEFAULT 0;
+ALTER TABLE categories ADD COLUMN color TEXT;
 
 CREATE TABLE IF NOT EXISTS price_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

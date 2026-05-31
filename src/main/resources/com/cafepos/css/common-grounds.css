@@ -1,0 +1,123 @@
+.root {
+    -color-bg-default:      #F5ECD7;
+    -color-bg-subtle:       #EDE0C4;
+    -color-bg-inset:        #E5D5B0;
+    -color-border-default:  #D4B896;
+    -color-border-muted:    #DEC9A8;
+    -color-fg-default:      #2C1810;
+    -color-fg-muted:        #7A5C4A;
+    -color-accent-fg:       #6B2D1A;
+    -color-accent-emphasis: #6B2D1A;
+    -color-accent-subtle:   #F0E2CC;
+    -color-success-fg:           #2E7D32;
+    -color-success-emphasis:     #2E7D32;
+    -color-danger-fg:            #C62828;
+    -color-danger-emphasis:      #C62828;
+    -color-warning-fg:           #E65100;
+    -color-warning-emphasis:     #E65100;
+    /* Buttons */
+    -color-button-bg:            #EDE0C4;
+    -color-button-fg:            #2C1810;
+    -color-button-border:        #D4B896;
+    -color-button-hover-bg:      #E5D5B0;
+}
+
+/* Accent/primary buttons */
+.button.accent {
+    -fx-background-color: #6B2D1A;
+    -fx-text-fill: #F5ECD7;
+}
+.button.accent:hover {
+    -fx-background-color: #8B3A22;
+}
+
+/* Success buttons */
+.button.success {
+    -fx-background-color: #2E7D32;
+    -fx-text-fill: white;
+}
+
+/* Danger buttons */
+.button.danger {
+    -fx-background-color: #C62828;
+    -fx-text-fill: white;
+}
+
+/* Warning buttons */
+.button.warning {
+    -fx-background-color: #E65100;
+    -fx-text-fill: white;
+}
+
+/* Elevated buttons (default tile style) */
+.button.elevated {
+    -fx-background-color: #EDE0C4;
+    -fx-border-color: #D4B896;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-text-fill: #2C1810;
+}
+.button.elevated:hover {
+    -fx-background-color: #E5D5B0;
+}
+
+/* TableView */
+.table-view {
+    -fx-background-color: #F5ECD7;
+}
+.table-row-cell:even {
+    -fx-background-color: #F5ECD7;
+}
+.table-row-cell:odd {
+    -fx-background-color: #EDE0C4;
+}
+.table-row-cell:selected {
+    -fx-background-color: #D4B896;
+}
+
+/* ScrollBar */
+.scroll-bar .track {
+    -fx-background-color: #EDE0C4;
+}
+.scroll-bar .thumb {
+    -fx-background-color: #A0522D;
+    -fx-background-radius: 4px;
+}
+
+/* TextField */
+.text-input {
+    -fx-background-color: #F5ECD7;
+    -fx-border-color: #D4B896;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-text-fill: #2C1810;
+    -fx-prompt-text-fill: #A0522D;
+}
+.text-input:focused {
+    -fx-border-color: #6B2D1A;
+    -fx-border-width: 2px;
+}
+
+/* TabPane */
+.tab {
+    -fx-background-color: #EDE0C4;
+}
+.tab:selected {
+    -fx-background-color: #6B2D1A;
+}
+.tab:selected .tab-label {
+    -fx-text-fill: #F5ECD7;
+}
+
+/* Separator */
+.separator .line {
+    -fx-border-color: #D4B896;
+}
+
+/* Labels */
+.label {
+    -fx-text-fill: #2C1810;
+}
+.text-muted {
+    -fx-text-fill: #7A5C4A;
+}
