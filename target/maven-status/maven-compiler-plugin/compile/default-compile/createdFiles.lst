@@ -7,6 +7,7 @@ com\cafepos\service\WorkPeriodService.class
 com\cafepos\controllers\ClientsController$10.class
 com\cafepos\controllers\ClientsController$3.class
 com\cafepos\ui\TopupDialog.class
+com\cafepos\model\PrintTicketType.class
 com\cafepos\controllers\StockController$36.class
 com\cafepos\model\ProductIngredientUsage.class
 com\cafepos\controllers\PosController$13.class
@@ -35,6 +36,7 @@ com\cafepos\controllers\StockController$AutoCommitCell.class
 com\cafepos\model\RefundableOrderLine.class
 com\cafepos\hardware\PrinterService$1.class
 com\cafepos\controllers\ProductsController$6.class
+com\cafepos\service\PrintQueueService$1.class
 com\cafepos\controllers\PosController$1.class
 com\cafepos\controllers\SettingsController$1.class
 com\cafepos\controllers\PosController$19.class
@@ -88,7 +90,7 @@ com\cafepos\util\WindowUtils.class
 com\cafepos\controllers\LoginController$1.class
 com\cafepos\ui\CashWithdrawalDialog.class
 com\cafepos\controller\POSController.class
-com\cafepos\util\ToastService$1.class
+com\cafepos\dao\ProductIngredientDAO$IngredientUnitInfo.class
 com\cafepos\controllers\PosController$12.class
 com\cafepos\controllers\PosController$ScanIntent.class
 com\cafepos\hardware\PrinterService.class
@@ -108,6 +110,7 @@ com\cafepos\controllers\StockController$CategoryCell.class
 com\cafepos\controllers\PosController$11.class
 com\cafepos\controllers\PosController$3.class
 com\cafepos\controllers\ProductsController$5.class
+com\cafepos\ui\InvoiceDialog$LineRow.class
 com\cafepos\service\SessionManager.class
 com\cafepos\controllers\BackOfficeController.class
 com\cafepos\controllers\SettingsController$10.class
@@ -126,11 +129,13 @@ com\cafepos\MainApp.class
 com\cafepos\controllers\StockController$25.class
 com\cafepos\controllers\StockController$31.class
 com\cafepos\controllers\SettingsController$3.class
+com\cafepos\ui\PrintTicketDialog.class
 com\cafepos\controllers\ClientsController$9.class
 com\cafepos\ui\CashTenderDialog.class
 com\cafepos\controllers\ProductsController.class
 com\cafepos\model\UserRole.class
 com\cafepos\model\TopItem.class
+com\cafepos\controllers\PosController$29.class
 com\cafepos\ui\ManagerPinDialog.class
 com\cafepos\controllers\StockController$39.class
 com\cafepos\controllers\StockController$RecipeRow.class
@@ -142,6 +147,7 @@ com\cafepos\ui\DiscountDialog$DiscountSelection.class
 com\cafepos\controllers\PosController$16.class
 com\cafepos\controllers\SettingsController$4.class
 com\cafepos\controllers\SettingsController$15.class
+com\cafepos\ui\InvoiceDialog.class
 com\cafepos\ui\QuickNewClientDialog.class
 com\cafepos\util\AppScheduler.class
 com\cafepos\model\OrderHistoryRow.class
@@ -153,6 +159,7 @@ com\cafepos\controllers\StockController$9.class
 com\cafepos\controllers\StockController$33.class
 com\cafepos\controllers\LoginController$LoginContext.class
 com\cafepos\controllers\PosController$10.class
+com\cafepos\util\UiIconHelper$1.class
 com\cafepos\controllers\ProductsController$9.class
 com\cafepos\controllers\PosController$4.class
 com\cafepos\controllers\StockController$41.class
@@ -160,6 +167,7 @@ com\cafepos\service\AdminSessionManager.class
 com\cafepos\controllers\StockController$DoubleConverter.class
 com\cafepos\controllers\LaunchController$Destination.class
 com\cafepos\dao\UserDAO.class
+com\cafepos\util\UiIconHelper.class
 com\cafepos\controllers\StockController.class
 com\cafepos\controllers\ProductsController$3.class
 com\cafepos\ui\PrepaidPaymentDialog$Action.class
@@ -173,7 +181,6 @@ com\cafepos\controllers\StockController$21.class
 com\cafepos\controllers\StockController$40.class
 com\cafepos\controllers\StockController$18.class
 com\cafepos\model\SessionRow.class
-com\cafepos\controllers\LaunchController$3.class
 com\cafepos\controllers\DashboardController$1.class
 com\cafepos\model\ReportRow.class
 com\cafepos\controllers\PosController$15.class
@@ -193,6 +200,7 @@ com\cafepos\util\ToastService$ToastType.class
 com\cafepos\controllers\LoginController.class
 com\cafepos\dao\TagGroupDAO.class
 com\cafepos\ui\BaseDialog.class
+com\cafepos\controllers\StockController$42.class
 com\cafepos\util\BackupService.class
 com\cafepos\controllers\SettingsController$8.class
 com\cafepos\controllers\PosController$8.class
@@ -207,6 +215,7 @@ com\cafepos\db\ConnectionPool.class
 com\cafepos\ui\DiscountDialog.class
 com\cafepos\controllers\SettingsController$19.class
 com\cafepos\controllers\StockController$35.class
+com\cafepos\controllers\StockController$RecipeUnitCell.class
 com\cafepos\controllers\ClientsController$1.class
 com\cafepos\controllers\StockController$15.class
 com\cafepos\controllers\PosController$24.class

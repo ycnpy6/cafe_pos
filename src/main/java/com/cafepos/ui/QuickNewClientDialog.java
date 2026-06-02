@@ -33,8 +33,8 @@ public class QuickNewClientDialog extends Stage {
         initModality(Modality.APPLICATION_MODAL);
         initOwner(owner);
         MainApp.applyAppIcon(this);
-        setWidth(360);
-        setHeight(240);
+        setWidth(420);
+        setHeight(300);
 
         StackPane root = new StackPane();
         root.setPadding(new Insets(12));
@@ -82,7 +82,7 @@ public class QuickNewClientDialog extends Stage {
         panel.getChildren().addAll(title, nameLabel, nameInput, cardLabel, cardInput, messageLabel, actions);
         root.getChildren().add(panel);
 
-        Scene scene = new Scene(root, 360, 240);
+        Scene scene = new Scene(root, 420, 300);
         MainApp.applyBrandTheme(scene);
         scene.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ESCAPE) {

@@ -1,15 +1,22 @@
 package com.cafepos.controllers;
 
 import com.cafepos.model.CashMovementRow;
+import com.cafepos.model.IngredientMovementSummaryRow;
+import com.cafepos.model.IngredientUsageRow;
 import com.cafepos.model.OrderHistoryRow;
+import com.cafepos.model.OrderLineExportRow;
 import com.cafepos.model.OrderLineDetail;
 import com.cafepos.model.PaymentType;
+import com.cafepos.model.PrintTicketType;
 import com.cafepos.model.SalesSummary;
 import com.cafepos.model.SessionRow;
 import com.cafepos.model.TopItem;
 import com.cafepos.service.PrintQueueService;
 import com.cafepos.service.ReportService;
+import com.cafepos.dao.SettingsDAO;
 import com.cafepos.util.FormatUtils;
+import com.cafepos.util.UiIconHelper;
+import com.cafepos.ui.PrintTicketDialog;
 import javafx.collections.FXCollections;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.PieChart;
@@ -36,7 +43,9 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import javafx.util.Duration;
+import org.kordamp.ikonli.javafx.FontIcon;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -50,9 +59,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -61,9 +72,13 @@ public class ReportsController {
     private static final Logger LOG = LoggerFactory.getLogger(ReportsController.class);
     private static final int MAX_TOASTS = 3;
     private static final int TOP_LIMIT = 10;
+    private static final int EXPORT_LIMIT = 9999;
+    private static final DateTimeFormatter EXPORT_DATE = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final String EXPORT_DIR_KEY = "export.default.dir";
 
     private final ReportService reportService = new ReportService();
     private final PrintQueueService printQueueService = PrintQueueService.getInstance();
+    private final SettingsDAO settingsDAO = new SettingsDAO();
 
     private final ObservableList<OrderHistoryRow> historyMaster = FXCollections.observableArrayList();
     private final FilteredList<OrderHistoryRow> historyFiltered = new FilteredList<>(historyMaster, row -> true);
@@ -660,17 +675,23 @@ public class ReportsController {
             showToast("warning", "Selectionnez une commande");
             return;
         }
+        PrintTicketType type = PrintTicketDialog.showDialog(currentStage());
+        if (type == null) {
+            return;
+        }
         Task<Boolean> task = new Task<>() {
             @Override
             protected Boolean call() {
-                return printQueueService.requeueReceiptForOrder(selected.orderId());
+                return type == PrintTicketType.INVOICE
+                        ? printQueueService.queueInvoiceForOrder(selected.orderId())
+                        : printQueueService.requeueReceiptForOrder(selected.orderId());
             }
         };
         task.setOnSucceeded(evt -> {
             if (Boolean.TRUE.equals(task.getValue())) {
-                showToast("success", "Ticket reenfile");
+                showToast("success", "Impression reenfilee");
             } else {
-                showToast("warning", "Ticket introuvable");
+                showToast("warning", "Impression introuvable");
             }
         });
         task.setOnFailed(evt -> {
@@ -682,27 +703,41 @@ public class ReportsController {
         thread.start();
     }
 
+    private Stage currentStage() {
+        if (historyTable == null || historyTable.getScene() == null) {
+            return null;
+        }
+        return (Stage) historyTable.getScene().getWindow();
+    }
+
     @FXML
     private void onExportCsv() {
         List<OrderHistoryRow> rows = new ArrayList<>(historyFiltered);
-        if (rows.isEmpty()) {
+        SalesSummary summary = loadSummarySafe();
+        List<TopItem> topItems = loadTopItemsSafe(EXPORT_LIMIT);
+        List<IngredientUsageRow> topIngredients = loadTopIngredientsSafe(EXPORT_LIMIT);
+        List<IngredientMovementSummaryRow> ingredientMovements = loadIngredientMovementsSafe(EXPORT_LIMIT);
+        List<OrderLineExportRow> orderLines = loadOrderLinesSafe();
+        List<SessionRow> sessions = loadSessionsSafe();
+        List<CashMovementRow> cashMovements = loadCashMovementsSafe();
+
+        if (!hasExportData(rows, topItems, topIngredients, ingredientMovements, orderLines, sessions, cashMovements)) {
             showToast("warning", "Aucune donnee a exporter");
             return;
         }
-        Path path = choosePath("Exporter CSV", "CSV", "*.csv");
+        Path path = choosePath("Exporter CSV", "CSV", "*.csv", "csv");
         if (path == null) {
             return;
         }
         try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-            writer.write("id;date;items;total;cout_ingredients;marge_brute;paiement;client_id;client_nom;utilisateur\n");
-            for (OrderHistoryRow row : rows) {
-                String clientId = row.clientId() == null ? "" : String.valueOf(row.clientId());
-                writer.write(row.orderId() + ";" + escape(row.createdAt()) + ";" + row.itemCount() + ";"
-                        + row.total() + ";" + row.ingredientCost() + ";" + row.grossProfit() + ";"
-                        + row.paymentType().name() + ";" + clientId + ";" + escape(row.clientName()) + ";"
-                        + escape(row.userName()));
-                writer.write("\n");
-            }
+            writeSummarySection(writer, summary);
+            writeTopProductsSection(writer, topItems);
+            writeTopIngredientsSection(writer, topIngredients);
+            writeIngredientMovementsSection(writer, ingredientMovements);
+            writeOrdersSection(writer, rows);
+            writeOrderLinesSection(writer, orderLines);
+            writeSessionsSection(writer, sessions);
+            writeCashMovementsSection(writer, cashMovements);
             showToast("success", "Export CSV termine");
         } catch (Exception ex) {
             LOG.error("Erreur export CSV", ex);
@@ -713,33 +748,33 @@ public class ReportsController {
     @FXML
     private void onExportExcel() {
         List<OrderHistoryRow> rows = new ArrayList<>(historyFiltered);
-        if (rows.isEmpty()) {
+        SalesSummary summary = loadSummarySafe();
+        List<TopItem> topItems = loadTopItemsSafe(EXPORT_LIMIT);
+        List<IngredientUsageRow> topIngredients = loadTopIngredientsSafe(EXPORT_LIMIT);
+        List<IngredientMovementSummaryRow> ingredientMovements = loadIngredientMovementsSafe(EXPORT_LIMIT);
+        List<OrderLineExportRow> orderLines = loadOrderLinesSafe();
+        List<SessionRow> sessions = loadSessionsSafe();
+        List<CashMovementRow> cashMovements = loadCashMovementsSafe();
+
+        if (!hasExportData(rows, topItems, topIngredients, ingredientMovements, orderLines, sessions, cashMovements)) {
             showToast("warning", "Aucune donnee a exporter");
             return;
         }
-        Path path = choosePath("Exporter Excel", "Excel", "*.xls");
+        Path path = choosePath("Exporter Excel", "Excel", "*.xls", "xls");
         if (path == null) {
             return;
         }
         StringBuilder sb = new StringBuilder();
-        sb.append("<html><head><meta charset=\"UTF-8\"></head><body><table border=\"1\">");
-        sb.append("<tr><th>ID</th><th>Date</th><th>Items</th><th>Total</th><th>Cout ingredients</th>"
-            + "<th>Marge brute</th><th>Paiement</th><th>Client ID</th><th>Client</th><th>Utilisateur</th></tr>");
-        for (OrderHistoryRow row : rows) {
-            sb.append("<tr>")
-                    .append("<td>").append(row.orderId()).append("</td>")
-                    .append("<td>").append(escapeHtml(row.createdAt())).append("</td>")
-                    .append("<td>").append(row.itemCount()).append("</td>")
-                    .append("<td>").append(row.total()).append("</td>")
-                .append("<td>").append(row.ingredientCost()).append("</td>")
-                .append("<td>").append(row.grossProfit()).append("</td>")
-                    .append("<td>").append(escapeHtml(row.paymentType().name())).append("</td>")
-                    .append("<td>").append(row.clientId() == null ? "" : row.clientId()).append("</td>")
-                    .append("<td>").append(escapeHtml(row.clientName())).append("</td>")
-                    .append("<td>").append(escapeHtml(row.userName())).append("</td>")
-                    .append("</tr>");
-        }
-        sb.append("</table></body></html>");
+        sb.append("<html><head><meta charset=\"UTF-8\"></head><body>");
+        appendSummaryTable(sb, summary);
+        appendTopProductsTable(sb, topItems);
+        appendTopIngredientsTable(sb, topIngredients);
+        appendIngredientMovementsTable(sb, ingredientMovements);
+        appendOrdersTable(sb, rows);
+        appendOrderLinesTable(sb, orderLines);
+        appendSessionsTable(sb, sessions);
+        appendCashMovementsTable(sb, cashMovements);
+        sb.append("</body></html>");
         try {
             Files.writeString(path, sb.toString(), StandardCharsets.UTF_8);
             showToast("success", "Export Excel termine");
@@ -752,11 +787,16 @@ public class ReportsController {
     @FXML
     private void onExportPdf() {
         List<OrderHistoryRow> rows = new ArrayList<>(historyFiltered);
-        if (rows.isEmpty()) {
+        SalesSummary summary = loadSummarySafe();
+        List<TopItem> topItems = loadTopItemsSafe(TOP_LIMIT);
+        List<IngredientUsageRow> topIngredients = loadTopIngredientsSafe(TOP_LIMIT);
+        List<IngredientMovementSummaryRow> ingredientMovements = loadIngredientMovementsSafe(TOP_LIMIT);
+
+        if (!hasExportData(rows, topItems, topIngredients, ingredientMovements, List.of(), List.of(), List.of())) {
             showToast("warning", "Aucune donnee a exporter");
             return;
         }
-        Path path = choosePath("Exporter PDF", "PDF", "*.pdf");
+        Path path = choosePath("Exporter PDF", "PDF", "*.pdf", "pdf");
         if (path == null) {
             return;
         }
@@ -770,11 +810,53 @@ public class ReportsController {
 
             try (PDPageContentStream content = new PDPageContentStream(doc, page)) {
                 y = writePdfLine(content, y, 14, "Rapport ventes " + rangeStart + " -> " + rangeEnd);
-                y = writePdfLine(content, y, 11, "Total: " + kpiTotalLabel.getText()
-                        + " | Commandes: " + kpiOrdersLabel.getText()
-                        + " | Net: " + kpiNetRevenueLabel.getText());
+                y = writePdfLine(content, y, 11, "Total: " + FormatUtils.formatMoney(summary.total())
+                        + " | Commandes: " + summary.orderCount()
+                        + " | Net: " + FormatUtils.formatMoney(summary.netRevenue()));
                 y -= 6;
 
+                y = writePdfLine(content, y, 11, "Top produits vendus");
+                y = writePdfLine(content, y, 10, "# | Produit | Qte | CA");
+                int rank = 1;
+                for (TopItem item : topItems) {
+                    y = writePdfLine(content, y, 9, rank + " | " + safePdf(item.name()) + " | "
+                            + item.quantity() + " | " + String.format("%.2f", item.revenue()));
+                    rank++;
+                    if (y < 120) {
+                        break;
+                    }
+                }
+                y -= 4;
+
+                y = writePdfLine(content, y, 11, "Ingredients utilises (ventes)");
+                y = writePdfLine(content, y, 10, "# | Ingredient | Unite | Qte | Cout");
+                rank = 1;
+                for (IngredientUsageRow row : topIngredients) {
+                    y = writePdfLine(content, y, 9, rank + " | " + safePdf(row.name()) + " | "
+                            + safePdf(row.unit()) + " | " + String.format("%.2f", row.quantity())
+                            + " | " + String.format("%.2f", row.totalCost()));
+                    rank++;
+                    if (y < 120) {
+                        break;
+                    }
+                }
+                y -= 4;
+
+                y = writePdfLine(content, y, 11, "Mouvements ingredients (stock)");
+                y = writePdfLine(content, y, 10, "# | Ingredient | In | Out | Net");
+                rank = 1;
+                for (IngredientMovementSummaryRow row : ingredientMovements) {
+                    y = writePdfLine(content, y, 9, rank + " | " + safePdf(row.name()) + " | "
+                            + String.format("%.2f", row.inflow()) + " | "
+                            + String.format("%.2f", row.outflow()) + " | "
+                            + String.format("%.2f", row.net()));
+                    rank++;
+                    if (y < 120) {
+                        break;
+                    }
+                }
+
+                y -= 6;
                 y = writePdfLine(content, y, 10, "# | Date | Total | Paiement | Client | Utilisateur");
                 y = writePdfLine(content, y, 10, "-----------------------------------------------------------------------");
 
@@ -802,6 +884,288 @@ public class ReportsController {
         }
     }
 
+    private SalesSummary loadSummarySafe() {
+        try {
+            return reportService.getSummary(rangeStart, rangeEnd);
+        } catch (Exception ex) {
+            LOG.error("Erreur chargement summary", ex);
+            return new SalesSummary(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+    }
+
+    private List<TopItem> loadTopItemsSafe(int limit) {
+        try {
+            return reportService.getTopItems(rangeStart, rangeEnd, limit);
+        } catch (Exception ex) {
+            LOG.error("Erreur chargement top items", ex);
+            return List.of();
+        }
+    }
+
+    private List<IngredientUsageRow> loadTopIngredientsSafe(int limit) {
+        try {
+            return reportService.getTopIngredientsBySales(rangeStart, rangeEnd, limit);
+        } catch (Exception ex) {
+            LOG.error("Erreur chargement ingredients", ex);
+            return List.of();
+        }
+    }
+
+    private List<IngredientMovementSummaryRow> loadIngredientMovementsSafe(int limit) {
+        try {
+            return reportService.getIngredientMovementSummary(rangeStart, rangeEnd, limit);
+        } catch (Exception ex) {
+            LOG.error("Erreur chargement mouvements ingredients", ex);
+            return List.of();
+        }
+    }
+
+    private List<OrderLineExportRow> loadOrderLinesSafe() {
+        try {
+            return reportService.getOrderLineExports(rangeStart, rangeEnd);
+        } catch (Exception ex) {
+            LOG.error("Erreur chargement lignes", ex);
+            return List.of();
+        }
+    }
+
+    private List<SessionRow> loadSessionsSafe() {
+        try {
+            return reportService.getSessions(rangeStart, rangeEnd);
+        } catch (Exception ex) {
+            LOG.error("Erreur chargement sessions", ex);
+            return List.of();
+        }
+    }
+
+    private List<CashMovementRow> loadCashMovementsSafe() {
+        try {
+            return reportService.getCashMovements(rangeStart, rangeEnd);
+        } catch (Exception ex) {
+            LOG.error("Erreur chargement mouvements caisse", ex);
+            return List.of();
+        }
+    }
+
+    private void writeSummarySection(BufferedWriter writer, SalesSummary summary) throws Exception {
+        writer.write("SECTION;Summary\n");
+        writer.write("start;end;total;orders;cash;prepaid;ingredient_cost;gross_profit;withdrawals;net_revenue\n");
+        writer.write(rangeStart + ";" + rangeEnd + ";" + summary.total() + ";" + summary.orderCount() + ";"
+                + summary.cashTotal() + ";" + summary.prepaidTotal() + ";" + summary.ingredientCost() + ";"
+                + summary.grossProfit() + ";" + summary.cashWithdrawals() + ";" + summary.netRevenue() + "\n\n");
+    }
+
+    private void writeTopProductsSection(BufferedWriter writer, List<TopItem> items) throws Exception {
+        writer.write("SECTION;Top Products\n");
+        writer.write("rank;product;quantity;revenue\n");
+        int rank = 1;
+        for (TopItem item : items) {
+            writer.write(rank++ + ";" + escape(item.name()) + ";" + item.quantity() + ";" + item.revenue() + "\n");
+        }
+        writer.write("\n");
+    }
+
+    private void writeTopIngredientsSection(BufferedWriter writer, List<IngredientUsageRow> items) throws Exception {
+        writer.write("SECTION;Top Ingredients (Sales)\n");
+        writer.write("rank;ingredient;unit;quantity;total_cost\n");
+        int rank = 1;
+        for (IngredientUsageRow row : items) {
+            writer.write(rank++ + ";" + escape(row.name()) + ";" + escape(row.unit()) + ";"
+                    + row.quantity() + ";" + row.totalCost() + "\n");
+        }
+        writer.write("\n");
+    }
+
+    private void writeIngredientMovementsSection(BufferedWriter writer, List<IngredientMovementSummaryRow> rows)
+            throws Exception {
+        writer.write("SECTION;Ingredient Movements\n");
+        writer.write("rank;ingredient;unit;inflow;outflow;net;total_cost\n");
+        int rank = 1;
+        for (IngredientMovementSummaryRow row : rows) {
+            writer.write(rank++ + ";" + escape(row.name()) + ";" + escape(row.unit()) + ";"
+                    + row.inflow() + ";" + row.outflow() + ";" + row.net() + ";" + row.totalCost() + "\n");
+        }
+        writer.write("\n");
+    }
+
+    private void writeOrdersSection(BufferedWriter writer, List<OrderHistoryRow> rows) throws Exception {
+        writer.write("SECTION;Orders\n");
+        writer.write("id;date;items;total;ingredient_cost;gross_profit;payment;client_id;client_name;user\n");
+        for (OrderHistoryRow row : rows) {
+            String clientId = row.clientId() == null ? "" : String.valueOf(row.clientId());
+            writer.write(row.orderId() + ";" + escape(row.createdAt()) + ";" + row.itemCount() + ";"
+                    + row.total() + ";" + row.ingredientCost() + ";" + row.grossProfit() + ";"
+                    + row.paymentType().name() + ";" + clientId + ";" + escape(row.clientName()) + ";"
+                    + escape(row.userName()));
+            writer.write("\n");
+        }
+        writer.write("\n");
+    }
+
+    private void writeOrderLinesSection(BufferedWriter writer, List<OrderLineExportRow> rows) throws Exception {
+        writer.write("SECTION;Order Lines\n");
+        writer.write("order_id;date;product;quantity;unit_price;line_total;tags;payment;client_id;client;user\n");
+        for (OrderLineExportRow row : rows) {
+            String clientId = row.clientId() == null ? "" : String.valueOf(row.clientId());
+            writer.write(row.orderId() + ";" + escape(row.createdAt()) + ";" + escape(row.productName()) + ";"
+                    + row.quantity() + ";" + row.unitPrice() + ";" + row.lineTotal() + ";"
+                    + escape(row.tags()) + ";" + escape(row.paymentType()) + ";" + clientId + ";"
+                    + escape(row.clientName()) + ";" + escape(row.userName()) + "\n");
+        }
+        writer.write("\n");
+    }
+
+    private void writeSessionsSection(BufferedWriter writer, List<SessionRow> rows) throws Exception {
+        writer.write("SECTION;Sessions\n");
+        writer.write("id;opened_at;closed_at;orders;total;cash;prepaid;mode\n");
+        for (SessionRow row : rows) {
+            writer.write(row.sessionId() + ";" + escape(row.openedAt()) + ";" + escape(row.closedAt()) + ";"
+                    + row.orderCount() + ";" + row.total() + ";" + row.cashTotal() + ";"
+                    + row.prepaidTotal() + ";" + escape(row.closeMode()) + "\n");
+        }
+        writer.write("\n");
+    }
+
+    private void writeCashMovementsSection(BufferedWriter writer, List<CashMovementRow> rows) throws Exception {
+        writer.write("SECTION;Cash Movements\n");
+        writer.write("date;type;category;amount;user;note\n");
+        for (CashMovementRow row : rows) {
+            writer.write(escape(row.createdAt()) + ";" + escape(row.movementType()) + ";"
+                    + escape(row.category()) + ";" + row.amount() + ";"
+                    + escape(row.userName()) + ";" + escape(row.description()) + "\n");
+        }
+        writer.write("\n");
+    }
+
+    private void appendSummaryTable(StringBuilder sb, SalesSummary summary) {
+        sb.append("<h3>Summary</h3><table border=\"1\">")
+                .append("<tr><th>Start</th><th>End</th><th>Total</th><th>Orders</th><th>Cash</th><th>Prepaid</th>"
+                        + "<th>Ingredient Cost</th><th>Gross Profit</th><th>Withdrawals</th><th>Net Revenue</th></tr>")
+                .append("<tr><td>").append(rangeStart).append("</td><td>").append(rangeEnd).append("</td><td>")
+                .append(summary.total()).append("</td><td>").append(summary.orderCount()).append("</td><td>")
+                .append(summary.cashTotal()).append("</td><td>").append(summary.prepaidTotal()).append("</td><td>")
+                .append(summary.ingredientCost()).append("</td><td>").append(summary.grossProfit()).append("</td><td>")
+                .append(summary.cashWithdrawals()).append("</td><td>").append(summary.netRevenue()).append("</td></tr>")
+                .append("</table>");
+    }
+
+    private void appendTopProductsTable(StringBuilder sb, List<TopItem> items) {
+        sb.append("<h3>Top Products</h3><table border=\"1\">")
+                .append("<tr><th>Rank</th><th>Product</th><th>Quantity</th><th>Revenue</th></tr>");
+        int rank = 1;
+        for (TopItem item : items) {
+            sb.append("<tr><td>").append(rank++).append("</td><td>").append(escapeHtml(item.name()))
+                    .append("</td><td>").append(item.quantity()).append("</td><td>")
+                    .append(item.revenue()).append("</td></tr>");
+        }
+        sb.append("</table>");
+    }
+
+    private void appendTopIngredientsTable(StringBuilder sb, List<IngredientUsageRow> rows) {
+        sb.append("<h3>Top Ingredients (Sales)</h3><table border=\"1\">")
+                .append("<tr><th>Rank</th><th>Ingredient</th><th>Unit</th><th>Quantity</th><th>Total Cost</th></tr>");
+        int rank = 1;
+        for (IngredientUsageRow row : rows) {
+            sb.append("<tr><td>").append(rank++).append("</td><td>").append(escapeHtml(row.name()))
+                    .append("</td><td>").append(escapeHtml(row.unit())).append("</td><td>")
+                    .append(row.quantity()).append("</td><td>").append(row.totalCost()).append("</td></tr>");
+        }
+        sb.append("</table>");
+    }
+
+    private void appendIngredientMovementsTable(StringBuilder sb, List<IngredientMovementSummaryRow> rows) {
+        sb.append("<h3>Ingredient Movements</h3><table border=\"1\">")
+                .append("<tr><th>Rank</th><th>Ingredient</th><th>Unit</th><th>Inflow</th><th>Outflow</th>"
+                        + "<th>Net</th><th>Total Cost</th></tr>");
+        int rank = 1;
+        for (IngredientMovementSummaryRow row : rows) {
+            sb.append("<tr><td>").append(rank++).append("</td><td>").append(escapeHtml(row.name()))
+                    .append("</td><td>").append(escapeHtml(row.unit())).append("</td><td>")
+                    .append(row.inflow()).append("</td><td>").append(row.outflow()).append("</td><td>")
+                    .append(row.net()).append("</td><td>").append(row.totalCost()).append("</td></tr>");
+        }
+        sb.append("</table>");
+    }
+
+    private void appendOrdersTable(StringBuilder sb, List<OrderHistoryRow> rows) {
+        sb.append("<h3>Orders</h3><table border=\"1\">")
+                .append("<tr><th>ID</th><th>Date</th><th>Items</th><th>Total</th><th>Ingredient Cost</th>"
+                        + "<th>Gross Profit</th><th>Payment</th><th>Client ID</th><th>Client</th><th>User</th></tr>");
+        for (OrderHistoryRow row : rows) {
+            sb.append("<tr>")
+                    .append("<td>").append(row.orderId()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.createdAt())).append("</td>")
+                    .append("<td>").append(row.itemCount()).append("</td>")
+                    .append("<td>").append(row.total()).append("</td>")
+                    .append("<td>").append(row.ingredientCost()).append("</td>")
+                    .append("<td>").append(row.grossProfit()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.paymentType().name())).append("</td>")
+                    .append("<td>").append(row.clientId() == null ? "" : row.clientId()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.clientName())).append("</td>")
+                    .append("<td>").append(escapeHtml(row.userName())).append("</td>")
+                    .append("</tr>");
+        }
+        sb.append("</table>");
+    }
+
+    private void appendOrderLinesTable(StringBuilder sb, List<OrderLineExportRow> rows) {
+        sb.append("<h3>Order Lines</h3><table border=\"1\">")
+                .append("<tr><th>Order ID</th><th>Date</th><th>Product</th><th>Qty</th><th>Unit Price</th>"
+                        + "<th>Line Total</th><th>Tags</th><th>Payment</th><th>Client ID</th><th>Client</th>"
+                        + "<th>User</th></tr>");
+        for (OrderLineExportRow row : rows) {
+            sb.append("<tr>")
+                    .append("<td>").append(row.orderId()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.createdAt())).append("</td>")
+                    .append("<td>").append(escapeHtml(row.productName())).append("</td>")
+                    .append("<td>").append(row.quantity()).append("</td>")
+                    .append("<td>").append(row.unitPrice()).append("</td>")
+                    .append("<td>").append(row.lineTotal()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.tags())).append("</td>")
+                    .append("<td>").append(escapeHtml(row.paymentType())).append("</td>")
+                    .append("<td>").append(row.clientId() == null ? "" : row.clientId()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.clientName())).append("</td>")
+                    .append("<td>").append(escapeHtml(row.userName())).append("</td>")
+                    .append("</tr>");
+        }
+        sb.append("</table>");
+    }
+
+    private void appendSessionsTable(StringBuilder sb, List<SessionRow> rows) {
+        sb.append("<h3>Sessions</h3><table border=\"1\">")
+                .append("<tr><th>ID</th><th>Opened</th><th>Closed</th><th>Orders</th><th>Total</th><th>Cash</th>"
+                        + "<th>Prepaid</th><th>Mode</th></tr>");
+        for (SessionRow row : rows) {
+            sb.append("<tr>")
+                    .append("<td>").append(row.sessionId()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.openedAt())).append("</td>")
+                    .append("<td>").append(escapeHtml(row.closedAt())).append("</td>")
+                    .append("<td>").append(row.orderCount()).append("</td>")
+                    .append("<td>").append(row.total()).append("</td>")
+                    .append("<td>").append(row.cashTotal()).append("</td>")
+                    .append("<td>").append(row.prepaidTotal()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.closeMode())).append("</td>")
+                    .append("</tr>");
+        }
+        sb.append("</table>");
+    }
+
+    private void appendCashMovementsTable(StringBuilder sb, List<CashMovementRow> rows) {
+        sb.append("<h3>Cash Movements</h3><table border=\"1\">")
+                .append("<tr><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>User</th><th>Note</th></tr>");
+        for (CashMovementRow row : rows) {
+            sb.append("<tr>")
+                    .append("<td>").append(escapeHtml(row.createdAt())).append("</td>")
+                    .append("<td>").append(escapeHtml(row.movementType())).append("</td>")
+                    .append("<td>").append(escapeHtml(row.category())).append("</td>")
+                    .append("<td>").append(row.amount()).append("</td>")
+                    .append("<td>").append(escapeHtml(row.userName())).append("</td>")
+                    .append("<td>").append(escapeHtml(row.description())).append("</td>")
+                    .append("</tr>");
+        }
+        sb.append("</table>");
+    }
+
     private float writePdfLine(PDPageContentStream content, float y, int size, String text) throws Exception {
         content.beginText();
         content.setFont(PDType1Font.HELVETICA, size);
@@ -818,10 +1182,15 @@ public class ReportsController {
         return value.replace("\n", " ").replace("\r", " ");
     }
 
-    private Path choosePath(String title, String label, String extension) {
+    private Path choosePath(String title, String label, String extension, String extensionName) {
         FileChooser chooser = new FileChooser();
         chooser.setTitle(title);
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(label, extension));
+        Path exportDir = resolveExportDir();
+        if (exportDir != null && Files.isDirectory(exportDir)) {
+            chooser.setInitialDirectory(exportDir.toFile());
+        }
+        chooser.setInitialFileName(suggestExportFileName(extensionName, exportDir));
         if (historyTable.getScene() == null) {
             return null;
         }
@@ -829,7 +1198,68 @@ public class ReportsController {
         if (file == null) {
             return null;
         }
+        rememberExportDir(file.toPath());
         return file.toPath();
+    }
+
+    private String suggestExportFileName(String extension, Path exportDir) {
+        String date = LocalDate.now().format(EXPORT_DATE);
+        String ext = extension == null ? "" : extension.trim();
+        if (!ext.startsWith(".")) {
+            ext = "." + ext;
+        }
+        int index = 1;
+        while (exportDir != null) {
+            String candidate = "cg_" + date + index + ext;
+            if (!Files.exists(exportDir.resolve(candidate))) {
+                return candidate;
+            }
+            index++;
+        }
+        return "cg_" + date + index + ext;
+    }
+
+    private boolean hasExportData(List<OrderHistoryRow> orders,
+                                  List<TopItem> topItems,
+                                  List<IngredientUsageRow> ingredients,
+                                  List<IngredientMovementSummaryRow> movements,
+                                  List<OrderLineExportRow> orderLines,
+                                  List<SessionRow> sessions,
+                                  List<CashMovementRow> cashMovements) {
+        return (orders != null && !orders.isEmpty())
+                || (topItems != null && !topItems.isEmpty())
+                || (ingredients != null && !ingredients.isEmpty())
+                || (movements != null && !movements.isEmpty())
+                || (orderLines != null && !orderLines.isEmpty())
+                || (sessions != null && !sessions.isEmpty())
+                || (cashMovements != null && !cashMovements.isEmpty());
+    }
+
+    private Path resolveExportDir() {
+        try {
+            String value = settingsDAO.getValue(EXPORT_DIR_KEY);
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            return Path.of(value.trim());
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private void rememberExportDir(Path file) {
+        if (file == null) {
+            return;
+        }
+        Path parent = file.getParent();
+        if (parent == null) {
+            return;
+        }
+        try {
+            settingsDAO.setValue(EXPORT_DIR_KEY, parent.toString());
+        } catch (Exception ex) {
+            LOG.warn("Impossible de sauvegarder le dossier export", ex);
+        }
     }
 
     private String escape(String value) {
@@ -878,7 +1308,8 @@ public class ReportsController {
         if (type != null && !type.isBlank()) {
             toast.getStyleClass().add(type);
         }
-        Label icon = new Label(iconFor(type));
+        FontIcon icon = UiIconHelper.statusIcon(type, 18);
+        icon.setStyle("-fx-icon-color: " + toastColor(type) + ";");
         Label text = new Label(message == null ? "" : message);
         text.setWrapText(true);
         toast.getChildren().addAll(icon, text);
@@ -900,12 +1331,13 @@ public class ReportsController {
         fade.play();
     }
 
-    private String iconFor(String type) {
-        return switch (type == null ? "" : type) {
-            case "success" -> "OK";
-            case "error" -> "X";
-            case "warning" -> "!";
-            default -> "i";
+    private String toastColor(String type) {
+        String normalized = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "success" -> "-color-success-emphasis";
+            case "warning" -> "-color-warning-emphasis";
+            case "error", "danger" -> "-color-danger-emphasis";
+            default -> "-color-accent-emphasis";
         };
     }
 

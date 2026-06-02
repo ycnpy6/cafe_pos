@@ -13,6 +13,7 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 public final class ToastService {
     public enum ToastType {
@@ -119,8 +120,8 @@ public final class ToastService {
         marker.setMinHeight(24);
         marker.setStyle("-fx-background-color: " + colorFor(type) + "; -fx-background-radius: 2px;");
 
-        Label icon = new Label(iconFor(type));
-        icon.setStyle("-fx-font-size: 14px; -fx-text-fill: " + colorFor(type) + ";");
+        FontIcon icon = UiIconHelper.toastIcon(type, 18);
+        icon.setStyle("-fx-icon-color: " + colorFor(type) + ";");
 
         Label text = new Label(message);
         text.setWrapText(true);
@@ -141,15 +142,6 @@ public final class ToastService {
             }
         });
         fade.play();
-    }
-
-    private String iconFor(ToastType type) {
-        return switch (type) {
-            case SUCCESS -> "✓";
-            case WARNING -> "⚠";
-            case DANGER -> "✕";
-            case INFO -> "i";
-        };
     }
 
     private String colorFor(ToastType type) {

@@ -101,4 +101,29 @@ public class UserDAO {
         }
         return null;
     }
+
+    public User findByPinAndMinRole(String pinHash, UserRole minRole) throws Exception {
+        if (minRole == UserRole.MANAGER) {
+            return findByPinAndRole(pinHash, UserRole.MANAGER);
+        }
+
+        String sql = "SELECT id, name, pin, role FROM users WHERE pin = ? AND role IN (?, ?) LIMIT 1";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, pinHash);
+            ps.setString(2, UserRole.BARISTA.name());
+            ps.setString(3, UserRole.MANAGER.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new User(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getString("pin"),
+                            UserRole.valueOf(rs.getString("role"))
+                    );
+                }
+            }
+        }
+        return null;
+    }
 }

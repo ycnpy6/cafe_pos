@@ -97,11 +97,13 @@ public class OrderService {
                     continue;
                 }
                 for (ProductIngredientUsage usage : recipeLines) {
-                    double required = usage.quantityPerProduct() * line.getQuantity();
-                    if (required <= 0) {
+                    double requiredBase = usage.quantityBase() * line.getQuantity();
+                    if (requiredBase <= 0) {
                         continue;
                     }
-                    requiredIngredients.merge(usage.ingredientId(), required, Double::sum);
+                    double factor = usage.unitFactor() <= 0 ? 1.0 : usage.unitFactor();
+                    double requiredDisplay = requiredBase / factor;
+                    requiredIngredients.merge(usage.ingredientId(), requiredDisplay, Double::sum);
                 }
             }
 
@@ -232,11 +234,13 @@ public class OrderService {
                     List<ProductIngredientUsage> recipeLines =
                             productIngredientDAO.findRecipeByProduct(conn, selection.productId());
                     for (ProductIngredientUsage usage : recipeLines) {
-                        double restoredQty = usage.quantityPerProduct() * selection.quantity();
-                        if (restoredQty <= 0) {
+                        double restoredBase = usage.quantityBase() * selection.quantity();
+                        if (restoredBase <= 0) {
                             continue;
                         }
-                        restoredIngredients.merge(usage.ingredientId(), restoredQty, Double::sum);
+                        double factor = usage.unitFactor() <= 0 ? 1.0 : usage.unitFactor();
+                        double restoredDisplay = restoredBase / factor;
+                        restoredIngredients.merge(usage.ingredientId(), restoredDisplay, Double::sum);
                     }
                 }
             }

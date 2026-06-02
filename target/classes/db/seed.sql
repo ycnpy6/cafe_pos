@@ -1,11 +1,11 @@
 -- CATEGORIES
-INSERT OR IGNORE INTO categories (id, name, color, sort_order) VALUES
-(1, 'Hot Beverages',  '#6B2D1A', 1),
-(2, 'Cold Beverages', '#1A4A6B', 2),
-(3, 'Sweets',         '#A0522D', 3),
-(4, 'Salties',        '#7A4A1A', 4),
-(5, 'Cards',          '#2E5A2E', 5),
-(6, 'Additions',      '#4A3A6B', 6);
+INSERT OR IGNORE INTO categories (id, name, color, icon, icon_code, sort_order) VALUES
+(1, 'Hot Beverages',  '#6B2D1A', 'HOT',  'mdi2c-coffee',               1),
+(2, 'Cold Beverages', '#1A4A6B', 'COLD', 'mdi2g-glass-cocktail',       2),
+(3, 'Sweets',         '#A0522D', 'SWT',  'mdi2c-cake-variant',         3),
+(4, 'Salties',        '#7A4A1A', 'SAL',  'mdi2f-food',                 4),
+(5, 'Cards',          '#2E5A2E', 'CARD', 'mdi2c-credit-card-outline',  5),
+(6, 'Additions',      '#4A3A6B', 'ADD',  'mdi2p-plus-box-outline',     6);
 
 -- HOT BEVERAGES (category_id=1, is_prepared=1)
 INSERT OR IGNORE INTO products (name, price, cost, category_id, stock, active, is_prepared) VALUES

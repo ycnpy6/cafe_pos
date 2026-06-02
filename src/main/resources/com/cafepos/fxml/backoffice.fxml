@@ -6,6 +6,8 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.cafepos.controllers.BackOfficeController">
@@ -15,12 +17,54 @@
                 <Insets top="16" right="12" bottom="16" left="12"/>
             </padding>
             <Label text="Back-office" styleClass="title"/>
-            <Button text="🏠 Dashboard" onAction="#onShowDashboard" styleClass="action-button"/>
-            <Button text="📦 Stock" onAction="#onShowStock" styleClass="action-button"/>
-            <Button text="👥 Clients" onAction="#onShowCustomers" styleClass="action-button"/>
-            <Button text="📊 Rapports (Admin)" onAction="#onShowReports" styleClass="action-button"/>
-            <Button text="⚙ Parametres" onAction="#onShowSettings" styleClass="action-button"/>
-            <Button text="🛒 Retour POS" onAction="#onBackToPos" styleClass="action-button"/>
+            <Button onAction="#onShowDashboard" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2v-view-dashboard" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Dashboard"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button onAction="#onShowStock" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2p-package-variant" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Stock"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button onAction="#onShowCustomers" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2a-account-group" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Clients"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button onAction="#onShowReports" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2c-chart-bar" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Rapports (Admin)"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button onAction="#onShowSettings" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2c-cog" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Parametres"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button onAction="#onBackToPos" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2a-arrow-left" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Retour POS"/>
+                    </HBox>
+                </graphic>
+            </Button>
         </VBox>
     </left>
     <center>

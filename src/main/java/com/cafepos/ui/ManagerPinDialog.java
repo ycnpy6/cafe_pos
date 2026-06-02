@@ -1,5 +1,6 @@
 package com.cafepos.ui;
 
+import com.cafepos.util.UiIconHelper;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
@@ -9,6 +10,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 public class ManagerPinDialog extends BaseDialog {
     private final PasswordField pinInput = new PasswordField();
@@ -31,8 +33,10 @@ public class ManagerPinDialog extends BaseDialog {
     protected VBox buildContent() {
         VBox root = new VBox(10);
 
+        FontIcon icon = UiIconHelper.makeIcon("mdi2l-lock", 18, "#6B2D1A");
         Label title = new Label("PIN administrateur");
         title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        HBox titleRow = new HBox(8, icon, title);
 
         Label subtitle = new Label("Veuillez confirmer l'opération");
         subtitle.getStyleClass().add("text-muted");
@@ -65,7 +69,7 @@ public class ManagerPinDialog extends BaseDialog {
 
         actions.getChildren().addAll(cancel, confirm);
 
-        root.getChildren().addAll(title, subtitle, pinInput, errorLabel, spacer, actions);
+        root.getChildren().addAll(titleRow, subtitle, pinInput, errorLabel, spacer, actions);
 
         root.sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene != null) {

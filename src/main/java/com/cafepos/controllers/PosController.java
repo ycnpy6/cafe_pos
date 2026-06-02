@@ -22,6 +22,7 @@ import com.cafepos.model.PaymentType;
 import com.cafepos.model.PosOrderSummary;
 import com.cafepos.model.Product;
 import com.cafepos.model.ProductIngredientUsage;
+import com.cafepos.model.PrintTicketType;
 import com.cafepos.model.RefundLineSelection;
 import com.cafepos.model.RefundableOrderLine;
 import com.cafepos.model.Tag;
@@ -37,8 +38,10 @@ import com.cafepos.service.AdminSessionManager;
 import com.cafepos.ui.CashTenderDialog;
 import com.cafepos.ui.CashWithdrawalDialog;
 import com.cafepos.ui.DiscountDialog;
+import com.cafepos.ui.InvoiceDialog;
 import com.cafepos.ui.ManagerPinDialog;
 import com.cafepos.ui.PrepaidPaymentDialog;
+import com.cafepos.ui.PrintTicketDialog;
 import com.cafepos.ui.TopupCardDialog;
 import com.cafepos.ui.QuickNewClientDialog;
 import com.cafepos.ui.TopupDialog;
@@ -46,6 +49,7 @@ import com.cafepos.util.FormatUtils;
 import com.cafepos.util.IdleMonitor;
 import com.cafepos.util.SecurityUtils;
 import com.cafepos.util.ToastService;
+import com.cafepos.util.UiIconHelper;
 import com.cafepos.util.WindowUtils;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
@@ -67,9 +71,11 @@ import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -77,8 +83,11 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import javafx.scene.paint.Color;
+import org.kordamp.ikonli.javafx.FontIcon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,9 +108,9 @@ public class PosController {
     private static final String RFID_MODE_KEY = "rfid.mode";
     private static final String RFID_DEVICE_NAME_KEY = "rfid.device.name";
     private static final String RFID_MODE_DISABLED = "DISABLED";
-    private static final String PREPAID_SCAN_LABEL = "📡 Scanner la carte…";
-    private static final String PREPAID_DEFAULT_LABEL = "Prépayé\nF12";
-    private static final String RFID_WAITING_STATUS = "En attente de la carte RFID…";
+    private static final String PREPAID_SCAN_LABEL = "Scanner la carte...";
+    private static final String PREPAID_DEFAULT_LABEL = "Prépayé";
+    private static final String RFID_WAITING_STATUS = "Scanner la carte...";
 
     private enum PosMode {
         NORMAL,
@@ -135,6 +144,7 @@ public class PosController {
     private final List<TagControl> tagControls = new ArrayList<>();
     private final Map<Integer, String> categoryColors = new HashMap<>();
     private final Map<Integer, Category> categoriesById = new HashMap<>();
+    private final Map<Integer, String> categoryIcons = new HashMap<>();
     private final Map<Integer, Boolean> preparedLowStockWarnings = new HashMap<>();
 
     private Customer currentCustomer;
@@ -150,9 +160,11 @@ public class PosController {
     private ScanIntent pendingScanIntent = ScanIntent.NONE;
     private PauseTransition scanTimeout;
     private Timeline prepaidPulseTimeline;
+    private Timeline rfidScanPulseTimeline;
     private boolean rfidCaptureEnabled = true;
     private String prepaidDefaultStyle = "";
     private String prepaidDefaultText = PREPAID_DEFAULT_LABEL;
+    private Label prepaidLabel;
 
     @FXML
     private StackPane rootStack;
@@ -167,6 +179,8 @@ public class PosController {
     @FXML
     private Label lblWorkPeriod;
     @FXML
+    private Button btnHome;
+    @FXML
     private Label lblPrintQueue;
     @FXML
     private VBox categoryBar;
@@ -174,6 +188,8 @@ public class PosController {
     private VBox categoryTabsBar;
     @FXML
     private VBox categoryTabsContainer;
+    @FXML
+    private FlowPane operationBar;
     @FXML
     private FlowPane productGrid;
     @FXML
@@ -228,6 +244,10 @@ public class PosController {
     private Label customerBalanceLabel;
     @FXML
     private Label rfidBalance;
+    @FXML
+    private Label rfidIcon;
+    @FXML
+    private Button btnDetachRfid;
     @FXML
     private TextField rfidField;
 
@@ -299,6 +319,10 @@ public class PosController {
     private VBox waitingRowsBox;
     @FXML
     private Label waitingCountBadge;
+    @FXML
+    private VBox rfidScanZone;
+    @FXML
+    private Label rfidScanLabel;
 
     @FXML
     private VBox refundDialog;
@@ -379,11 +403,15 @@ public class PosController {
     @FXML
     private void initialize() {
         bindLayoutAliases();
+        configureOperationBar();
+        configurePaymentButtons();
+        configureRfidIcons();
+        configureTopBarIcons();
         if (btnPrepaid != null) {
             prepaidDefaultStyle = btnPrepaid.getStyle() == null ? "" : btnPrepaid.getStyle();
-            prepaidDefaultText = btnPrepaid.getText() == null || btnPrepaid.getText().isBlank()
+            prepaidDefaultText = prepaidLabel == null || prepaidLabel.getText() == null || prepaidLabel.getText().isBlank()
                     ? PREPAID_DEFAULT_LABEL
-                    : btnPrepaid.getText();
+                    : prepaidLabel.getText();
         }
         ToastService.install(rootStack, statusBar);
         loadLowStockThreshold();
@@ -525,6 +553,110 @@ public class PosController {
         }
     }
 
+    private void configureOperationBar() {
+        if (operationBar == null) {
+            return;
+        }
+        operationBar.getChildren().clear();
+
+        Button btnNew = UiIconHelper.makeOpButton("mdi2p-plus-circle", "Nouvelle commande", "elevated", 68, 72);
+        btnNew.setId("btnNew");
+        btnNew.setOnAction(evt -> onNewOrder());
+
+        Button btnCancel = UiIconHelper.makeOpButton("mdi2c-close-circle", "Annuler", "danger", 68, 72);
+        btnCancel.setId("btnCancel");
+        btnCancel.setOnAction(evt -> onCancelOrder());
+
+        Button btnHoldOp = UiIconHelper.makeOpButton("mdi2p-pause-circle", "Attente", "warning", 68, 72);
+        btnHoldOp.setId("btnHold");
+        btnHoldOp.setOnAction(evt -> onHoldOrder());
+
+        Button btnDiscountOp = UiIconHelper.makeOpButton("mdi2p-percent", "Remise", "elevated", 68, 72);
+        btnDiscountOp.setId("btnDiscount");
+        btnDiscountOp.setOnAction(evt -> onDiscount());
+
+        Button btnWithdraw = UiIconHelper.makeOpButton("mdi2c-cash-minus", "Retrait", "warning", 68, 72);
+        btnWithdraw.setId("btnWithdraw");
+        btnWithdraw.setOnAction(evt -> onWithdrawal());
+
+        Button btnRefund = UiIconHelper.makeOpButton("mdi2u-undo-variant", "Remboursement", "danger", 68, 72);
+        btnRefund.setId("btnRefund");
+        btnRefund.setOnAction(evt -> onRefund());
+
+        Button btnReprint = UiIconHelper.makeOpButton("mdi2p-printer", "Réimpression", "elevated", 68, 72);
+        btnReprint.setId("btnReprint");
+        btnReprint.setOnAction(evt -> onReprint());
+
+        Button btnHistory = UiIconHelper.makeOpButton("mdi2h-history", "Historique", "elevated", 68, 72);
+        btnHistory.setId("btnHistory");
+        btnHistory.setOnAction(evt -> onHistory());
+
+        Button btnTopup = UiIconHelper.makeOpButton("mdi2c-credit-card-plus", "Recharge", "success", 68, 72);
+        btnTopup.setId("btnTopup");
+        btnTopup.setOnAction(evt -> onTopup());
+
+        Button btnNewClient = UiIconHelper.makeOpButton("mdi2a-account-plus", "Nouveau client", "elevated", 68, 72);
+        btnNewClient.setId("btnNewClient");
+        btnNewClient.setOnAction(evt -> onNewClient());
+
+        Button btnInvoice = UiIconHelper.makeOpButton("mdi2r-receipt", "Facture", "elevated", 68, 72);
+        btnInvoice.setId("btnInvoice");
+        btnInvoice.setOnAction(evt -> onInvoice());
+
+        Button btnClose = UiIconHelper.makeOpButton("mdi2l-lock", "Verrouiller", "elevated", 68, 72);
+        btnClose.setId("btnClose");
+        btnClose.setOnAction(evt -> onLockSession());
+
+        operationBar.getChildren().addAll(
+                btnNew, btnCancel, btnHoldOp, btnDiscountOp,
+                btnWithdraw, btnRefund, btnReprint, btnHistory,
+                btnTopup, btnNewClient, btnInvoice, btnClose
+        );
+    }
+
+    private void configurePaymentButtons() {
+        if (btnCash != null) {
+            Label label = new Label("Espèces");
+            label.setStyle("-fx-font-size: 12px; -fx-text-fill: #FFFFFF;");
+            FontIcon icon = UiIconHelper.makeIcon("mdi2c-cash", 18, "#FFFFFF");
+            VBox content = new VBox(4, icon, label);
+            content.setAlignment(Pos.CENTER);
+            btnCash.setText("");
+            btnCash.setGraphic(content);
+            btnCash.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        }
+        if (btnPrepaid != null) {
+            prepaidLabel = new Label(PREPAID_DEFAULT_LABEL);
+            prepaidLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #F5ECD7;");
+            FontIcon icon = UiIconHelper.makeIcon("mdi2c-credit-card", 18, "#F5ECD7");
+            VBox content = new VBox(4, icon, prepaidLabel);
+            content.setAlignment(Pos.CENTER);
+            btnPrepaid.setText("");
+            btnPrepaid.setGraphic(content);
+            btnPrepaid.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        }
+    }
+
+    private void configureRfidIcons() {
+        if (rfidIcon != null) {
+            rfidIcon.setText("");
+            rfidIcon.setGraphic(UiIconHelper.makeIcon("mdi2a-account-check", 18, "#6B2D1A"));
+        }
+        if (btnDetachRfid != null) {
+            btnDetachRfid.setText("");
+            btnDetachRfid.setGraphic(UiIconHelper.makeIcon("mdi2a-account-remove", 16, "#6B2D1A"));
+            btnDetachRfid.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        }
+    }
+
+    private void configureTopBarIcons() {
+        if (btnHome != null) {
+            btnHome.setText("");
+            btnHome.setGraphic(UiIconHelper.makeIcon("mdi2h-home", 18, "#6B2D1A"));
+            btnHome.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        }
+    }
+
     private void configureProductGridWrapping() {
         if (productGrid == null) {
             return;
@@ -621,15 +753,12 @@ public class PosController {
         pendingScanIntent = intent;
 
         if (btnPrepaid != null && intent == ScanIntent.PREPAID) {
-            btnPrepaid.setText(PREPAID_SCAN_LABEL);
+            if (prepaidLabel != null) {
+                prepaidLabel.setText(PREPAID_SCAN_LABEL);
+            }
             startPrepaidPulse();
         }
-
-        if (lblPrintQueue != null) {
-            lblPrintQueue.setText(RFID_WAITING_STATUS);
-            lblPrintQueue.setVisible(true);
-            lblPrintQueue.setManaged(true);
-        }
+        showRfidScanZone(true);
 
         if (scanTimeout == null) {
             scanTimeout = new PauseTransition(Duration.seconds(15));
@@ -658,9 +787,12 @@ public class PosController {
         stopPrepaidPulse();
 
         if (btnPrepaid != null) {
-            btnPrepaid.setText(prepaidDefaultText);
+            if (prepaidLabel != null) {
+                prepaidLabel.setText(prepaidDefaultText);
+            }
             btnPrepaid.setStyle(prepaidDefaultStyle);
         }
+        showRfidScanZone(false);
         refreshPrintBadge();
     }
 
@@ -686,6 +818,46 @@ public class PosController {
         if (prepaidPulseTimeline != null) {
             prepaidPulseTimeline.stop();
             prepaidPulseTimeline = null;
+        }
+    }
+
+    private void showRfidScanZone(boolean visible) {
+        if (rfidScanZone == null) {
+            return;
+        }
+        rfidScanZone.setVisible(visible);
+        rfidScanZone.setManaged(visible);
+        if (rfidScanLabel != null) {
+            rfidScanLabel.setText(RFID_WAITING_STATUS);
+        }
+        if (visible) {
+            startRfidScanPulse();
+        } else {
+            stopRfidScanPulse();
+        }
+    }
+
+    private void startRfidScanPulse() {
+        if (rfidScanLabel == null) {
+            return;
+        }
+        stopRfidScanPulse();
+        rfidScanPulseTimeline = new Timeline(
+                new KeyFrame(Duration.ZERO, e -> rfidScanLabel.setOpacity(1.0)),
+                new KeyFrame(Duration.millis(450), e -> rfidScanLabel.setOpacity(0.45))
+        );
+        rfidScanPulseTimeline.setAutoReverse(true);
+        rfidScanPulseTimeline.setCycleCount(Animation.INDEFINITE);
+        rfidScanPulseTimeline.play();
+    }
+
+    private void stopRfidScanPulse() {
+        if (rfidScanPulseTimeline != null) {
+            rfidScanPulseTimeline.stop();
+            rfidScanPulseTimeline = null;
+        }
+        if (rfidScanLabel != null) {
+            rfidScanLabel.setOpacity(1.0);
         }
     }
 
@@ -798,9 +970,10 @@ public class PosController {
             @Override
             protected List<Category> call() throws Exception {
                 String sql = """
-                        SELECT MIN(id) AS id,
+                           SELECT MIN(id) AS id,
                                name,
                                COALESCE(color, '#6B2D1A') AS color,
+                               COALESCE(icon_code, icon, '') AS icon,
                                COALESCE(sort_order, 0) AS sort_order
                         FROM categories
                         WHERE name IS NOT NULL AND TRIM(name) <> ''
@@ -813,10 +986,11 @@ public class PosController {
                      ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         categories.add(new Category(
-                                rs.getInt("id"),
-                                rs.getString("name"),
-                                rs.getString("color"),
-                                rs.getInt("sort_order")
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getString("color"),
+                            rs.getString("icon"),
+                            rs.getInt("sort_order")
                         ));
                     }
                 }
@@ -827,6 +1001,7 @@ public class PosController {
             List<Category> categories = task.getValue();
             categoriesById.clear();
             categoryColors.clear();
+            categoryIcons.clear();
             if (categories.isEmpty()) {
                 showToast("warning", "Aucune categorie");
                 return;
@@ -838,6 +1013,11 @@ public class PosController {
                     color = defaultCategoryColor(category.getName());
                 }
                 categoryColors.put(category.getId(), color);
+                String icon = category.getIcon();
+                if (icon == null || icon.isBlank()) {
+                    icon = UiIconHelper.categoryFallbackIcon(category.getName());
+                }
+                categoryIcons.put(category.getId(), icon);
             }
             renderCategoryButtons(categories);
             loadProducts(categories.get(0).getId());
@@ -858,10 +1038,23 @@ public class PosController {
         categoryBar.getChildren().clear();
         categoryButtons.clear();
         for (Category category : categories) {
-            Button button = new Button(shortCategoryLabel(category.getName()));
-            button.setWrapText(true);
-            button.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+            Button button = new Button();
+            String icon = categoryIcons.getOrDefault(
+                category.getId(),
+                UiIconHelper.categoryFallbackIcon(category.getName())
+            );
+            FontIcon iconNode = UiIconHelper.makeIcon(icon, 20, "#6B2D1A");
+            Label nameLabel = new Label(shortCategoryLabel(category.getName()));
+            nameLabel.setWrapText(true);
+            nameLabel.setTextAlignment(TextAlignment.CENTER);
+            nameLabel.setStyle("-fx-font-size: 10px; -fx-text-fill: #2C1810;");
+            VBox content = new VBox(3, iconNode, nameLabel);
+            content.setAlignment(Pos.CENTER);
+            content.setPrefWidth(84);
+            button.setGraphic(content);
+            button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
             button.setPrefWidth(84);
+            button.setMinWidth(84);
             button.setMaxWidth(Double.MAX_VALUE);
             button.setMaxHeight(Double.MAX_VALUE);
             button.getStyleClass().add("button");
@@ -894,10 +1087,24 @@ public class PosController {
 
     private void setActiveCategory(Button selected) {
         for (Button button : categoryButtons) {
-            button.setStyle(categoryTabInactiveStyle());
+            applyCategoryVisual(button, button == selected);
         }
-        if (selected != null) {
-            selected.setStyle(categoryTabActiveStyle());
+    }
+
+    private void applyCategoryVisual(Button button, boolean active) {
+        if (button == null) {
+            return;
+        }
+        button.setStyle(active ? categoryTabActiveStyle() : categoryTabInactiveStyle());
+        String iconColor = active ? "#F5ECD7" : "#6B2D1A";
+        String textColor = active ? "#F5ECD7" : "#2C1810";
+        if (button.getGraphic() instanceof VBox content && content.getChildren().size() >= 2) {
+            if (content.getChildren().get(0) instanceof FontIcon icon) {
+                icon.setIconColor(Color.web(iconColor));
+            }
+            if (content.getChildren().get(1) instanceof Label label) {
+                label.setStyle("-fx-font-size: 10px; -fx-text-fill: " + textColor + ";");
+            }
         }
     }
 
@@ -1070,7 +1277,7 @@ public class PosController {
 
         StackPane wrapper = new StackPane(tileButton);
         if (shouldShowStockWarning(product)) {
-            Label warn = new Label("\u26A0");
+            Label warn = new Label("!");
             warn.setStyle("-fx-font-size: 14px;");
             warn.getStyleClass().addAll("badge", "warning");
             StackPane.setAlignment(warn, javafx.geometry.Pos.TOP_RIGHT);
@@ -1331,8 +1538,8 @@ public class PosController {
             return;
         }
         if (selectedLine == null) {
-            selectedItemNameLabel.setText("-");
-            selectedItemMetaLabel.setText("Touchez un article pour afficher le detail");
+            selectedItemNameLabel.setText("Sélectionnez un article");
+            selectedItemMetaLabel.setText("Touchez une ligne pour modifier la quantité");
             return;
         }
         selectedItemNameLabel.setText(selectedLine.getProduct().getName());
@@ -1380,9 +1587,12 @@ public class PosController {
 
     private HBox buildQtyControls(OrderLine line) {
         HBox controls = new HBox(8);
-        Button minus = new Button("-");
-        Button plus = new Button("+");
-        Button delete = new Button("\uD83D\uDDD1");
+        Button minus = new Button();
+        minus.setGraphic(UiIconHelper.makeIcon("mdi2m-minus", 16, "#6B2D1A"));
+        Button plus = new Button();
+        plus.setGraphic(UiIconHelper.makeIcon("mdi2p-plus", 16, "#6B2D1A"));
+        Button delete = new Button();
+        delete.setGraphic(UiIconHelper.makeIcon("mdi2t-trash-can", 16, "#C62828"));
         Label qty = new Label(String.valueOf(line.getQuantity()));
         qty.setMinWidth(32);
         qty.setAlignment(javafx.geometry.Pos.CENTER);
@@ -1624,6 +1834,28 @@ public class PosController {
         openWithdrawalDialog(owner, SessionManager.getCurrentUser());
     }
 
+    @FXML
+    private void onNewClient() {
+        startQuickClientFlow(lastScannedCardUid);
+    }
+
+    @FXML
+    private void onInvoice() {
+        if (currentOrder.getLines().isEmpty()) {
+            showToast("warning", "Commande vide");
+            return;
+        }
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        InvoiceDialog.showDialog(owner, currentOrder);
+    }
+
+    @FXML
+    private void onLockSession() {
+        onLock();
+    }
+
     private void openWithdrawalWithSessionAdmin() {
         Stage owner = rootStack == null || rootStack.getScene() == null
                 ? null
@@ -1690,7 +1922,7 @@ public class PosController {
             }
         };
         task.setOnSucceeded(evt -> {
-            showToast("success", "💸 Retrait enregistré: -" + formatMoney(amount));
+            showToast("success", "Retrait enregistre: -" + formatMoney(amount));
             refreshPrintBadge();
         });
         task.setOnFailed(evt -> {
@@ -1738,7 +1970,15 @@ public class PosController {
 
     @FXML
     private void onReprint() {
-        onReprintLast();
+        PrintTicketType type = askPrintType();
+        if (type == null) {
+            return;
+        }
+        if (type == PrintTicketType.INVOICE) {
+            queueInvoiceForLastOrder();
+        } else {
+            onReprintLast();
+        }
     }
 
     @FXML
@@ -2224,12 +2464,18 @@ public class PosController {
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Button reprint = new Button("Reimprimer");
         reprint.setOnAction(evt -> {
-            boolean queued = printQueueService.requeueReceiptForOrder(order.orderId());
+            PrintTicketType type = askPrintType();
+            if (type == null) {
+                return;
+            }
+            boolean queued = type == PrintTicketType.INVOICE
+                    ? printQueueService.queueInvoiceForOrder(order.orderId())
+                    : printQueueService.requeueReceiptForOrder(order.orderId());
             if (queued) {
-                showToast("success", "Ticket reenfile");
+                showToast("success", "Impression reenfilee");
                 refreshPrintBadge();
             } else {
-                showToast("warning", "Ticket introuvable");
+                showToast("warning", "Impression introuvable");
             }
         });
         row.getChildren().addAll(id, date, total, payment, spacer, reprint);
@@ -2830,7 +3076,7 @@ public class PosController {
                     lblPrintQueue.setVisible(false);
                     lblPrintQueue.setManaged(false);
                 } else {
-                    lblPrintQueue.setText("🖨 " + count + " ticket(s) en attente");
+                    lblPrintQueue.setText("Impression: " + count + " ticket(s) en attente");
                     lblPrintQueue.setVisible(true);
                     lblPrintQueue.setManaged(true);
                 }
@@ -2922,6 +3168,41 @@ public class PosController {
         } else {
             showToast("warning", "Aucun ticket a reimprimer");
         }
+    }
+
+    private PrintTicketType askPrintType() {
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        return PrintTicketDialog.showDialog(owner);
+    }
+
+    private void queueInvoiceForLastOrder() {
+        Task<Boolean> task = new Task<>() {
+            @Override
+            protected Boolean call() throws Exception {
+                List<PosOrderSummary> recent = orderDAO.findRecentOrders(1);
+                if (recent == null || recent.isEmpty()) {
+                    return false;
+                }
+                return printQueueService.queueInvoiceForOrder(recent.get(0).orderId());
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            if (Boolean.TRUE.equals(task.getValue())) {
+                showToast("success", "Facture reenfilee");
+                refreshPrintBadge();
+            } else {
+                showToast("warning", "Facture introuvable");
+            }
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur reimpression facture", task.getException());
+            showToast("error", "Reimpression facture impossible");
+        });
+        Thread thread = new Thread(task, "reprint-invoice");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private void openBackOffice(String initialView) {

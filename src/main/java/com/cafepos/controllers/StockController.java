@@ -12,16 +12,20 @@ import com.cafepos.dao.SettingsDAO;
 import com.cafepos.dao.StockMovementDAO;
 import com.cafepos.dao.TagDAO;
 import com.cafepos.dao.TagGroupDAO;
+import com.cafepos.model.AppAction;
 import com.cafepos.model.Category;
 import com.cafepos.model.Ingredient;
 import com.cafepos.model.Product;
 import com.cafepos.model.ProductIngredientUsage;
 import com.cafepos.model.Tag;
 import com.cafepos.model.TagGroup;
+import com.cafepos.model.StockUnit;
 import com.cafepos.model.UnitType;
 import com.cafepos.model.User;
 import com.cafepos.service.SessionManager;
+import com.cafepos.util.ActionAccessManager;
 import com.cafepos.util.FormatUtils;
+import com.cafepos.util.UiIconHelper;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -69,6 +73,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
+import org.kordamp.ikonli.javafx.FontIcon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,6 +81,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -95,6 +101,7 @@ public class StockController {
     private final ProductIngredientDAO productIngredientDAO = new ProductIngredientDAO();
     private final IngredientMovementDAO ingredientMovementDAO = new IngredientMovementDAO();
     private final CashMovementDAO cashMovementDAO = new CashMovementDAO();
+    private final ActionAccessManager accessManager = new ActionAccessManager();
 
     private final ObservableList<ProductRow> masterProducts = FXCollections.observableArrayList();
     private final FilteredList<ProductRow> filteredProducts = new FilteredList<>(masterProducts, row -> true);
@@ -171,6 +178,8 @@ public class StockController {
     private ComboBox<IngredientRow> recipeIngredientCombo;
     @FXML
     private TextField recipeQuantityField;
+    @FXML
+    private ComboBox<String> recipeUnitCombo;
     @FXML
     private Label recipeEstimatedCostLabel;
     @FXML
@@ -440,6 +449,8 @@ public class StockController {
 
         recipeIngredientColumn.setCellValueFactory(data -> data.getValue().ingredientNameProperty());
         recipeUnitColumn.setCellValueFactory(data -> data.getValue().unitProperty());
+        recipeUnitColumn.setCellFactory(col -> new RecipeUnitCell());
+        recipeUnitColumn.setEditable(true);
 
         recipeQuantityColumn.setCellValueFactory(data -> data.getValue().quantityProperty().asObject());
         recipeQuantityColumn.setCellFactory(col -> new RecipeAutoCommitCell<>(new DoubleConverter()));
@@ -451,7 +462,7 @@ public class StockController {
                 loadRecipeRows();
                 return;
             }
-            upsertRecipeLine(row.getIngredientId(), quantity);
+            upsertRecipeLine(row.getIngredientId(), quantity, row.getUnit());
         });
 
         recipeUnitCostColumn.setCellValueFactory(data -> data.getValue().unitCostProperty().asObject());
@@ -490,6 +501,19 @@ public class StockController {
                     return null;
                 }
             });
+            recipeIngredientCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal == null) {
+                    if (recipeUnitCombo != null) {
+                        recipeUnitCombo.getItems().clear();
+                    }
+                    return;
+                }
+                updateRecipeUnitOptions(newVal);
+            });
+        }
+
+        if (recipeUnitCombo != null) {
+            recipeUnitCombo.setItems(FXCollections.observableArrayList());
         }
     }
 
@@ -732,6 +756,9 @@ public class StockController {
 
     @FXML
     private void onPurchaseIngredient() {
+        if (!ensureAccess(AppAction.PURCHASE_INGREDIENT)) {
+            return;
+        }
         if (ingredientsTable == null) {
             return;
         }
@@ -807,6 +834,9 @@ public class StockController {
 
     @FXML
     private void onWithdrawShoppingCash() {
+        if (!ensureAccess(AppAction.WITHDRAW_CASH)) {
+            return;
+        }
         TextInputDialog amountDialog = new TextInputDialog();
         amountDialog.setTitle("Sortie caisse");
         amountDialog.setHeaderText("Montant sortie caisse (shopping)");
@@ -871,6 +901,9 @@ public class StockController {
 
     @FXML
     private void onAddRecipeLine() {
+        if (!ensureAccess(AppAction.EDIT_RECIPE)) {
+            return;
+        }
         Product product = recipeProductCombo == null ? null : recipeProductCombo.getSelectionModel().getSelectedItem();
         IngredientRow ingredient =
                 recipeIngredientCombo == null ? null : recipeIngredientCombo.getSelectionModel().getSelectedItem();
@@ -883,14 +916,35 @@ public class StockController {
             showToast("warning", "Quantite invalide");
             return;
         }
-        upsertRecipeLine(product.getId(), ingredient.getId(), quantity);
+        String unit = ingredient.getUnit();
+        if (recipeUnitCombo != null && recipeUnitCombo.getValue() != null) {
+            unit = recipeUnitCombo.getValue();
+        }
+        upsertRecipeLine(product.getId(), ingredient.getId(), quantity, unit);
         if (recipeQuantityField != null) {
             recipeQuantityField.clear();
         }
     }
 
+    private void updateRecipeUnitOptions(IngredientRow ingredient) {
+        if (recipeUnitCombo == null || ingredient == null) {
+            return;
+        }
+        String baseUnit = UnitType.fromUnit(ingredient.getUnit()).baseUnit();
+        List<String> options = unitOptionsForBase(baseUnit);
+        recipeUnitCombo.getItems().setAll(options);
+        if (options.contains(ingredient.getUnit())) {
+            recipeUnitCombo.getSelectionModel().select(ingredient.getUnit());
+        } else if (!options.isEmpty()) {
+            recipeUnitCombo.getSelectionModel().select(options.get(0));
+        }
+    }
+
     @FXML
     private void onRemoveRecipeLine() {
+        if (!ensureAccess(AppAction.EDIT_RECIPE)) {
+            return;
+        }
         Product product = recipeProductCombo == null ? null : recipeProductCombo.getSelectionModel().getSelectedItem();
         RecipeRow selected = recipeTable == null ? null : recipeTable.getSelectionModel().getSelectedItem();
         if (product == null || selected == null) {
@@ -913,6 +967,9 @@ public class StockController {
     }
 
     private void persistIngredient(IngredientRow row) {
+        if (!ensureAccess(AppAction.EDIT_INGREDIENTS)) {
+            return;
+        }
         if (row == null) {
             return;
         }
@@ -997,7 +1054,11 @@ public class StockController {
         task.setOnSucceeded(evt -> {
             recipeRows.clear();
             for (ProductIngredientUsage usage : task.getValue()) {
-                recipeRows.add(RecipeRow.from(usage));
+                RecipeRow row = RecipeRow.from(usage);
+                if (row.getUnitCost() <= 0) {
+                    hydrateRecipeCosts(row);
+                }
+                recipeRows.add(row);
             }
             refreshRecipeCost();
         });
@@ -1010,11 +1071,14 @@ public class StockController {
         thread.start();
     }
 
-    private void upsertRecipeLine(int productId, int ingredientId, double quantity) {
+    private void upsertRecipeLine(int productId, int ingredientId, double quantity, String unit) {
+        if (!ensureAccess(AppAction.EDIT_RECIPE)) {
+            return;
+        }
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
-                productIngredientDAO.upsertRecipeLine(productId, ingredientId, quantity);
+                productIngredientDAO.upsertRecipeLine(productId, ingredientId, quantity, unit);
                 return null;
             }
         };
@@ -1025,12 +1089,12 @@ public class StockController {
         runDbTask(task, "Mise a jour recette impossible");
     }
 
-    private void upsertRecipeLine(int ingredientId, double quantity) {
+    private void upsertRecipeLine(int ingredientId, double quantity, String unit) {
         Product product = recipeProductCombo == null ? null : recipeProductCombo.getSelectionModel().getSelectedItem();
         if (product == null) {
             return;
         }
-        upsertRecipeLine(product.getId(), ingredientId, quantity);
+        upsertRecipeLine(product.getId(), ingredientId, quantity, unit);
     }
 
     private void refreshRecipeCost() {
@@ -1038,9 +1102,58 @@ public class StockController {
         if (recipeEstimatedCostLabel != null) {
             recipeEstimatedCostLabel.setText("Cout recette: " + formatMoney(totalCost));
         }
+        updateRecipeProductCost(totalCost);
         if (recipeTable != null) {
             recipeTable.refresh();
         }
+    }
+
+    private void updateRecipeProductCost(double totalCost) {
+        if (!ensureAccess(AppAction.EDIT_PRODUCT_COST)) {
+            return;
+        }
+        Product product = recipeProductCombo == null ? null : recipeProductCombo.getSelectionModel().getSelectedItem();
+        if (product == null) {
+            return;
+        }
+        double normalizedCost = Math.max(0, totalCost);
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                productDAO.updateCost(product.getId(), normalizedCost);
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            for (ProductRow row : masterProducts) {
+                if (row.getId() == product.getId()) {
+                    row.setCost(normalizedCost);
+                    break;
+                }
+            }
+            if (productsTable != null) {
+                productsTable.refresh();
+            }
+        });
+        task.setOnFailed(evt -> LOG.error("Maj cout produit impossible", task.getException()));
+        Thread thread = new Thread(task, "recipe-cost-update");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void hydrateRecipeCosts(RecipeRow row) {
+        if (row == null) {
+            return;
+        }
+        IngredientRow ingredient = ingredientById.get(row.getIngredientId());
+        if (ingredient == null) {
+            return;
+        }
+        StockUnit ingredientUnit = StockUnit.fromDisplayUnit(ingredient.getUnit());
+        row.setUnitBase(ingredientUnit.unitBase());
+        row.setIngredientUnitCost(ingredient.getUnitCost());
+        row.setIngredientUnitFactor(ingredientUnit.factorToBase());
+        row.refreshCosts();
     }
 
     private Integer getSelectedIngredientId() {
@@ -1084,6 +1197,9 @@ public class StockController {
 
     @FXML
     private void onNewProduct() {
+        if (!ensureAccess(AppAction.MANAGE_PRODUCTS)) {
+            return;
+        }
         ProductRow row = ProductRow.newRow(defaultCategory());
         masterProducts.add(0, row);
         productsTable.getSelectionModel().select(row);
@@ -1139,6 +1255,9 @@ public class StockController {
     }
 
     private void updateProductName(ProductRow row) {
+        if (!ensureAccess(AppAction.MANAGE_PRODUCTS)) {
+            return;
+        }
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
@@ -1161,6 +1280,9 @@ public class StockController {
     }
 
     private void updateProductCost(ProductRow row) {
+        if (!ensureAccess(AppAction.EDIT_PRODUCT_COST)) {
+            return;
+        }
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
@@ -1172,6 +1294,9 @@ public class StockController {
     }
 
     private void updateProductPrice(ProductRow row) {
+        if (!ensureAccess(AppAction.EDIT_PRODUCT_PRICE)) {
+            return;
+        }
         Integer userId = getCurrentUserId();
         Task<Void> task = new Task<>() {
             @Override
@@ -1206,6 +1331,9 @@ public class StockController {
     }
 
     private void adjustStock(ProductRow row, int delta) {
+        if (!ensureAccess(AppAction.ADJUST_STOCK)) {
+            return;
+        }
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
@@ -1319,9 +1447,11 @@ public class StockController {
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Label mode = new Label(group.isMultiSelect() ? "Choix multiple" : "Choix unique");
         mode.getStyleClass().add("hint-label");
-        Button edit = new Button("Edit");
+        Button edit = new Button();
+        edit.setGraphic(UiIconHelper.makeIcon("mdi2p-pencil", 18, "#6B2D1A"));
         edit.getStyleClass().add("ghost-button");
-        Button delete = new Button("X");
+        Button delete = new Button();
+        delete.setGraphic(UiIconHelper.makeIcon("mdi2t-trash-can", 18, "#C62828"));
         delete.getStyleClass().add("ghost-button");
         header.getChildren().addAll(title, spacer, mode, edit, delete);
 
@@ -1347,6 +1477,9 @@ public class StockController {
     }
 
     private void editTagGroup(TagGroup group, Label title) {
+        if (!ensureAccess(AppAction.EDIT_SUPPLEMENT_PRICE)) {
+            return;
+        }
         TagGroupDAO tagGroupDao = this.tagGroupDAO;
         TextField field = new TextField(group.getName());
         CheckBox multi = new CheckBox("Multi");
@@ -1385,6 +1518,9 @@ public class StockController {
     }
 
     private void deleteTagGroup(TagGroup group) {
+        if (!ensureAccess(AppAction.EDIT_SUPPLEMENT_PRICE)) {
+            return;
+        }
         if (!confirmDeletion("Supprimer groupe", "Supprimer le groupe \"" + group.getName() + "\" ?")) {
             return;
         }
@@ -1411,7 +1547,8 @@ public class StockController {
         Label price = new Label(formatMoney(tag.getPriceModifier()));
         price.setMinWidth(70);
         price.setTextAlignment(TextAlignment.RIGHT);
-        Button delete = new Button("X");
+        Button delete = new Button();
+        delete.setGraphic(UiIconHelper.makeIcon("mdi2t-trash-can", 18, "#C62828"));
         delete.getStyleClass().add("ghost-button");
 
         name.setOnMouseClicked(event -> editTagName(tag, name));
@@ -1436,6 +1573,9 @@ public class StockController {
         Button add = new Button("Ajouter");
         add.getStyleClass().add("action-button");
         add.setOnAction(event -> {
+            if (!ensureAccess(AppAction.EDIT_SUPPLEMENT_PRICE)) {
+                return;
+            }
             String name = safeString(nameField.getText());
             if (name.isBlank()) {
                 showToast("warning", "Nom requis");
@@ -1468,6 +1608,9 @@ public class StockController {
         Button add = new Button("Ajouter");
         add.getStyleClass().add("action-button");
         add.setOnAction(event -> {
+            if (!ensureAccess(AppAction.EDIT_SUPPLEMENT_PRICE)) {
+                return;
+            }
             String name = safeString(field.getText());
             if (name.isBlank()) {
                 showToast("warning", "Nom requis");
@@ -1488,6 +1631,9 @@ public class StockController {
     }
 
     private void editTagName(Tag tag, Label label) {
+        if (!ensureAccess(AppAction.EDIT_SUPPLEMENT_PRICE)) {
+            return;
+        }
         TagDAO tagDao = this.tagDAO;
         TextField editor = new TextField(tag.getName());
         replaceInline(label, editor, value -> {
@@ -1509,6 +1655,9 @@ public class StockController {
     }
 
     private void editTagPrice(Tag tag, Label label) {
+        if (!ensureAccess(AppAction.EDIT_SUPPLEMENT_PRICE)) {
+            return;
+        }
         TagDAO tagDao = this.tagDAO;
         TextField editor = new TextField(String.valueOf(tag.getPriceModifier()));
         replaceInline(label, editor, value -> {
@@ -1526,6 +1675,9 @@ public class StockController {
     }
 
     private void deleteTag(Tag tag) {
+        if (!ensureAccess(AppAction.EDIT_SUPPLEMENT_PRICE)) {
+            return;
+        }
         if (!confirmDeletion("Supprimer tag", "Supprimer le tag \"" + tag.getName() + "\" ?")) {
             return;
         }
@@ -1567,7 +1719,8 @@ public class StockController {
         HBox.setHgrow(name, Priority.ALWAYS);
         name.setOnMouseClicked(event -> editCategoryName(category, name));
 
-        Button delete = new Button("X");
+        Button delete = new Button();
+        delete.setGraphic(UiIconHelper.makeIcon("mdi2t-trash-can", 18, "#C62828"));
         delete.getStyleClass().add("ghost-button");
         delete.setOnAction(event -> deleteCategory(category));
 
@@ -1612,6 +1765,9 @@ public class StockController {
         Button add = new Button("Ajouter");
         add.getStyleClass().add("action-button");
         add.setOnAction(event -> {
+            if (!ensureAccess(AppAction.EDIT_CATEGORY)) {
+                return;
+            }
             String name = safeString(field.getText());
             if (name.isBlank()) {
                 showToast("warning", "Nom requis");
@@ -1635,6 +1791,9 @@ public class StockController {
     }
 
     private void editCategoryName(Category category, Label label) {
+        if (!ensureAccess(AppAction.EDIT_CATEGORY)) {
+            return;
+        }
         CategoryDAO categoryDao = this.categoryDAO;
         TextField editor = new TextField(category.getName());
         replaceInline(label, editor, value -> {
@@ -1656,6 +1815,9 @@ public class StockController {
     }
 
     private void deleteCategory(Category category) {
+        if (!ensureAccess(AppAction.EDIT_CATEGORY)) {
+            return;
+        }
         if (!confirmDeletion("Supprimer categorie", "Supprimer la categorie \"" + category.getName() + "\" ?")) {
             return;
         }
@@ -1814,6 +1976,16 @@ public class StockController {
         return user == null ? null : user.getId();
     }
 
+    private boolean ensureAccess(AppAction action) {
+        return accessManager.ensureAccess(action, currentWindow());
+    }
+
+    private javafx.stage.Stage currentWindow() {
+        return rootStack == null || rootStack.getScene() == null
+                ? null
+                : (javafx.stage.Stage) rootStack.getScene().getWindow();
+    }
+
     private void replaceInline(Label label, TextField editor, java.util.function.Consumer<String> onCommit) {
         HBox parent = (HBox) label.getParent();
         int index = parent.getChildren().indexOf(label);
@@ -1854,7 +2026,8 @@ public class StockController {
         if (type != null && !type.isBlank()) {
             toast.getStyleClass().add(type);
         }
-        Label icon = new Label(iconFor(type));
+        FontIcon icon = UiIconHelper.statusIcon(type, 18);
+        icon.setStyle("-fx-icon-color: " + toastColor(type) + ";");
         Label text = new Label(message == null ? "" : message);
         text.setWrapText(true);
         toast.getChildren().addAll(icon, text);
@@ -1876,6 +2049,16 @@ public class StockController {
         fade.play();
     }
 
+    private String toastColor(String type) {
+        String normalized = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "success" -> "-color-success-emphasis";
+            case "warning" -> "-color-warning-emphasis";
+            case "error", "danger" -> "-color-danger-emphasis";
+            default -> "-color-accent-emphasis";
+        };
+    }
+
     private boolean confirmDeletion(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle(title);
@@ -1883,15 +2066,6 @@ public class StockController {
         alert.setContentText("Cette action est definitive.");
         return alert.showAndWait().orElse(javafx.scene.control.ButtonType.CANCEL)
             == javafx.scene.control.ButtonType.OK;
-    }
-
-    private String iconFor(String type) {
-        return switch (type == null ? "" : type) {
-            case "success" -> "OK";
-            case "warning" -> "!";
-            case "error" -> "X";
-            default -> "i";
-        };
     }
 
     private static class DoubleConverter extends StringConverter<Double> {
@@ -2056,6 +2230,67 @@ public class StockController {
             }
             commitEdit(converter.fromString(editor.getText()));
         }
+    }
+
+    private class RecipeUnitCell extends TableCell<RecipeRow, String> {
+        private final ComboBox<String> combo = new ComboBox<>();
+
+        RecipeUnitCell() {
+            combo.setOnAction(event -> onUnitSelected());
+            combo.setMaxWidth(Double.MAX_VALUE);
+        }
+
+        @Override
+        protected void updateItem(String item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || getTableRow() == null) {
+                setGraphic(null);
+                setText(null);
+                return;
+            }
+            RecipeRow row = (RecipeRow) getTableRow().getItem();
+            if (row == null) {
+                setGraphic(null);
+                setText(null);
+                return;
+            }
+            combo.getItems().setAll(unitOptionsForBase(row.getUnitBase()));
+            combo.setValue(row.getUnit());
+            setGraphic(combo);
+            setText(null);
+        }
+
+        private void onUnitSelected() {
+            RecipeRow row = getTableRow() == null ? null : (RecipeRow) getTableRow().getItem();
+            if (row == null) {
+                return;
+            }
+            String selectedUnit = combo.getValue();
+            if (selectedUnit == null || selectedUnit.isBlank()) {
+                return;
+            }
+            if (selectedUnit.equalsIgnoreCase(row.getUnit())) {
+                return;
+            }
+            row.setUnit(selectedUnit);
+            row.recalcUnitCost();
+            upsertRecipeLine(row.getIngredientId(), row.getQuantity(), selectedUnit);
+        }
+    }
+
+    private List<String> unitOptionsForBase(String baseUnit) {
+        String normalized = baseUnit == null ? "UNIT" : baseUnit.trim().toUpperCase();
+        List<String> options = new ArrayList<>();
+        for (String unit : UnitType.orderedDisplayUnits()) {
+            String unitBase = UnitType.fromUnit(unit).baseUnit();
+            if (unitBase.equalsIgnoreCase(normalized)) {
+                options.add(unit);
+            }
+        }
+        if (options.isEmpty()) {
+            options.addAll(UnitType.orderedDisplayUnits());
+        }
+        return options;
     }
 
     public static class IngredientRow {
@@ -2251,10 +2486,15 @@ public class StockController {
         private final DoubleProperty quantity = new SimpleDoubleProperty(0);
         private final DoubleProperty unitCost = new SimpleDoubleProperty(0);
         private final DoubleProperty lineCost = new SimpleDoubleProperty(0);
+        private String unitBase = "UNIT";
+        private double costPerBase = 0;
+        private double ingredientUnitCost = 0;
+        private double ingredientUnitFactor = 1.0;
 
         RecipeRow() {
             quantity.addListener((obs, oldVal, newVal) -> recalcLineCost());
             unitCost.addListener((obs, oldVal, newVal) -> recalcLineCost());
+            unit.addListener((obs, oldVal, newVal) -> recalcUnitCost());
             recalcLineCost();
         }
 
@@ -2262,15 +2502,40 @@ public class StockController {
             RecipeRow row = new RecipeRow();
             row.setIngredientId(usage.ingredientId());
             row.setIngredientName(usage.ingredientName());
+            row.setUnitBase(usage.unitBase());
+            row.setCostPerBase(usage.costPerBase());
+            row.setIngredientUnitCost(usage.ingredientUnitCost());
+            row.setIngredientUnitFactor(usage.unitFactor());
             row.setUnit(usage.unit());
             row.setQuantity(usage.quantityPerProduct());
-            row.setUnitCost(usage.unitCost());
+            row.recalcUnitCost();
             row.recalcLineCost();
             return row;
         }
 
+        private void recalcUnitCost() {
+            StockUnit unitInfo = StockUnit.fromDisplayUnit(getUnit());
+            if (!unitInfo.unitBase().equalsIgnoreCase(getUnitBase())) {
+                setUnitCost(0);
+                return;
+            }
+            double ingredientFactor = getIngredientUnitFactor() <= 0 ? 1.0 : getIngredientUnitFactor();
+            double unitCostValue;
+            if (getIngredientUnitCost() > 0) {
+                unitCostValue = getIngredientUnitCost() * (unitInfo.factorToBase() / ingredientFactor);
+            } else {
+                unitCostValue = getCostPerBase() * unitInfo.factorToBase();
+            }
+            setUnitCost(unitCostValue);
+        }
+
         private void recalcLineCost() {
             setLineCost(getQuantity() * getUnitCost());
+        }
+
+        public void refreshCosts() {
+            recalcUnitCost();
+            recalcLineCost();
         }
 
         public int getIngredientId() {
@@ -2307,6 +2572,38 @@ public class StockController {
 
         public StringProperty unitProperty() {
             return unit;
+        }
+
+        public String getUnitBase() {
+            return unitBase;
+        }
+
+        public void setUnitBase(String value) {
+            unitBase = value == null || value.isBlank() ? "UNIT" : value;
+        }
+
+        public double getCostPerBase() {
+            return costPerBase;
+        }
+
+        public void setCostPerBase(double value) {
+            costPerBase = Math.max(0, value);
+        }
+
+        public double getIngredientUnitCost() {
+            return ingredientUnitCost;
+        }
+
+        public void setIngredientUnitCost(double value) {
+            ingredientUnitCost = Math.max(0, value);
+        }
+
+        public double getIngredientUnitFactor() {
+            return ingredientUnitFactor;
+        }
+
+        public void setIngredientUnitFactor(double value) {
+            ingredientUnitFactor = value <= 0 ? 1.0 : value;
         }
 
         public double getQuantity() {

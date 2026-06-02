@@ -6,6 +6,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <StackPane fx:id="launchRoot" prefWidth="1280" prefHeight="800" styleClass="bg-default"
            xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
@@ -22,7 +23,7 @@
                     onAction="#onCaisseClicked">
                 <graphic>
                     <VBox alignment="CENTER" spacing="8">
-                        <Label text="🛒" style="-fx-font-size: 40px;"/>
+                        <FontIcon iconLiteral="mdi2c-cash-register" iconSize="40" iconColor="#6B2D1A"/>
                         <Label text="%launch.caisse" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
                         <Label text="%launch.caisse.sub" styleClass="text-muted" style="-fx-font-size: 12px;"/>
                     </VBox>
@@ -32,7 +33,7 @@
                     onAction="#onStockClicked">
                 <graphic>
                     <VBox alignment="CENTER" spacing="8">
-                        <Label text="📦" style="-fx-font-size: 40px;"/>
+                        <FontIcon iconLiteral="mdi2p-package-variant" iconSize="40" iconColor="#6B2D1A"/>
                         <Label text="%launch.stock" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
                         <Label text="%launch.admin.required" styleClass="text-muted" style="-fx-font-size: 12px;"/>
                     </VBox>
@@ -42,14 +43,21 @@
                     onAction="#onGestionClicked">
                 <graphic>
                     <VBox alignment="CENTER" spacing="8">
-                        <Label text="📊" style="-fx-font-size: 40px;"/>
+                        <FontIcon iconLiteral="mdi2v-view-dashboard" iconSize="40" iconColor="#6B2D1A"/>
                         <Label text="%launch.gestion" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
                         <Label text="%launch.admin.required" styleClass="text-muted" style="-fx-font-size: 12px;"/>
                     </VBox>
                 </graphic>
             </Button>
         </HBox>
-        <Button fx:id="btnSettings" text="⚙  %launch.settings" styleClass="button flat text-muted" onAction="#onSettingsClicked"/>
+        <Button fx:id="btnSettings" styleClass="button flat text-muted" onAction="#onSettingsClicked">
+            <graphic>
+                <HBox spacing="6" alignment="CENTER">
+                    <FontIcon iconLiteral="mdi2c-cog" iconSize="18" iconColor="#7A5C4A"/>
+                    <Label text="%launch.settings"/>
+                </HBox>
+            </graphic>
+        </Button>
     </VBox>
 
     <VBox fx:id="pinOverlay" visible="false" managed="false" alignment="CENTER" style="-fx-background-color: -color-bg-overlay;">
@@ -76,11 +84,11 @@
                         onAction="#onPinDigit" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
                 <Button fx:id="pinBtn9" text="9" prefWidth="72" prefHeight="64" styleClass="button elevated"
                         onAction="#onPinDigit" GridPane.columnIndex="2" GridPane.rowIndex="2"/>
-                <Button fx:id="pinBtnDel" text="⌫" prefWidth="72" prefHeight="64" styleClass="button danger"
+                <Button fx:id="pinBtnDel" text="DEL" prefWidth="72" prefHeight="64" styleClass="button danger"
                         onAction="#onPinDelete" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
                 <Button fx:id="pinBtn0" text="0" prefWidth="72" prefHeight="64" styleClass="button elevated"
                         onAction="#onPinDigit" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
-                <Button fx:id="pinBtnOk" text="✓" prefWidth="72" prefHeight="64" styleClass="button success"
+                <Button fx:id="pinBtnOk" text="OK" prefWidth="72" prefHeight="64" styleClass="button success"
                         onAction="#onPinConfirm" GridPane.columnIndex="2" GridPane.rowIndex="3"/>
             </GridPane>
             <Label fx:id="pinError" text="%pin.error" styleClass="danger" visible="false" managed="false"/>

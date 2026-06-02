@@ -3,12 +3,14 @@ package com.cafepos.controllers;
 import com.cafepos.MainApp;
 import com.cafepos.dao.SettingsDAO;
 import com.cafepos.dao.UserDAO;
+import com.cafepos.model.AppAction;
 import com.cafepos.hardware.PrinterService;
 import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
 import com.cafepos.service.PrintQueueService;
 import com.cafepos.util.BackupService;
 import com.cafepos.util.SecurityUtils;
+import com.cafepos.util.UiIconHelper;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.beans.property.SimpleStringProperty;
@@ -23,6 +25,8 @@ import javafx.scene.control.PasswordField;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.cell.CheckBoxTableCell;
+import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
@@ -31,6 +35,7 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import javafx.util.Duration;
+import org.kordamp.ikonli.javafx.FontIcon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,6 +52,7 @@ public class SettingsController {
     private static final String STOCK_THRESHOLD_KEY = "stock.low.threshold";
     private static final String TVA_PERCENT_KEY = "tva_percent";
     private static final String BACKUP_TARGET_DIR_KEY = "backup.target.dir";
+    private static final String EXPORT_DIR_KEY = "export.default.dir";
     private static final String APP_LANGUAGE_KEY = "app.language";
 
     private static final String RFID_MODE_KEY = "rfid.mode";
@@ -79,6 +85,8 @@ public class SettingsController {
     private final BackupService backupService = new BackupService();
 
     private final ObservableList<User> users = FXCollections.observableArrayList();
+    private final ObservableList<ActionPolicyRow> actionPolicies = FXCollections.observableArrayList();
+    private boolean loadingActionPolicies;
 
     @FXML
     private ComboBox<String> printerBox;
@@ -110,6 +118,8 @@ public class SettingsController {
 
     @FXML
     private TextField backupDriveField;
+    @FXML
+    private TextField exportFolderField;
 
     @FXML
     private TextField stockThresholdField;
@@ -132,12 +142,21 @@ public class SettingsController {
     private Label backupStatusLabel;
     @FXML
     private VBox toastContainer;
+    @FXML
+    private TableView<ActionPolicyRow> actionAccessTable;
+    @FXML
+    private TableColumn<ActionPolicyRow, String> actionLabelColumn;
+    @FXML
+    private TableColumn<ActionPolicyRow, UserRole> actionRoleColumn;
+    @FXML
+    private TableColumn<ActionPolicyRow, Boolean> actionPinColumn;
 
     @FXML
     private void initialize() {
         configureUsersTable();
         configureLanguageBox();
         configureRfidModeBox();
+        configureActionAccessTable();
 
         newUserRoleBox.getItems().setAll(UserRole.values());
         newUserRoleBox.getSelectionModel().select(UserRole.BARISTA);
@@ -147,9 +166,11 @@ public class SettingsController {
         loadLanguageSettings();
         loadRfidSettings();
         loadBackupSettings();
+        loadExportSettings();
         loadStockThreshold();
         loadTvaPercent();
         loadUsers();
+        loadActionPolicies();
         refreshQueueStatus();
     }
 
@@ -319,6 +340,28 @@ public class SettingsController {
         thread.start();
     }
 
+    private void loadExportSettings() {
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() throws Exception {
+                String saved = settingsDAO.getValue(EXPORT_DIR_KEY);
+                if (saved == null || saved.isBlank()) {
+                    return "";
+                }
+                return saved.trim();
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            if (exportFolderField != null) {
+                exportFolderField.setText(task.getValue());
+            }
+        });
+        task.setOnFailed(evt -> LOG.error("Erreur chargement dossier export", task.getException()));
+        Thread thread = new Thread(task, "export-settings-load");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     @FXML
     private void onSavePrinter() {
         String value = printerBox.getSelectionModel().getSelectedItem();
@@ -450,6 +493,58 @@ public class SettingsController {
             backupDriveField.setText(selected.getAbsolutePath());
         }
         showToast("info", "Lecteur selectionne");
+    }
+
+    @FXML
+    private void onSelectExportFolder() {
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle("Selectionner dossier export");
+        Path initial = resolveExportDir();
+        if (initial != null && Files.isDirectory(initial)) {
+            chooser.setInitialDirectory(initial.toFile());
+        }
+
+        Window window = currentWindow();
+        File selected = chooser.showDialog(window);
+        if (selected == null) {
+            return;
+        }
+        if (exportFolderField != null) {
+            exportFolderField.setText(selected.getAbsolutePath());
+        }
+        showToast("info", "Dossier export selectionne");
+    }
+
+    @FXML
+    private void onSaveExportFolder() {
+        String value = textOrEmpty(exportFolderField);
+        if (value.isBlank()) {
+            showToast("warning", "Dossier export invalide");
+            return;
+        }
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                settingsDAO.setValue(EXPORT_DIR_KEY, value.trim());
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> showToast("success", "Dossier export enregistre"));
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur sauvegarde export", task.getException());
+            showToast("error", "Sauvegarde export impossible");
+        });
+        Thread thread = new Thread(task, "export-settings-save");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private Path resolveExportDir() {
+        String value = textOrEmpty(exportFolderField);
+        if (value.isBlank()) {
+            return null;
+        }
+        return Path.of(value.trim());
     }
 
     @FXML
@@ -609,6 +704,81 @@ public class SettingsController {
         usersTable.setItems(users);
         userNameColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
         userRoleColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getRole().name()));
+    }
+
+    private void configureActionAccessTable() {
+        if (actionAccessTable == null) {
+            return;
+        }
+        actionAccessTable.setEditable(true);
+        actionAccessTable.setItems(actionPolicies);
+
+        actionLabelColumn.setCellValueFactory(data -> data.getValue().labelProperty());
+
+        actionRoleColumn.setCellValueFactory(data -> data.getValue().roleProperty());
+        actionRoleColumn.setCellFactory(ComboBoxTableCell.forTableColumn(UserRole.values()));
+        actionRoleColumn.setOnEditCommit(event -> {
+            ActionPolicyRow row = event.getRowValue();
+            if (row == null) {
+                return;
+            }
+            row.setRole(event.getNewValue());
+            persistActionPolicy(row);
+        });
+
+        actionPinColumn.setCellValueFactory(data -> data.getValue().pinRequiredProperty());
+        actionPinColumn.setCellFactory(CheckBoxTableCell.forTableColumn(actionPinColumn));
+    }
+
+    private void loadActionPolicies() {
+        if (actionAccessTable == null) {
+            return;
+        }
+        loadingActionPolicies = true;
+        actionPolicies.clear();
+        for (AppAction action : AppAction.values()) {
+            UserRole role = action.getDefaultRole();
+            boolean pin = action.isDefaultPinRequired();
+            try {
+                String roleValue = settingsDAO.getValue("action.role." + action.getKey());
+                if (roleValue != null && !roleValue.isBlank()) {
+                    role = UserRole.valueOf(roleValue.trim().toUpperCase(Locale.ROOT));
+                }
+                String pinValue = settingsDAO.getValue("action.pin." + action.getKey());
+                if (pinValue != null && !pinValue.isBlank()) {
+                    pin = Boolean.parseBoolean(pinValue.trim());
+                }
+            } catch (Exception ex) {
+                LOG.warn("Erreur lecture action {}", action.getKey(), ex);
+            }
+
+            ActionPolicyRow row = new ActionPolicyRow(action, role, pin);
+            row.pinRequiredProperty().addListener((obs, oldVal, newVal) -> {
+                if (!loadingActionPolicies) {
+                    persistActionPolicy(row);
+                }
+            });
+            actionPolicies.add(row);
+        }
+        loadingActionPolicies = false;
+    }
+
+    private void persistActionPolicy(ActionPolicyRow row) {
+        if (row == null) {
+            return;
+        }
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                settingsDAO.setValue("action.role." + row.getAction().getKey(), row.getRole().name());
+                settingsDAO.setValue("action.pin." + row.getAction().getKey(), String.valueOf(row.isPinRequired()));
+                return null;
+            }
+        };
+        task.setOnFailed(evt -> LOG.error("Erreur sauvegarde action", task.getException()));
+        Thread thread = new Thread(task, "action-policy-save");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private void loadUsers() {
@@ -776,7 +946,8 @@ public class SettingsController {
         if (type != null && !type.isBlank()) {
             toast.getStyleClass().add(type);
         }
-        Label icon = new Label(iconFor(type));
+        FontIcon icon = UiIconHelper.statusIcon(type, 18);
+        icon.setStyle("-fx-icon-color: " + toastColor(type) + ";");
         Label text = new Label(message == null ? "" : message);
         text.setWrapText(true);
         toast.getChildren().addAll(icon, text);
@@ -798,12 +969,13 @@ public class SettingsController {
         fade.play();
     }
 
-    private String iconFor(String type) {
-        return switch (type == null ? "" : type) {
-            case "success" -> "OK";
-            case "error" -> "X";
-            case "warning" -> "!";
-            default -> "i";
+    private String toastColor(String type) {
+        String normalized = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "success" -> "-color-success-emphasis";
+            case "warning" -> "-color-warning-emphasis";
+            case "error", "danger" -> "-color-danger-emphasis";
+            default -> "-color-accent-emphasis";
         };
     }
 
@@ -881,5 +1053,51 @@ public class SettingsController {
             return printerBox.getScene().getWindow();
         }
         return null;
+    }
+
+    public static class ActionPolicyRow {
+        private final AppAction action;
+        private final SimpleStringProperty label;
+        private final javafx.beans.property.ObjectProperty<UserRole> role;
+        private final javafx.beans.property.BooleanProperty pinRequired;
+
+        public ActionPolicyRow(AppAction action, UserRole role, boolean pinRequired) {
+            this.action = action;
+            this.label = new SimpleStringProperty(action.getLabel());
+            this.role = new javafx.beans.property.SimpleObjectProperty<>(role);
+            this.pinRequired = new javafx.beans.property.SimpleBooleanProperty(pinRequired);
+        }
+
+        public AppAction getAction() {
+            return action;
+        }
+
+        public String getLabel() {
+            return label.get();
+        }
+
+        public SimpleStringProperty labelProperty() {
+            return label;
+        }
+
+        public UserRole getRole() {
+            return role.get();
+        }
+
+        public void setRole(UserRole value) {
+            role.set(value);
+        }
+
+        public javafx.beans.property.ObjectProperty<UserRole> roleProperty() {
+            return role;
+        }
+
+        public boolean isPinRequired() {
+            return pinRequired.get();
+        }
+
+        public javafx.beans.property.BooleanProperty pinRequiredProperty() {
+            return pinRequired;
+        }
     }
 }

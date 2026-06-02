@@ -1,6 +1,7 @@
 package com.cafepos.ui;
 
 import com.cafepos.util.FormatUtils;
+import com.cafepos.util.UiIconHelper;
 import javafx.concurrent.Task;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -12,6 +13,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 public class CashWithdrawalDialog extends BaseDialog {
     public record Decision(String reason, double amount) {
@@ -41,8 +43,10 @@ public class CashWithdrawalDialog extends BaseDialog {
     protected VBox buildContent() {
         VBox root = new VBox(10);
 
+        FontIcon icon = UiIconHelper.makeIcon("mdi2c-cash-minus", 18, "#6B2D1A");
         Label title = new Label("Retrait d'espèces");
         title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        HBox titleRow = new HBox(8, icon, title);
 
         Label reasonLabel = new Label("Motif du retrait");
         reasonLabel.getStyleClass().add("text-muted");
@@ -86,7 +90,7 @@ public class CashWithdrawalDialog extends BaseDialog {
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
         root.getChildren().addAll(
-                title,
+            titleRow,
                 reasonLabel,
                 reasonInput,
                 amountLabel,

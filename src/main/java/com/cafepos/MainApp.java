@@ -52,7 +52,7 @@ public class MainApp extends Application {
     private static final String APP_LANGUAGE_KEY = "app.language";
     private static final String APP_CSS_PATH = "/com/cafepos/styles/app.css";
     private static final String BRAND_CSS_PATH = "/com/cafepos/css/common-grounds.css";
-    private static final String APP_ICON_PHOTO_PATH = "/photo_2026-05-31_13-56-31.jpg";
+    private static final String APP_ICON_PHOTO_PATH = "/com/cafepos/images/commongrounds.png";
     private static ResourceBundle messages;
     private static Locale appLocale;
     private static Image appIcon;
@@ -202,9 +202,10 @@ public class MainApp extends Application {
         }
 
         String[] candidates = {
-                APP_ICON_PHOTO_PATH,
-                "/com/cafepos/images/logo.png",
-                "/com/cafepos/images/logo.jpg"
+            APP_ICON_PHOTO_PATH,
+            "/photo_2026-05-31_13-56-31.jpg",
+            "/com/cafepos/images/logo.png",
+            "/com/cafepos/images/logo.jpg"
         };
 
         for (String candidate : candidates) {

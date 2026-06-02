@@ -2,10 +2,12 @@ package com.cafepos.controllers;
 
 import com.cafepos.MainApp;
 import com.cafepos.dao.UserDAO;
+import com.cafepos.model.AppAction;
 import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
 import com.cafepos.service.SessionManager;
 import com.cafepos.service.WorkPeriodService;
+import com.cafepos.util.ActionAccessManager;
 import com.cafepos.util.IdleMonitor;
 import com.cafepos.util.SecurityUtils;
 import com.cafepos.util.WindowUtils;
@@ -46,6 +48,7 @@ public class LaunchController {
 
     private final UserDAO userDAO = new UserDAO();
     private final WorkPeriodService workPeriodService = new WorkPeriodService();
+    private final ActionAccessManager accessManager = new ActionAccessManager();
 
     private final StringBuilder pinBuffer = new StringBuilder(PIN_LENGTH);
 
@@ -113,6 +116,9 @@ public class LaunchController {
 
     @FXML
     private void onOpenCaisse() {
+        if (!accessManager.ensureAccess(AppAction.OPEN_POS, currentWindow())) {
+            return;
+        }
         Task<LaunchContext> task = new Task<>() {
             @Override
             protected LaunchContext call() throws Exception {
@@ -144,17 +150,32 @@ public class LaunchController {
 
     @FXML
     private void onOpenStock() {
+        if (!accessManager.ensureAccess(AppAction.OPEN_STOCK, currentWindow())) {
+            return;
+        }
         openBackOffice("/com/cafepos/fxml/stock.fxml");
     }
 
     @FXML
     private void onOpenGestion() {
+        if (!accessManager.ensureAccess(AppAction.OPEN_DASHBOARD, currentWindow())) {
+            return;
+        }
         openBackOffice("/com/cafepos/fxml/dashboard.fxml");
     }
 
     @FXML
     private void onOpenSettings() {
+        if (!accessManager.ensureAccess(AppAction.OPEN_SETTINGS, currentWindow())) {
+            return;
+        }
         openBackOffice("/com/cafepos/fxml/settings.fxml");
+    }
+
+    private Stage currentWindow() {
+        return pinDialog == null || pinDialog.getScene() == null
+                ? null
+                : (Stage) pinDialog.getScene().getWindow();
     }
 
     @FXML
@@ -170,9 +191,9 @@ public class LaunchController {
         String value = button.getUserData() == null
                 ? String.valueOf(button.getText())
                 : String.valueOf(button.getUserData());
-        if ("⌫".equals(value)) {
+        if ("DEL".equalsIgnoreCase(value)) {
             value = "BACK";
-        } else if ("✓".equals(value)) {
+        } else if ("OK".equalsIgnoreCase(value)) {
             value = "OK";
         }
         switch (value) {
@@ -284,7 +305,7 @@ public class LaunchController {
     }
 
     private Node buildBrandLogo() {
-        URL logoUrl = getClass().getResource("/com/cafepos/images/logo.png");
+        URL logoUrl = getClass().getResource("/com/cafepos/images/commongrounds.png");
         if (logoUrl != null) {
             ImageView imageView = new ImageView(new Image(logoUrl.toExternalForm(), true));
             imageView.setFitWidth(160);

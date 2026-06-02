@@ -19,8 +19,16 @@ CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   color TEXT,
+  icon TEXT,
+  icon_code TEXT,
   sort_order INTEGER DEFAULT 0
 );
+
+ALTER TABLE categories ADD COLUMN icon TEXT;
+ALTER TABLE categories ADD COLUMN icon_code TEXT DEFAULT 'mdi2s-star-outline';
+
+UPDATE categories
+SET icon_code = COALESCE(icon_code, icon, 'mdi2s-star-outline');
 
 CREATE TABLE IF NOT EXISTS products (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,34 +149,63 @@ ALTER TABLE ingredients ADD COLUMN min_base_quantity REAL NOT NULL DEFAULT 0;
 
 UPDATE ingredients
 SET unit_factor = CASE UPPER(COALESCE(unit, 'UNIT'))
-    WHEN 'KG' THEN 1000
-    WHEN 'L' THEN 1000
-    ELSE 1
+  WHEN 'KG' THEN 1000
+  WHEN 'G' THEN 1
+  WHEN 'MG' THEN 0.001
+  WHEN 'L' THEN 1000
+  WHEN 'ML' THEN 1
+  WHEN 'CL' THEN 10
+  WHEN 'UNIT' THEN 1
+  WHEN 'PIECE' THEN 1
+  WHEN 'PACK' THEN 1
+  ELSE 1
 END
-WHERE unit_factor IS NULL OR unit_factor <= 0;
+WHERE unit IS NOT NULL;
 
 UPDATE ingredients
 SET unit_base = CASE UPPER(COALESCE(unit, 'UNIT'))
-    WHEN 'KG' THEN 'G'
-    WHEN 'L' THEN 'ML'
-    ELSE UPPER(COALESCE(unit, 'UNIT'))
+  WHEN 'KG' THEN 'G'
+  WHEN 'G' THEN 'G'
+  WHEN 'MG' THEN 'G'
+  WHEN 'L' THEN 'ML'
+  WHEN 'ML' THEN 'ML'
+  WHEN 'CL' THEN 'ML'
+  WHEN 'UNIT' THEN 'UNIT'
+  WHEN 'PIECE' THEN 'UNIT'
+  WHEN 'PACK' THEN 'UNIT'
+  ELSE 'UNIT'
 END
-WHERE unit_base IS NULL OR TRIM(unit_base) = '';
+WHERE unit IS NOT NULL;
 
 UPDATE ingredients
 SET stock_base_quantity = stock_quantity * COALESCE(unit_factor, 1)
-WHERE stock_base_quantity IS NULL OR stock_base_quantity = 0;
+WHERE stock_quantity IS NOT NULL;
 
 UPDATE ingredients
 SET min_base_quantity = min_quantity * COALESCE(unit_factor, 1)
-WHERE min_base_quantity IS NULL OR min_base_quantity = 0;
+WHERE min_quantity IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS product_ingredients (
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   ingredient_id INTEGER NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
   quantity REAL NOT NULL,
+  unit TEXT,
+  quantity_base REAL,
   PRIMARY KEY (product_id, ingredient_id)
 );
+
+ALTER TABLE product_ingredients ADD COLUMN unit TEXT;
+ALTER TABLE product_ingredients ADD COLUMN quantity_base REAL;
+
+UPDATE product_ingredients
+SET unit = COALESCE(unit, (
+  SELECT unit FROM ingredients WHERE ingredients.id = product_ingredients.ingredient_id
+));
+
+UPDATE product_ingredients
+SET quantity_base = COALESCE(quantity_base, quantity * (
+  SELECT COALESCE(unit_factor, 1) FROM ingredients WHERE ingredients.id = product_ingredients.ingredient_id
+));
 
 CREATE TABLE IF NOT EXISTS ingredient_movements (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -298,6 +335,7 @@ ALTER TABLE orders ADD COLUMN discount_percent REAL DEFAULT 0;
 ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0;
 ALTER TABLE products ADD COLUMN is_prepared INTEGER DEFAULT 0;
 ALTER TABLE categories ADD COLUMN color TEXT;
+ALTER TABLE categories ADD COLUMN icon TEXT;
 
 CREATE TABLE IF NOT EXISTS price_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

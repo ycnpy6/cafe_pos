@@ -59,6 +59,10 @@ public final class DatabaseManager {
     }
 
     private static Path getDbPath() {
+        String override = System.getProperty("cafepos.db.path");
+        if (override != null && !override.isBlank()) {
+            return Paths.get(override);
+        }
         // Chemin Windows recommande pour eviter les ecritures dans Program Files.
         String appData = System.getenv("APPDATA");
         if (appData == null || appData.isBlank()) {
@@ -158,19 +162,23 @@ public final class DatabaseManager {
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL UNIQUE COLLATE NOCASE,
                         color TEXT DEFAULT '#6B2D1A',
+                        icon TEXT,
+                        icon_code TEXT DEFAULT 'mdi2s-star-outline',
                         sort_order INTEGER DEFAULT 0
                     )
                     """);
 
-            stmt.executeUpdate("""
-                    INSERT OR IGNORE INTO categories_new (id, name, color, sort_order)
-                    SELECT id,
-                           name,
-                           COALESCE(color, '#6B2D1A'),
-                           COALESCE(sort_order, 0)
-                    FROM categories
-                    ORDER BY id
-                    """);
+                 stmt.executeUpdate("""
+                      INSERT OR IGNORE INTO categories_new (id, name, color, icon, icon_code, sort_order)
+                      SELECT id,
+                          name,
+                          COALESCE(color, '#6B2D1A'),
+                          icon,
+                          COALESCE(icon_code, icon, 'mdi2s-star-outline'),
+                          COALESCE(sort_order, 0)
+                      FROM categories
+                      ORDER BY id
+                      """);
 
             // Ensure product category ids stay valid after table swap.
             stmt.executeUpdate("""

@@ -14,6 +14,7 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <StackPane fx:id="rootStack" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
            fx:controller="com.cafepos.controllers.StockController">
@@ -22,8 +23,23 @@
             <padding>
                 <Insets top="8" right="12" bottom="8" left="12"/>
             </padding>
-            <TextField fx:id="searchField" promptText="Rechercher… F7" HBox.hgrow="ALWAYS"/>
-            <Button fx:id="newProductButton" text="+ Nouveau" onAction="#onNewProduct" styleClass="action-button"/>
+            <StackPane HBox.hgrow="ALWAYS">
+                <TextField fx:id="searchField" promptText="Rechercher… F7" style="-fx-padding: 0 0 0 28px;"/>
+                <FontIcon iconLiteral="mdi2m-magnify" iconSize="16" iconColor="#6B2D1A"
+                          StackPane.alignment="CENTER_LEFT">
+                    <StackPane.margin>
+                        <Insets top="0" right="0" bottom="0" left="8"/>
+                    </StackPane.margin>
+                </FontIcon>
+            </StackPane>
+            <Button fx:id="newProductButton" onAction="#onNewProduct" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="6" alignment="CENTER">
+                        <FontIcon iconLiteral="mdi2p-plus" iconSize="16" iconColor="#6B2D1A"/>
+                        <Label text="Nouveau"/>
+                    </HBox>
+                </graphic>
+            </Button>
         </HBox>
 
         <TabPane fx:id="tabPane" VBox.vgrow="ALWAYS">
@@ -97,8 +113,9 @@
                                 </columns>
                             </TableView>
                             <HBox spacing="8" alignment="CENTER_LEFT">
-                                <ComboBox fx:id="recipeIngredientCombo" prefWidth="260" promptText="Ingredient"/>
-                                <TextField fx:id="recipeQuantityField" prefWidth="140" promptText="Quantite"/>
+                                <ComboBox fx:id="recipeIngredientCombo" prefWidth="240" promptText="Ingredient"/>
+                                <TextField fx:id="recipeQuantityField" prefWidth="120" promptText="Quantite"/>
+                                <ComboBox fx:id="recipeUnitCombo" prefWidth="90" promptText="Unite"/>
                                 <Button text="Ajouter / MAJ" styleClass="action-button" onAction="#onAddRecipeLine"/>
                                 <Button text="Supprimer" styleClass="ghost-button" onAction="#onRemoveRecipeLine"/>
                             </HBox>

@@ -1,6 +1,7 @@
 package com.cafepos.ui;
 
 import com.cafepos.util.FormatUtils;
+import com.cafepos.util.UiIconHelper;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -12,6 +13,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 public class TopupCardDialog extends BaseDialog {
     private final TextField cardUidInput = new TextField();
@@ -22,7 +24,7 @@ public class TopupCardDialog extends BaseDialog {
     private Decision result;
 
     private TopupCardDialog(Stage owner, String defaultCardUid, double currentBalance) {
-        super(owner, 420, 430);
+        super(owner, 460, 520);
         this.currentBalance = Math.max(0, currentBalance);
         cardUidInput.setText(defaultCardUid == null ? "" : defaultCardUid);
         initializeDialog();
@@ -38,8 +40,10 @@ public class TopupCardDialog extends BaseDialog {
     protected VBox buildContent() {
         VBox root = new VBox(12);
 
+        FontIcon icon = UiIconHelper.makeIcon("mdi2c-credit-card-plus", 18, "#6B2D1A");
         Label title = new Label("Recharge carte");
         title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        HBox titleRow = new HBox(8, icon, title);
 
         Label description = new Label("Saisissez l'UID carte et le montant. Aucun scan RFID n'est requis.");
         description.getStyleClass().add("text-muted");
@@ -90,7 +94,7 @@ public class TopupCardDialog extends BaseDialog {
         HBox actions = new HBox(8, cancel, confirm);
 
         root.getChildren().addAll(
-                title,
+            titleRow,
                 description,
                 new Separator(),
                 cardLabel,

@@ -2,7 +2,11 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.TilePane?>
 <?import javafx.scene.layout.VBox?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.cafepos.controllers.DashboardController" spacing="12">
@@ -10,6 +14,64 @@
         <Insets top="20" right="20" bottom="20" left="20"/>
     </padding>
     <Label text="Dashboard" styleClass="title"/>
-    <Label fx:id="salesLabel" text="Ventes du jour: 0,00 DZD" styleClass="subtitle"/>
-    <Label fx:id="ordersLabel" text="Nombre de commandes: 0" styleClass="subtitle"/>
+
+    <VBox spacing="6" styleClass="card">
+        <Label text="Resume du jour" styleClass="section-title"/>
+        <Label fx:id="salesLabel" text="Ventes du jour: 0,00 DZD" styleClass="subtitle"/>
+        <Label fx:id="ordersLabel" text="Nombre de commandes: 0" styleClass="subtitle"/>
+    </VBox>
+
+    <VBox spacing="8" styleClass="card">
+        <Label text="Raccourcis rapides" styleClass="section-title"/>
+        <TilePane hgap="10" vgap="10" prefColumns="3">
+            <Button text="Caisse" onAction="#onShortcutPos" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2c-cash-register" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Caisse"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button text="Stock" onAction="#onShortcutStock" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2p-package-variant" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Stock"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button text="Clients" onAction="#onShortcutClients" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2a-account-group" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Clients"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button text="Rapports" onAction="#onShortcutReports" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2c-chart-bar" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Rapports"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button text="Parametres" onAction="#onShortcutSettings" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2c-cog" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Parametres"/>
+                    </HBox>
+                </graphic>
+            </Button>
+            <Button text="Retour POS" onAction="#onShortcutBackToPos" styleClass="action-button">
+                <graphic>
+                    <HBox spacing="8" alignment="CENTER_LEFT">
+                        <FontIcon iconLiteral="mdi2a-arrow-left" iconSize="18" iconColor="#6B2D1A"/>
+                        <Label text="Retour POS"/>
+                    </HBox>
+                </graphic>
+            </Button>
+        </TilePane>
+    </VBox>
 </VBox>

@@ -97,7 +97,7 @@ public class IngredientDAO {
             + "stock_quantity, min_quantity, stock_base_quantity, min_base_quantity, active) "
             + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         StockUnit stockUnit = StockUnit.fromDisplayUnit(ingredient.getUnit());
-        double factor = ingredient.getUnitFactor() > 0 ? ingredient.getUnitFactor() : stockUnit.factorToBase();
+        double factor = stockUnit.factorToBase();
         double stockBase = ingredient.getStockBaseQuantity() > 0
             ? ingredient.getStockBaseQuantity()
             : ingredient.getStockQuantity() * factor;
@@ -107,9 +107,7 @@ public class IngredientDAO {
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, ingredient.getName());
             ps.setString(2, ingredient.getUnit());
-            ps.setString(3, ingredient.getUnitBase() == null || ingredient.getUnitBase().isBlank()
-                ? stockUnit.unitBase()
-                : ingredient.getUnitBase());
+            ps.setString(3, stockUnit.unitBase());
             ps.setDouble(4, factor);
             ps.setDouble(5, ingredient.getPackageSize());
             ps.setDouble(6, ingredient.getPackagePrice());
@@ -139,7 +137,7 @@ public class IngredientDAO {
             + "unit_base = ?, unit_factor = ?, stock_quantity = ?, min_quantity = ?, "
             + "stock_base_quantity = ?, min_base_quantity = ?, active = ? WHERE id = ?";
         StockUnit stockUnit = StockUnit.fromDisplayUnit(ingredient.getUnit());
-        double factor = ingredient.getUnitFactor() > 0 ? ingredient.getUnitFactor() : stockUnit.factorToBase();
+        double factor = stockUnit.factorToBase();
         double stockBase = ingredient.getStockBaseQuantity() > 0
             ? ingredient.getStockBaseQuantity()
             : ingredient.getStockQuantity() * factor;
@@ -151,9 +149,7 @@ public class IngredientDAO {
             ps.setString(2, ingredient.getUnit());
             ps.setDouble(3, ingredient.getPackageSize());
             ps.setDouble(4, ingredient.getPackagePrice());
-            ps.setString(5, ingredient.getUnitBase() == null || ingredient.getUnitBase().isBlank()
-                ? stockUnit.unitBase()
-                : ingredient.getUnitBase());
+            ps.setString(5, stockUnit.unitBase());
             ps.setDouble(6, factor);
             ps.setDouble(7, ingredient.getStockQuantity());
             ps.setDouble(8, ingredient.getMinQuantity());
@@ -221,13 +217,17 @@ public class IngredientDAO {
     }
 
     private double fetchUnitFactor(Connection conn, int ingredientId) throws Exception {
-        String sql = "SELECT COALESCE(unit_factor, 1) AS unit_factor FROM ingredients WHERE id = ?";
+        String sql = "SELECT unit, COALESCE(unit_factor, 1) AS unit_factor FROM ingredients WHERE id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, ingredientId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     double factor = rs.getDouble("unit_factor");
-                    return factor <= 0 ? 1.0 : factor;
+                    if (factor > 0) {
+                        return factor;
+                    }
+                    StockUnit unit = StockUnit.fromDisplayUnit(rs.getString("unit"));
+                    return unit.factorToBase();
                 }
             }
         }

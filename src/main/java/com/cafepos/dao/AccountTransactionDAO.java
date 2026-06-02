@@ -79,4 +79,25 @@ public class AccountTransactionDAO {
         }
         return results;
     }
+
+    public Double findBalanceAfterOrder(int orderId) throws Exception {
+        try (Connection conn = DatabaseManager.openConnection()) {
+            return findBalanceAfterOrder(conn, orderId);
+        }
+    }
+
+    public Double findBalanceAfterOrder(Connection conn, int orderId) throws Exception {
+        String sql = "SELECT balance_after FROM account_transactions "
+                + "WHERE order_id = ? AND balance_after IS NOT NULL "
+                + "ORDER BY created_at DESC LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("balance_after");
+                }
+            }
+        }
+        return null;
+    }
 }

@@ -7,9 +7,11 @@ import com.cafepos.dao.SettingsDAO;
 import com.cafepos.dao.StockMovementDAO;
 import com.cafepos.dao.TagGroupDAO;
 import com.cafepos.db.DatabaseManager;
+import com.cafepos.model.AppAction;
 import com.cafepos.model.Category;
 import com.cafepos.model.Product;
 import com.cafepos.model.TagGroup;
+import com.cafepos.util.ActionAccessManager;
 import com.cafepos.util.FormatUtils;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.Task;
@@ -48,6 +50,7 @@ public class ProductsController {
     private final ProductTagGroupDAO productTagGroupDAO = new ProductTagGroupDAO();
     private final StockMovementDAO stockMovementDAO = new StockMovementDAO();
     private final SettingsDAO settingsDAO = new SettingsDAO();
+    private final ActionAccessManager accessManager = new ActionAccessManager();
 
     private final Map<Integer, CheckBox> tagGroupChecks = new HashMap<>();
     private final Map<Integer, String> productImagePaths = new HashMap<>();
@@ -370,6 +373,9 @@ public class ProductsController {
 
     @FXML
     private void onAddProduct() {
+        if (!accessManager.ensureAccess(AppAction.MANAGE_PRODUCTS, currentWindow())) {
+            return;
+        }
         Category category = categoryBox.getValue();
         if (category == null) {
             showAlert("Categorie requise", "Selectionnez une categorie.");
@@ -438,6 +444,9 @@ public class ProductsController {
 
     @FXML
     private void onAdjustStock() {
+        if (!accessManager.ensureAccess(AppAction.ADJUST_STOCK, currentWindow())) {
+            return;
+        }
         Product product = productsTable.getSelectionModel().getSelectedItem();
         if (product == null) {
             showAlert("Produit requis", "Selectionnez un produit.");
@@ -568,5 +577,11 @@ public class ProductsController {
         alert.setTitle(title);
         alert.setHeaderText(message);
         alert.showAndWait();
+    }
+
+    private javafx.stage.Stage currentWindow() {
+        return productsTable == null || productsTable.getScene() == null
+                ? null
+                : (javafx.stage.Stage) productsTable.getScene().getWindow();
     }
 }

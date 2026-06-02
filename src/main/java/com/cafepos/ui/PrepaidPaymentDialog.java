@@ -1,6 +1,7 @@
 package com.cafepos.ui;
 
 import com.cafepos.util.FormatUtils;
+import com.cafepos.util.UiIconHelper;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -11,6 +12,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 public class PrepaidPaymentDialog extends BaseDialog {
     public enum Action {
@@ -48,8 +50,10 @@ public class PrepaidPaymentDialog extends BaseDialog {
     protected VBox buildContent() {
         VBox root = new VBox(10);
 
+        FontIcon icon = UiIconHelper.makeIcon("mdi2c-credit-card", 18, "#6B2D1A");
         Label title = new Label("Paiement prépayé");
         title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+        HBox titleRow = new HBox(8, icon, title);
 
         Label totalLabel = new Label("Total: " + FormatUtils.formatMoney(totalAmount));
         totalLabel.getStyleClass().add("text-bold");
@@ -106,7 +110,7 @@ public class PrepaidPaymentDialog extends BaseDialog {
         actions.setAlignment(Pos.CENTER);
 
         root.getChildren().addAll(
-                title,
+            titleRow,
                 totalLabel,
                 new Separator(),
                 cardLabel,

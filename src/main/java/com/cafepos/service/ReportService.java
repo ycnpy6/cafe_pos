@@ -5,11 +5,14 @@ import com.cafepos.model.CashMovementRow;
 import com.cafepos.db.DatabaseManager;
 import com.cafepos.model.OrderHistoryRow;
 import com.cafepos.model.OrderLineDetail;
+import com.cafepos.model.OrderLineExportRow;
 import com.cafepos.model.PaymentType;
 import com.cafepos.model.ReportRow;
 import com.cafepos.model.SalesSummary;
 import com.cafepos.model.SessionRow;
 import com.cafepos.model.TopItem;
+import com.cafepos.model.IngredientUsageRow;
+import com.cafepos.model.IngredientMovementSummaryRow;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -209,6 +212,124 @@ public class ReportService {
                             rs.getInt("quantity"),
                             rs.getDouble("line_total"),
                             rs.getString("tags")
+                    ));
+                }
+            }
+        }
+        return results;
+    }
+
+    public List<OrderLineExportRow> getOrderLineExports(LocalDate start, LocalDate end) throws Exception {
+        String sql = "SELECT o.id AS order_id, o.created_at, o.payment_type, "
+                + "c.id AS client_id, COALESCE(c.name, '') AS client_name, "
+                + "COALESCE(u.name, '') AS user_name, "
+                + "p.name AS product_name, ol.quantity, ol.unit_price, ol.line_total, "
+                + "GROUP_CONCAT(t.name, ', ') AS tags "
+                + "FROM orders o "
+                + "JOIN order_lines ol ON ol.order_id = o.id "
+                + "JOIN products p ON p.id = ol.product_id "
+                + "LEFT JOIN order_line_tags olt ON olt.line_id = ol.id "
+                + "LEFT JOIN tags t ON t.id = olt.tag_id "
+                + "LEFT JOIN customers c ON c.id = o.customer_id "
+                + "LEFT JOIN users u ON u.id = o.user_id "
+                + "WHERE date(o.created_at) BETWEEN ? AND ? "
+                + "GROUP BY ol.id, o.id, o.created_at, o.payment_type, c.id, c.name, u.name, "
+                + "p.name, ol.quantity, ol.unit_price, ol.line_total "
+                + "ORDER BY o.created_at DESC, o.id DESC";
+        List<OrderLineExportRow> results = new ArrayList<>();
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, start.toString());
+            ps.setString(2, end.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int rawClientId = rs.getInt("client_id");
+                    Integer clientId = rs.wasNull() ? null : rawClientId;
+                    results.add(new OrderLineExportRow(
+                            rs.getInt("order_id"),
+                            rs.getString("created_at"),
+                            rs.getString("product_name"),
+                            rs.getInt("quantity"),
+                            rs.getDouble("unit_price"),
+                            rs.getDouble("line_total"),
+                            rs.getString("tags"),
+                            rs.getString("payment_type"),
+                            clientId,
+                            rs.getString("client_name"),
+                            rs.getString("user_name")
+                    ));
+                }
+            }
+        }
+        return results;
+    }
+
+    public List<IngredientUsageRow> getTopIngredientsBySales(LocalDate start, LocalDate end, int limit)
+            throws Exception {
+        String sql = "SELECT i.name, i.unit, SUM(ABS(im.quantity)) AS qty, "
+                + "COALESCE(SUM(im.total_cost), 0) AS total_cost "
+                + "FROM ingredient_movements im "
+                + "JOIN ingredients i ON i.id = im.ingredient_id "
+                + "WHERE date(im.created_at) BETWEEN ? AND ? AND im.reason = 'SALE' "
+                + "GROUP BY i.id, i.name, i.unit "
+                + "ORDER BY qty DESC";
+        if (limit > 0) {
+            sql += " LIMIT ?";
+        }
+        List<IngredientUsageRow> results = new ArrayList<>();
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, start.toString());
+            ps.setString(2, end.toString());
+            if (limit > 0) {
+                ps.setInt(3, limit);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    results.add(new IngredientUsageRow(
+                            rs.getString("name"),
+                            rs.getString("unit"),
+                            rs.getDouble("qty"),
+                            rs.getDouble("total_cost")
+                    ));
+                }
+            }
+        }
+        return results;
+    }
+
+    public List<IngredientMovementSummaryRow> getIngredientMovementSummary(LocalDate start, LocalDate end, int limit)
+            throws Exception {
+        String sql = "SELECT i.name, i.unit, "
+                + "SUM(CASE WHEN im.quantity > 0 THEN im.quantity ELSE 0 END) AS inflow, "
+                + "SUM(CASE WHEN im.quantity < 0 THEN -im.quantity ELSE 0 END) AS outflow, "
+                + "SUM(im.quantity) AS net, "
+                + "COALESCE(SUM(im.total_cost), 0) AS total_cost "
+                + "FROM ingredient_movements im "
+                + "JOIN ingredients i ON i.id = im.ingredient_id "
+                + "WHERE date(im.created_at) BETWEEN ? AND ? AND im.reason NOT IN ('SALE', 'REFUND') "
+                + "GROUP BY i.id, i.name, i.unit "
+                + "ORDER BY (inflow + outflow) DESC";
+        if (limit > 0) {
+            sql += " LIMIT ?";
+        }
+        List<IngredientMovementSummaryRow> results = new ArrayList<>();
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, start.toString());
+            ps.setString(2, end.toString());
+            if (limit > 0) {
+                ps.setInt(3, limit);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    results.add(new IngredientMovementSummaryRow(
+                            rs.getString("name"),
+                            rs.getString("unit"),
+                            rs.getDouble("inflow"),
+                            rs.getDouble("outflow"),
+                            rs.getDouble("net"),
+                            rs.getDouble("total_cost")
                     ));
                 }
             }

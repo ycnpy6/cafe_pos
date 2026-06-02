@@ -5,6 +5,7 @@ import com.cafepos.model.Customer;
 import com.cafepos.model.Order;
 import com.cafepos.model.OrderLine;
 import com.cafepos.model.PaymentType;
+import com.cafepos.model.PrintTicketType;
 
 import javax.print.Doc;
 import javax.print.DocFlavor;
@@ -54,7 +55,26 @@ public class PrinterService {
     }
 
     public void printReceipt(Order order, int orderId, double remainingBalance) throws Exception {
-        String payload = buildReceiptPayload(order, orderId, remainingBalance);
+        printTicket(order, orderId, remainingBalance, PrintTicketType.RECEIPT);
+    }
+
+    public void printInvoice(Order order, int orderId, double remainingBalance) throws Exception {
+        printInvoice(order, orderId, remainingBalance, null, null, null);
+    }
+
+    public void printInvoice(Order order,
+                             int orderId,
+                             double remainingBalance,
+                             String invoiceNumber,
+                             String recipientName,
+                             String recipientAddress) throws Exception {
+        String payload = buildInvoicePayload(order, orderId, remainingBalance, invoiceNumber, recipientName, recipientAddress);
+        printPayload(payload);
+    }
+
+    private void printTicket(Order order, int orderId, double remainingBalance, PrintTicketType ticketType)
+            throws Exception {
+        String payload = buildTicketPayload(order, orderId, remainingBalance, ticketType);
         printPayload(payload);
     }
 
@@ -69,7 +89,37 @@ public class PrinterService {
     }
 
     public String buildReceiptPayload(Order order, int orderId, double remainingBalance) {
-        byte[] data = buildReceipt(order, orderId, remainingBalance);
+        return buildTicketPayload(order, orderId, remainingBalance, PrintTicketType.RECEIPT);
+    }
+
+    public String buildInvoicePayload(Order order, int orderId, double remainingBalance) {
+        return buildInvoicePayload(order, orderId, remainingBalance, null, null, null);
+    }
+
+    public String buildInvoicePayload(Order order,
+                                      int orderId,
+                                      double remainingBalance,
+                                      String invoiceNumber,
+                                      String recipientName,
+                                      String recipientAddress) {
+        return buildTicketPayload(order, orderId, remainingBalance, PrintTicketType.INVOICE,
+                invoiceNumber, recipientName, recipientAddress);
+    }
+
+    public String buildTicketPayload(Order order, int orderId, double remainingBalance, PrintTicketType ticketType) {
+        byte[] data = buildTicket(order, orderId, remainingBalance, ticketType, null, null, null);
+        return Base64.getEncoder().encodeToString(data);
+    }
+
+    public String buildTicketPayload(Order order,
+                                     int orderId,
+                                     double remainingBalance,
+                                     PrintTicketType ticketType,
+                                     String invoiceNumber,
+                                     String recipientName,
+                                     String recipientAddress) {
+        byte[] data = buildTicket(order, orderId, remainingBalance, ticketType,
+                invoiceNumber, recipientName, recipientAddress);
         return Base64.getEncoder().encodeToString(data);
     }
 
@@ -126,7 +176,20 @@ public class PrinterService {
         return names;
     }
 
-    private byte[] buildReceipt(Order order, int orderId, double remainingBalance) {
+    private byte[] buildTicket(Order order,
+                               int orderId,
+                               double remainingBalance,
+                               PrintTicketType ticketType,
+                               String invoiceNumber,
+                               String recipientName,
+                               String recipientAddress) {
+        if (ticketType == PrintTicketType.INVOICE) {
+            return buildInvoiceTicket(order, orderId, invoiceNumber, recipientName, recipientAddress);
+        }
+        return buildReceiptTicket(order, orderId, remainingBalance);
+    }
+
+    private byte[] buildReceiptTicket(Order order, int orderId, double remainingBalance) {
         ReceiptTemplate template = loadTemplate();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         appendCommand(out, 0x1B, 0x40); // ESC @
@@ -141,7 +204,7 @@ public class PrinterService {
             appendLine(out, template.phone());
         }
         appendLine(out, capitalize(DateTimeFormatter.ofPattern("EEEE dd MMM yyyy HH:mm", Locale.FRENCH)
-                .format(LocalDateTime.now())));
+            .format(LocalDateTime.now())));
         setBold(out, true);
         appendLine(out, orderId > 0 ? template.ticketPrefix() + " " + orderId : template.ticketPrefix());
         setBold(out, false);
@@ -199,6 +262,79 @@ public class PrinterService {
         return out.toByteArray();
     }
 
+    private byte[] buildInvoiceTicket(Order order,
+                                      int orderId,
+                                      String invoiceNumber,
+                                      String recipientName,
+                                      String recipientAddress) {
+        ReceiptTemplate template = loadTemplate();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        appendCommand(out, 0x1B, 0x40); // ESC @
+
+        setAlign(out, 1);
+        setBold(out, true);
+        appendLine(out, "COMMON GROUNDS");
+        setBold(out, false);
+        appendLine(out, "Facture N°: " + resolveInvoiceNumber(orderId, invoiceNumber));
+        appendLine(out, DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", Locale.FRENCH)
+            .format(LocalDateTime.now()));
+        if (recipientName != null && !recipientName.isBlank()) {
+            appendLine(out, "Destinataire: " + recipientName.trim());
+        }
+        if (recipientAddress != null && !recipientAddress.isBlank()) {
+            appendLine(out, recipientAddress.trim());
+        }
+
+        setAlign(out, 0);
+        appendLine(out, repeat('-', LINE_WIDTH));
+
+        for (OrderLine line : order.getLines()) {
+            String left = line.getQuantity() + " x " + safeUpper(line.getProduct().getName())
+                    + " (PU " + formatAmount(line.getUnitTotal(), template.currencyLabel()) + ")";
+            String right = formatAmount(line.getLineTotal(), template.currencyLabel());
+            appendLine(out, leftRight(left, right));
+        }
+
+        appendLine(out, repeat('-', LINE_WIDTH));
+        appendLine(out, leftRight("SOUS-TOTAL", formatAmount(order.getSubtotal(), template.currencyLabel())));
+        if (order.getTvaPercent() > 0) {
+            appendLine(out, leftRight(
+                    "TVA (" + formatPercent(order.getTvaPercent()) + "%)",
+                    formatAmount(order.getTvaAmount(), template.currencyLabel())
+            ));
+        }
+        if (order.hasDiscount()) {
+            appendLine(out, leftRight("REMISE", "-" + formatAmount(order.getAppliedDiscountAmount(), template.currencyLabel())));
+        }
+
+        appendLine(out, repeat('=', LINE_WIDTH));
+        setBold(out, true);
+        appendLine(out, leftRight("TOTAL", formatAmount(order.getTotal(), template.currencyLabel())));
+        setBold(out, false);
+
+        setAlign(out, 1);
+        appendLine(out, repeat('-', LINE_WIDTH));
+        appendLine(out, "Merci de votre visite!");
+
+        setAlign(out, 0);
+        appendLine(out, "");
+        appendLine(out, "");
+        appendLine(out, "");
+        appendLine(out, "");
+        // Coupe papier GS V 0 (si supportee par l'imprimante).
+        appendCommand(out, 0x1D, 0x56, 0x00);
+        return out.toByteArray();
+    }
+
+    private String resolveInvoiceNumber(int orderId, String invoiceNumber) {
+        if (invoiceNumber != null && !invoiceNumber.isBlank()) {
+            return invoiceNumber.trim();
+        }
+        String datePart = java.time.LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        int suffix = orderId > 0 ? Math.abs(orderId % 10_000) : (int) (System.currentTimeMillis() % 10_000);
+        return datePart + "-" + String.format("%04d", suffix);
+    }
+
     private byte[] buildTestReceipt() {
         ReceiptTemplate template = loadTemplate();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -240,7 +376,9 @@ public class PrinterService {
             }
         }
         if (type == PaymentType.PREPAYE || type == PaymentType.MIXTE) {
-            appendLine(out, leftRight("SOLDE RESTANT", formatAmount(remainingBalance, currency)));
+            if (remainingBalance >= 0) {
+                appendLine(out, leftRight("SOLDE RESTANT", formatAmount(remainingBalance, currency)));
+            }
         }
     }
 

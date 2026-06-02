@@ -2,6 +2,7 @@ package com.cafepos.dao;
 
 import com.cafepos.db.DatabaseManager;
 import com.cafepos.model.Category;
+import com.cafepos.util.UiIconHelper;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -11,17 +12,18 @@ import java.util.List;
 
 public class CategoryDAO {
     public List<Category> findAll() throws Exception {
-        String sql = "SELECT id, name, color, sort_order FROM categories ORDER BY sort_order, name";
+        String sql = "SELECT id, name, color, COALESCE(icon_code, icon, '') AS icon, sort_order FROM categories ORDER BY sort_order, name";
         List<Category> results = new ArrayList<>();
         try (Connection conn = DatabaseManager.openConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 results.add(new Category(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getString("color"),
-                        rs.getInt("sort_order")
+                    rs.getInt("id"),
+                    rs.getString("name"),
+                    rs.getString("color"),
+                    rs.getString("icon"),
+                    rs.getInt("sort_order")
                 ));
             }
         }
@@ -29,12 +31,15 @@ public class CategoryDAO {
     }
 
     public int insertCategory(String name, int sortOrder) throws Exception {
-        String sql = "INSERT INTO categories (name, color, sort_order) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO categories (name, color, icon, icon_code, sort_order) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.openConnection();
              PreparedStatement ps = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, name);
             ps.setString(2, defaultColorForCategory(name));
-            ps.setInt(3, sortOrder);
+            String iconCode = UiIconHelper.categoryFallbackIcon(name);
+            ps.setString(3, iconCode);
+            ps.setString(4, iconCode);
+            ps.setInt(5, sortOrder);
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {

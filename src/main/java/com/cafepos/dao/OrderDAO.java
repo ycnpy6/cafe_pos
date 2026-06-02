@@ -5,6 +5,7 @@ import com.cafepos.model.Order;
 import com.cafepos.model.OrderLine;
 import com.cafepos.model.PaymentType;
 import com.cafepos.model.PosOrderSummary;
+import com.cafepos.model.Product;
 import com.cafepos.model.RefundableOrderLine;
 import com.cafepos.model.Tag;
 
@@ -13,7 +14,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class OrderDAO {
     public int insertOrder(Connection conn, Order order, Integer userId, Integer workPeriodId) throws Exception {
@@ -236,6 +239,103 @@ public class OrderDAO {
             }
         }
         return -1;
+    }
+
+    public Order findOrderWithLines(int orderId) throws Exception {
+        try (Connection conn = com.cafepos.db.DatabaseManager.openConnection()) {
+            return findOrderWithLines(conn, orderId);
+        }
+    }
+
+    public Order findOrderWithLines(Connection conn, int orderId) throws Exception {
+        String orderSql = "SELECT o.payment_type, o.customer_id, o.cash_amount, o.prepaid_amount, "
+                + "o.discount_percent, o.discount_amount, "
+                + "c.name AS customer_name, c.card_uid AS card_uid, c.balance AS balance "
+                + "FROM orders o "
+                + "LEFT JOIN customers c ON c.id = o.customer_id "
+                + "WHERE o.id = ?";
+        Order order = null;
+        try (PreparedStatement ps = conn.prepareStatement(orderSql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    order = new Order();
+                    PaymentType payment = PaymentType.ESPECES;
+                    String rawPayment = rs.getString("payment_type");
+                    if (rawPayment != null && !rawPayment.isBlank()) {
+                        try {
+                            payment = PaymentType.valueOf(rawPayment);
+                        } catch (IllegalArgumentException ignored) {
+                            payment = PaymentType.ESPECES;
+                        }
+                    }
+                    order.setPaymentType(payment);
+                    order.setCashAmount(rs.getDouble("cash_amount"));
+                    order.setPrepaidAmount(rs.getDouble("prepaid_amount"));
+                    order.setDiscountPercent(rs.getDouble("discount_percent"));
+                    order.setDiscountAmount(rs.getDouble("discount_amount"));
+
+                    if (rs.getObject("customer_id") != null) {
+                        int customerId = rs.getInt("customer_id");
+                        String customerName = rs.getString("customer_name");
+                        String cardUid = rs.getString("card_uid");
+                        double balance = rs.getDouble("balance");
+                        order.setCustomer(new Customer(customerId, customerName, cardUid, balance));
+                    }
+                }
+            }
+        }
+
+        if (order == null) {
+            return null;
+        }
+
+        Map<Integer, List<Tag>> tagsByLineId = new HashMap<>();
+        String tagSql = "SELECT olt.line_id, t.id, t.group_id, t.name, t.price_modifier "
+                + "FROM order_line_tags olt "
+                + "JOIN tags t ON t.id = olt.tag_id "
+                + "JOIN order_lines ol ON ol.id = olt.line_id "
+                + "WHERE ol.order_id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(tagSql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int lineId = rs.getInt("line_id");
+                    tagsByLineId
+                            .computeIfAbsent(lineId, key -> new ArrayList<>())
+                            .add(new Tag(
+                                    rs.getInt("id"),
+                                    rs.getInt("group_id"),
+                                    rs.getString("name"),
+                                    rs.getDouble("price_modifier")
+                            ));
+                }
+            }
+        }
+
+        String lineSql = "SELECT ol.id, ol.product_id, ol.quantity, ol.unit_price, "
+                + "p.name AS product_name, p.category_id, p.active, p.is_prepared "
+                + "FROM order_lines ol "
+                + "JOIN products p ON p.id = ol.product_id "
+                + "WHERE ol.order_id = ? ORDER BY ol.id";
+        try (PreparedStatement ps = conn.prepareStatement(lineSql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    int lineId = rs.getInt("id");
+                    int productId = rs.getInt("product_id");
+                    String productName = rs.getString("product_name");
+                    double unitPrice = rs.getDouble("unit_price");
+                    int categoryId = rs.getInt("category_id");
+                    boolean active = rs.getInt("active") == 1;
+                    boolean prepared = rs.getInt("is_prepared") == 1;
+                    Product product = new Product(productId, productName, unitPrice, 0, categoryId, 0, active, prepared);
+                    List<Tag> tags = tagsByLineId.getOrDefault(lineId, List.of());
+                    order.addLine(new OrderLine(product, rs.getInt("quantity"), tags));
+                }
+            }
+        }
+        return order;
     }
 
     public void insertRefundLine(Connection conn, int refundId, int orderLineId, int quantity, double lineTotal)

@@ -99,6 +99,15 @@
             </VBox>
 
             <VBox spacing="10" styleClass="card">
+                <Label text="Exports" styleClass="section-title"/>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <TextField fx:id="exportFolderField" promptText="Dossier export par defaut" prefWidth="320"/>
+                    <Button text="Choisir dossier" onAction="#onSelectExportFolder" styleClass="ghost-button"/>
+                    <Button text="Sauvegarder" onAction="#onSaveExportFolder" styleClass="action-button"/>
+                </HBox>
+            </VBox>
+
+            <VBox spacing="10" styleClass="card">
                 <Label text="Utilisateurs" styleClass="section-title"/>
                 <TableView fx:id="usersTable" prefHeight="220">
                     <columns>
@@ -113,6 +122,18 @@
                     <Button text="Ajouter" onAction="#onAddUser" styleClass="action-button"/>
                     <Button text="Supprimer" onAction="#onDeleteUser" styleClass="ghost-button"/>
                 </HBox>
+            </VBox>
+
+            <VBox spacing="10" styleClass="card">
+                <Label text="Acces actions" styleClass="section-title"/>
+                <TableView fx:id="actionAccessTable" prefHeight="260" editable="true">
+                    <columns>
+                        <TableColumn fx:id="actionLabelColumn" text="Action" prefWidth="320"/>
+                        <TableColumn fx:id="actionRoleColumn" text="Role min" prefWidth="120"/>
+                        <TableColumn fx:id="actionPinColumn" text="PIN requis" prefWidth="120"/>
+                    </columns>
+                </TableView>
+                <Label text="Le role MANAGER peut tout faire. Le PIN requis ajoute une confirmation." styleClass="hint-label"/>
             </VBox>
 
             <VBox spacing="10" styleClass="card">

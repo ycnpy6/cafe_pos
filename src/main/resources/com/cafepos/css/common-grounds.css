@@ -78,7 +78,10 @@
     -fx-background-color: #EDE0C4;
 }
 .table-row-cell:selected {
-    -fx-background-color: #D4B896;
+    -fx-background-color: #E2C79E;
+    -fx-border-color: #6B2D1A;
+    -fx-border-width: 1px 0 1px 0;
+    -fx-background-insets: 0;
 }
 
 /* ScrollBar */

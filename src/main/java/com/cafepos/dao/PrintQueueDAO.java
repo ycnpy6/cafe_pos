@@ -117,4 +117,20 @@ public class PrintQueueDAO {
         }
         return null;
     }
+
+    public String findLatestPayloadByOrderAndType(int orderId, String ticketType) throws Exception {
+        String sql = "SELECT payload FROM print_queue WHERE order_id = ? AND ticket_type = ? "
+                + "ORDER BY created_at DESC LIMIT 1";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, orderId);
+            ps.setString(2, ticketType);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("payload");
+                }
+            }
+        }
+        return null;
+    }
 }

@@ -11,6 +11,7 @@ import com.cafepos.model.User;
 import com.cafepos.service.AccountService;
 import com.cafepos.service.SessionManager;
 import com.cafepos.util.FormatUtils;
+import com.cafepos.util.UiIconHelper;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -34,10 +35,12 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
+import org.kordamp.ikonli.javafx.FontIcon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class ClientsController {
@@ -682,7 +685,8 @@ public class ClientsController {
         if (type != null && !type.isBlank()) {
             toast.getStyleClass().add(type);
         }
-        Label icon = new Label(iconFor(type));
+        FontIcon icon = UiIconHelper.statusIcon(type, 18);
+        icon.setStyle("-fx-icon-color: " + toastColor(type) + ";");
         Label text = new Label(message == null ? "" : message);
         text.setWrapText(true);
         toast.getChildren().addAll(icon, text);
@@ -704,12 +708,13 @@ public class ClientsController {
         fade.play();
     }
 
-    private String iconFor(String type) {
-        return switch (type == null ? "" : type) {
-            case "success" -> "OK";
-            case "warning" -> "!";
-            case "error" -> "X";
-            default -> "i";
+    private String toastColor(String type) {
+        String normalized = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "success" -> "-color-success-emphasis";
+            case "warning" -> "-color-warning-emphasis";
+            case "error", "danger" -> "-color-danger-emphasis";
+            default -> "-color-accent-emphasis";
         };
     }
 

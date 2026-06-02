@@ -70,7 +70,7 @@ public class CashTenderDialog extends Stage {
         GridPane numpad = new GridPane();
         numpad.setHgap(6);
         numpad.setVgap(6);
-        String[] keys = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "✓"};
+        String[] keys = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "DEL", "0", "OK"};
         for (int i = 0; i < keys.length; i++) {
             int row = i / 3;
             int col = i % 3;
@@ -103,7 +103,7 @@ public class CashTenderDialog extends Stage {
             close();
         });
 
-        Button confirm = new Button("✓ Valider");
+        Button confirm = new Button("Valider");
         confirm.getStyleClass().add("button");
         confirm.getStyleClass().add("success");
         confirm.setPrefHeight(52);
@@ -180,7 +180,7 @@ public class CashTenderDialog extends Stage {
     private Button keyButton(String key) {
         Button button = new Button(key);
         button.setPrefSize(72, 52);
-        if ("✓".equals(key)) {
+        if ("OK".equalsIgnoreCase(key)) {
             button.getStyleClass().add("button");
             button.getStyleClass().add("success");
             button.setOnAction(evt -> onConfirm());
@@ -190,7 +190,7 @@ public class CashTenderDialog extends Stage {
         button.getStyleClass().add("button");
         button.getStyleClass().add("elevated");
         button.setOnAction(evt -> {
-            if ("⌫".equals(key)) {
+            if ("DEL".equalsIgnoreCase(key)) {
                 String value = cashInput.getText();
                 if (value != null && !value.isEmpty()) {
                     cashInput.setText(value.substring(0, value.length() - 1));

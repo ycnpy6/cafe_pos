@@ -10,6 +10,7 @@
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
+<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <BorderPane fx:id="root" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.cafepos.controllers.LoginController">
@@ -42,7 +43,14 @@
                     <Button text="9" onAction="#onDigit" styleClass="keypad-button" GridPane.rowIndex="2" GridPane.columnIndex="2"/>
                     <Button text="Effacer" onAction="#onClear" styleClass="keypad-button" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
                     <Button text="0" onAction="#onDigit" styleClass="keypad-button" GridPane.rowIndex="3" GridPane.columnIndex="1"/>
-                    <Button text="Retour" onAction="#onBackspace" styleClass="keypad-button" GridPane.rowIndex="3" GridPane.columnIndex="2"/>
+                    <Button onAction="#onBackspace" styleClass="keypad-button" GridPane.rowIndex="3" GridPane.columnIndex="2">
+                        <graphic>
+                            <HBox spacing="6" alignment="CENTER">
+                                <FontIcon iconLiteral="mdi2a-arrow-left" iconSize="16" iconColor="#6B2D1A"/>
+                                <Label text="Retour"/>
+                            </HBox>
+                        </graphic>
+                    </Button>
                 </GridPane>
                 <Button fx:id="loginButton" text="Se connecter" onAction="#onLogin" maxWidth="Infinity" styleClass="action-button"/>
                 <Label fx:id="statusLabel" text="" styleClass="status-label"/>
