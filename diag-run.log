@@ -1,0 +1,9 @@
+[main] INFO com.cafepos.MainApp - singleton-paths lock=C:\Users\adjao\AppData\Roaming\CafePOS\app.lock marker=C:\Users\adjao\AppData\Roaming\CafePOS\app.instance focus=C:\Users\adjao\AppData\Roaming\CafePOS\focus.trigger
+[main] INFO com.cafepos.MainApp - singleton-marker-acquired=true
+[JavaFX Application Thread] INFO com.cafepos.MainApp - startup-enter
+[JavaFX Application Thread] INFO com.cafepos.MainApp - stage-showing-changed from false to true
+[db-init] INFO com.cafepos.db.DatabaseManager - Initialisation DB: C:\Users\adjao\AppData\Roaming\CafePOS\data\cafepos.db
+[JavaFX Application Thread] INFO com.cafepos.MainApp - startup-db-init-succeeded
+[JavaFX Application Thread] WARN com.cafepos.MainApp - stage-close-request
+[JavaFX Application Thread] INFO com.cafepos.MainApp - stage-showing-changed from true to false
+[JavaFX Application Thread] INFO com.cafepos.MainApp - startup-stop-called

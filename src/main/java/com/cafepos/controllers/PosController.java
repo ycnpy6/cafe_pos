@@ -1,8 +1,10 @@
 package com.cafepos.controllers;
 
 import com.cafepos.MainApp;
-import com.cafepos.dao.CategoryDAO;
 import com.cafepos.dao.CustomerDAO;
+import com.cafepos.dao.CashMovementDAO;
+import com.cafepos.dao.CashWithdrawalDAO;
+import com.cafepos.dao.ExpenseDAO;
 import com.cafepos.dao.OrderDAO;
 import com.cafepos.dao.ProductDAO;
 import com.cafepos.dao.ProductIngredientDAO;
@@ -11,7 +13,7 @@ import com.cafepos.dao.TagDAO;
 import com.cafepos.dao.TagGroupDAO;
 import com.cafepos.dao.UserDAO;
 import com.cafepos.dao.WaitingOrderDAO;
-import com.cafepos.hardware.RFIDHandler;
+import com.cafepos.db.DatabaseManager;
 import com.cafepos.model.Category;
 import com.cafepos.model.Customer;
 import com.cafepos.model.Order;
@@ -31,15 +33,23 @@ import com.cafepos.service.AccountService;
 import com.cafepos.service.OrderService;
 import com.cafepos.service.PrintQueueService;
 import com.cafepos.service.SessionManager;
+import com.cafepos.service.AdminSessionManager;
 import com.cafepos.ui.CashTenderDialog;
+import com.cafepos.ui.CashWithdrawalDialog;
 import com.cafepos.ui.DiscountDialog;
+import com.cafepos.ui.ManagerPinDialog;
+import com.cafepos.ui.PrepaidPaymentDialog;
 import com.cafepos.ui.QuickNewClientDialog;
+import com.cafepos.ui.TopupDialog;
 import com.cafepos.util.FormatUtils;
 import com.cafepos.util.IdleMonitor;
 import com.cafepos.util.SecurityUtils;
 import com.cafepos.util.ToastService;
 import com.cafepos.util.WindowUtils;
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
@@ -50,8 +60,10 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.TextInputControl;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyCode;
@@ -74,6 +86,9 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class PosController {
     private static final Logger LOG = LoggerFactory.getLogger(PosController.class);
@@ -83,14 +98,30 @@ public class PosController {
     private static final String RFID_MODE_KEY = "rfid.mode";
     private static final String RFID_DEVICE_NAME_KEY = "rfid.device.name";
     private static final String RFID_MODE_DISABLED = "DISABLED";
+    private static final String PREPAID_SCAN_LABEL = "📡 Scanner la carte…";
+    private static final String PREPAID_DEFAULT_LABEL = "Prépayé\nF12";
+    private static final String RFID_WAITING_STATUS = "En attente de la carte RFID…";
 
-    private final CategoryDAO categoryDAO = new CategoryDAO();
+    private enum PosMode {
+        NORMAL,
+        SCAN_WAITING
+    }
+
+    private enum ScanIntent {
+        NONE,
+        PREPAID,
+        TOPUP
+    }
+
     private final ProductDAO productDAO = new ProductDAO();
     private final CustomerDAO customerDAO = new CustomerDAO();
     private final OrderDAO orderDAO = new OrderDAO();
     private final TagGroupDAO tagGroupDAO = new TagGroupDAO();
     private final TagDAO tagDAO = new TagDAO();
     private final UserDAO userDAO = new UserDAO();
+    private final CashMovementDAO cashMovementDAO = new CashMovementDAO();
+    private final CashWithdrawalDAO cashWithdrawalDAO = new CashWithdrawalDAO();
+    private final ExpenseDAO expenseDAO = new ExpenseDAO();
     private final ProductIngredientDAO productIngredientDAO = new ProductIngredientDAO();
     private final WaitingOrderDAO waitingOrderDAO = new WaitingOrderDAO();
     private final OrderService orderService = new OrderService();
@@ -114,6 +145,13 @@ public class PosController {
     private OrderLine selectedLine;
     private Product currentTagProduct;
     private long newOrderConfirmAt;
+    private PosMode currentMode = PosMode.NORMAL;
+    private ScanIntent pendingScanIntent = ScanIntent.NONE;
+    private PauseTransition scanTimeout;
+    private Timeline prepaidPulseTimeline;
+    private boolean rfidCaptureEnabled = true;
+    private String prepaidDefaultStyle = "";
+    private String prepaidDefaultText = PREPAID_DEFAULT_LABEL;
 
     @FXML
     private StackPane rootStack;
@@ -137,6 +175,8 @@ public class PosController {
     private VBox categoryTabsContainer;
     @FXML
     private FlowPane productGrid;
+    @FXML
+    private ScrollPane productScrollPane;
     @FXML
     private VBox tagPanel;
     @FXML
@@ -200,6 +240,8 @@ public class PosController {
     private Button btnHold;
     @FXML
     private Button btnWaiting;
+    @FXML
+    private Button btnWithdrawal;
 
     @FXML
     private VBox cashDialog;
@@ -283,6 +325,10 @@ public class PosController {
     private VBox toastContainer;
     @FXML
     private Label printBadge;
+    @FXML
+    private Label selectedItemNameLabel;
+    @FXML
+    private Label selectedItemMetaLabel;
 
     @FXML
     private Button navCaisse;
@@ -307,6 +353,7 @@ public class PosController {
         if (role != null && !role.isBlank()) {
             applyRoleVisibility(UserRole.valueOf(role));
         }
+        updateSessionLabels();
     }
 
     public void restoreOrder(Order order) {
@@ -331,16 +378,24 @@ public class PosController {
     @FXML
     private void initialize() {
         bindLayoutAliases();
+        if (btnPrepaid != null) {
+            prepaidDefaultStyle = btnPrepaid.getStyle() == null ? "" : btnPrepaid.getStyle();
+            prepaidDefaultText = btnPrepaid.getText() == null || btnPrepaid.getText().isBlank()
+                    ? PREPAID_DEFAULT_LABEL
+                    : btnPrepaid.getText();
+        }
         ToastService.install(rootStack, statusBar);
         loadLowStockThreshold();
         loadTvaPercent();
         setupRfid();
+        configureProductGridWrapping();
         loadCategories();
         refreshOrderView();
         updateCustomerCard();
         refreshPrintBadge();
         refreshWaitingBadge();
         applyRoleVisibility(SessionManager.getCurrentUser() == null ? null : SessionManager.getCurrentUser().getRole());
+        updateSessionLabels();
         setActiveNav(navCaisse);
 
         rootStack.sceneProperty().addListener((obs, oldScene, newScene) -> {
@@ -350,18 +405,12 @@ public class PosController {
             }
         });
 
-        Platform.runLater(() -> {
-            if (rfidField != null) {
-                rfidField.requestFocus();
-            }
-        });
-
         if (topupAmountInput != null) {
             topupAmountInput.textProperty().addListener((obs, oldValue, newValue) -> updateTopupAfter());
         }
         if (rootStack != null) {
             rootStack.setOnMouseClicked(event -> {
-                if (rfidField != null) {
+                if (currentMode == PosMode.SCAN_WAITING && rfidField != null) {
                     rfidField.requestFocus();
                 }
             });
@@ -400,6 +449,25 @@ public class PosController {
         Thread thread = new Thread(task, "pos-load-tva");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private void updateSessionLabels() {
+        if (lblSessionInfo != null) {
+            User user = SessionManager.getCurrentUser();
+            if (user == null) {
+                lblSessionInfo.setText("Session: anonyme");
+            } else {
+                lblSessionInfo.setText("Session: " + user.getName() + " (" + user.getRole().name() + ")");
+            }
+        }
+        if (lblWorkPeriod != null) {
+            Integer workPeriodId = SessionManager.getCurrentWorkPeriodId();
+            if (workPeriodId == null || workPeriodId <= 0) {
+                lblWorkPeriod.setText("Période de travail inactive");
+            } else {
+                lblWorkPeriod.setText("Période de travail #" + workPeriodId);
+            }
+        }
     }
 
     private void bindLayoutAliases() {
@@ -456,6 +524,19 @@ public class PosController {
         }
     }
 
+    private void configureProductGridWrapping() {
+        if (productGrid == null) {
+            return;
+        }
+        if (productScrollPane != null) {
+            productGrid.setPrefWrapLength(Math.max(320, productScrollPane.getWidth() - 20));
+            productScrollPane.widthProperty().addListener((obs, oldVal, newVal) ->
+                    productGrid.setPrefWrapLength(Math.max(320, newVal.doubleValue() - 20)));
+        } else {
+            productGrid.setPrefWrapLength(700);
+        }
+    }
+
     private void applyRoleVisibility(UserRole role) {
         if (navStock != null) {
             navStock.setVisible(true);
@@ -492,16 +573,119 @@ public class PosController {
         if (RFID_MODE_DISABLED.equalsIgnoreCase(rfidMode)) {
             rfidField.setDisable(true);
             rfidField.setPromptText("RFID desactive");
+            rfidCaptureEnabled = false;
             return;
         }
 
         rfidField.setDisable(false);
+        rfidCaptureEnabled = true;
         if (rfidDeviceName != null && !rfidDeviceName.isBlank()) {
             rfidField.setPromptText("RFID: " + rfidDeviceName.trim());
         }
 
-        RFIDHandler handler = new RFIDHandler(rfidField);
-        handler.setOnCard(this::onCardScanned);
+        rfidField.setOnAction(event -> {
+            String raw = rfidField.getText();
+            rfidField.clear();
+
+            if (!rfidCaptureEnabled || currentMode != PosMode.SCAN_WAITING) {
+                return;
+            }
+
+            String uid = normalizeCardUid(raw);
+            if (uid.length() < 6 || uid.length() > 20) {
+                return;
+            }
+            onCardScanned(uid);
+        });
+    }
+
+    private String normalizeCardUid(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        return raw.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private void enterScanWaitingMode(ScanIntent intent) {
+        if (!rfidCaptureEnabled || rfidField == null || rfidField.isDisable()) {
+            if (intent == ScanIntent.TOPUP) {
+                startQuickClientFlow(lastScannedCardUid);
+            } else {
+                showToast("warning", "Lecteur RFID indisponible");
+            }
+            return;
+        }
+
+        currentMode = PosMode.SCAN_WAITING;
+        pendingScanIntent = intent;
+
+        if (btnPrepaid != null && intent == ScanIntent.PREPAID) {
+            btnPrepaid.setText(PREPAID_SCAN_LABEL);
+            startPrepaidPulse();
+        }
+
+        if (lblPrintQueue != null) {
+            lblPrintQueue.setText(RFID_WAITING_STATUS);
+            lblPrintQueue.setVisible(true);
+            lblPrintQueue.setManaged(true);
+        }
+
+        if (scanTimeout == null) {
+            scanTimeout = new PauseTransition(Duration.seconds(15));
+            scanTimeout.setOnFinished(evt -> {
+                if (currentMode == PosMode.SCAN_WAITING) {
+                    showToast("info", "Attente carte RFID expirée");
+                    exitScanWaitingMode();
+                }
+            });
+        }
+        scanTimeout.playFromStart();
+
+        Platform.runLater(() -> {
+            rfidField.clear();
+            rfidField.requestFocus();
+        });
+    }
+
+    private void exitScanWaitingMode() {
+        currentMode = PosMode.NORMAL;
+        pendingScanIntent = ScanIntent.NONE;
+
+        if (scanTimeout != null) {
+            scanTimeout.stop();
+        }
+        stopPrepaidPulse();
+
+        if (btnPrepaid != null) {
+            btnPrepaid.setText(prepaidDefaultText);
+            btnPrepaid.setStyle(prepaidDefaultStyle);
+        }
+        refreshPrintBadge();
+    }
+
+    private void startPrepaidPulse() {
+        if (btnPrepaid == null) {
+            return;
+        }
+        stopPrepaidPulse();
+        prepaidPulseTimeline = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                        e -> btnPrepaid.setStyle(prepaidDefaultStyle
+                                + " -fx-border-color: #F59E0B; -fx-border-width: 2px;")),
+                new KeyFrame(Duration.millis(450),
+                        e -> btnPrepaid.setStyle(prepaidDefaultStyle
+                                + " -fx-border-color: #FDBA74; -fx-border-width: 2px;"))
+        );
+        prepaidPulseTimeline.setAutoReverse(true);
+        prepaidPulseTimeline.setCycleCount(Animation.INDEFINITE);
+        prepaidPulseTimeline.play();
+    }
+
+    private void stopPrepaidPulse() {
+        if (prepaidPulseTimeline != null) {
+            prepaidPulseTimeline.stop();
+            prepaidPulseTimeline = null;
+        }
     }
 
     private void onCardScanned(String uid) {
@@ -517,16 +701,30 @@ public class PosController {
             if (customer == null) {
                 lastScannedCardUnknown = true;
                 showToast("warning", "Carte non reconnue");
+                ScanIntent intent = pendingScanIntent;
+                exitScanWaitingMode();
+                if (intent == ScanIntent.TOPUP) {
+                    startQuickClientFlow(lastScannedCardUid);
+                }
                 return;
             }
             lastScannedCardUnknown = false;
             currentCustomer = customer;
             currentOrder.setCustomer(customer);
             updateCustomerCard();
+
+            ScanIntent intent = pendingScanIntent;
+            exitScanWaitingMode();
+            if (intent == ScanIntent.TOPUP) {
+                showTopupDialogForCurrentCustomer();
+            } else if (intent == ScanIntent.PREPAID) {
+                onPrepaidPayment();
+            }
         });
         task.setOnFailed(evt -> {
             LOG.error("Erreur lecture carte", task.getException());
             showToast("error", "Lecture carte impossible");
+            exitScanWaitingMode();
         });
         Thread thread = new Thread(task, "rfid-lookup");
         thread.setDaemon(true);
@@ -541,7 +739,7 @@ public class PosController {
             customerCard.setVisible(false);
             customerCard.setManaged(false);
             if (btnPrepaid != null) {
-                btnPrepaid.setDisable(true);
+                btnPrepaid.setDisable(false);
             }
             return;
         }
@@ -598,7 +796,30 @@ public class PosController {
         Task<List<Category>> task = new Task<>() {
             @Override
             protected List<Category> call() throws Exception {
-                return categoryDAO.findAll();
+                String sql = """
+                        SELECT MIN(id) AS id,
+                               name,
+                               COALESCE(color, '#6B2D1A') AS color,
+                               COALESCE(sort_order, 0) AS sort_order
+                        FROM categories
+                        WHERE name IS NOT NULL AND TRIM(name) <> ''
+                        GROUP BY LOWER(name)
+                        ORDER BY sort_order, name
+                        """;
+                List<Category> categories = new ArrayList<>();
+                try (Connection conn = DatabaseManager.openConnection();
+                     PreparedStatement ps = conn.prepareStatement(sql);
+                     ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        categories.add(new Category(
+                                rs.getInt("id"),
+                                rs.getString("name"),
+                                rs.getString("color"),
+                                rs.getInt("sort_order")
+                        ));
+                    }
+                }
+                return categories;
             }
         };
         task.setOnSucceeded(evt -> {
@@ -639,7 +860,7 @@ public class PosController {
             Button button = new Button(shortCategoryLabel(category.getName()));
             button.setWrapText(true);
             button.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
-            button.setPrefWidth(72);
+            button.setPrefWidth(84);
             button.setMaxWidth(Double.MAX_VALUE);
             button.setMaxHeight(Double.MAX_VALUE);
             button.getStyleClass().add("button");
@@ -790,19 +1011,24 @@ public class PosController {
             productGrid.getChildren().add(empty);
             return;
         }
-        for (Product product : products) {
-            productGrid.getChildren().add(createProductTile(product));
-        }
+        products.stream()
+                .filter(product -> product.getName() != null && !product.getName().isBlank())
+                .filter(Product::isActive)
+                .forEach(product -> productGrid.getChildren().add(createProductTile(product)));
     }
 
     private StackPane createProductTile(Product product) {
         Button tileButton = new Button();
-        tileButton.setPrefWidth(120);
-        tileButton.setMinWidth(120);
-        tileButton.setMaxWidth(120);
-        tileButton.setPrefHeight(75);
-        tileButton.setMinHeight(75);
-        tileButton.setMaxHeight(75);
+        double wrapLength = productGrid == null ? 700 : productGrid.getPrefWrapLength();
+        double tileWidth = Math.max(130, (wrapLength - 40) / 5.0);
+        double tileHeight = Math.max(82, tileWidth * 0.65);
+
+        tileButton.setPrefWidth(tileWidth);
+        tileButton.setMinWidth(tileWidth);
+        tileButton.setMaxWidth(tileWidth);
+        tileButton.setPrefHeight(tileHeight);
+        tileButton.setMinHeight(tileHeight);
+        tileButton.setMaxHeight(tileHeight);
         tileButton.getStyleClass().addAll("button", "elevated");
 
         Category category = categoriesById.get(product.getCategoryId());
@@ -824,7 +1050,7 @@ public class PosController {
 
         Label name = new Label(product.getName());
         name.setWrapText(true);
-        name.setMaxWidth(106);
+        name.setMaxWidth(Math.max(100, tileWidth - 14));
         String textColor = useDefaultColor ? "#2C1810" : "#F5ECD7";
         name.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: " + textColor + ";");
         name.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
@@ -869,39 +1095,40 @@ public class PosController {
             showToast("warning", "Edition prix reservee manager");
             return;
         }
+        requireAdminAccess(() -> {
+            TextInputDialog dialog = new TextInputDialog(formatAmount(product.getPrice()));
+            dialog.setTitle("Modifier le prix");
+            dialog.setHeaderText("Nouveau prix pour " + product.getName());
+            dialog.setContentText("Prix DZD:");
 
-        TextInputDialog dialog = new TextInputDialog(formatAmount(product.getPrice()));
-        dialog.setTitle("Modifier le prix");
-        dialog.setHeaderText("Nouveau prix pour " + product.getName());
-        dialog.setContentText("Prix DZD:");
-
-        dialog.showAndWait().ifPresent(value -> {
-            double newPrice = parseAmount(value);
-            if (newPrice < 0) {
-                showToast("warning", "Prix invalide");
-                return;
-            }
-            Integer userId = SessionManager.getCurrentUser() == null ? null : SessionManager.getCurrentUser().getId();
-            Task<Void> task = new Task<>() {
-                @Override
-                protected Void call() throws Exception {
-                    productDAO.updatePriceWithHistory(product.getId(), newPrice, userId);
-                    return null;
+            dialog.showAndWait().ifPresent(value -> {
+                double newPrice = parseAmount(value);
+                if (newPrice < 0) {
+                    showToast("warning", "Prix invalide");
+                    return;
                 }
-            };
-            task.setOnSucceeded(evt -> {
-                showToast("success", "Prix mis a jour");
-                if (currentCategoryId > 0) {
-                    loadProducts(currentCategoryId);
-                }
+                Integer userId = SessionManager.getCurrentUser() == null ? null : SessionManager.getCurrentUser().getId();
+                Task<Void> task = new Task<>() {
+                    @Override
+                    protected Void call() throws Exception {
+                        productDAO.updatePriceWithHistory(product.getId(), newPrice, userId);
+                        return null;
+                    }
+                };
+                task.setOnSucceeded(evt -> {
+                    showToast("success", "Prix mis a jour");
+                    if (currentCategoryId > 0) {
+                        loadProducts(currentCategoryId);
+                    }
+                });
+                task.setOnFailed(evt -> {
+                    LOG.error("Erreur mise a jour prix", task.getException());
+                    showToast("error", "Mise a jour prix impossible");
+                });
+                Thread thread = new Thread(task, "pos-price-update");
+                thread.setDaemon(true);
+                thread.start();
             });
-            task.setOnFailed(evt -> {
-                LOG.error("Erreur mise a jour prix", task.getException());
-                showToast("error", "Mise a jour prix impossible");
-            });
-            Thread thread = new Thread(task, "pos-price-update");
-            thread.setDaemon(true);
-            thread.start();
         });
     }
 
@@ -1048,6 +1275,9 @@ public class PosController {
         if (orderLinesBox == null) {
             return;
         }
+        if (selectedLine != null && !currentOrder.getLines().contains(selectedLine)) {
+            selectedLine = null;
+        }
         currentOrder.setTvaPercent(tvaPercent);
         orderLinesBox.getChildren().clear();
         if (currentOrder.getLines().isEmpty()) {
@@ -1091,7 +1321,23 @@ public class PosController {
         if (totalLabel != null) {
             totalLabel.setText(formatAmount(currentOrder.getTotal()));
         }
+        updateSelectionSummary();
         updateCustomerCard();
+    }
+
+    private void updateSelectionSummary() {
+        if (selectedItemNameLabel == null || selectedItemMetaLabel == null) {
+            return;
+        }
+        if (selectedLine == null) {
+            selectedItemNameLabel.setText("-");
+            selectedItemMetaLabel.setText("Touchez un article pour afficher le detail");
+            return;
+        }
+        selectedItemNameLabel.setText(selectedLine.getProduct().getName());
+        selectedItemMetaLabel.setText("Qte: " + selectedLine.getQuantity()
+            + " • PU: " + formatMoney(selectedLine.getUnitTotal())
+                + " • Total: " + formatMoney(selectedLine.getLineTotal()));
     }
 
     private VBox buildOrderLine(OrderLine line) {
@@ -1198,18 +1444,91 @@ public class PosController {
             showToast("warning", "Ajoutez un produit");
             return;
         }
-        if (currentCustomer == null) {
-            showToast("warning", "Scannez une carte");
+
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        String suggestedUid = currentCustomer == null ? lastScannedCardUid : currentCustomer.getCardUid();
+        PrepaidPaymentDialog.Decision decision = PrepaidPaymentDialog.showDialog(owner, currentOrder.getTotal(), suggestedUid);
+        if (decision == null || decision.action() == PrepaidPaymentDialog.Action.CANCEL) {
             return;
         }
+
+        String scannedUid = normalizeCardUid(decision.cardUid());
+        if ((scannedUid == null || scannedUid.isBlank()) && currentCustomer == null) {
+            showToast("warning", "Scannez une carte RFID");
+            return;
+        }
+
+        if ((scannedUid == null || scannedUid.isBlank()) && currentCustomer != null) {
+            handlePrepaidDecision(currentCustomer, decision.action());
+            return;
+        }
+
+        Task<Customer> task = new Task<>() {
+            @Override
+            protected Customer call() throws Exception {
+                return customerDAO.findByCardUid(scannedUid);
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            Customer customer = task.getValue();
+            if (customer == null) {
+                if (decision.action() == PrepaidPaymentDialog.Action.TOPUP_CARD) {
+                    startQuickClientFlow(scannedUid);
+                    return;
+                }
+                showToast("warning", "Carte non reconnue");
+                return;
+            }
+            lastScannedCardUid = scannedUid;
+            lastScannedCardUnknown = false;
+            handlePrepaidDecision(customer, decision.action());
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur lecture carte prepayee", task.getException());
+            showToast("error", "Lecture carte impossible");
+        });
+        Thread thread = new Thread(task, "prepaid-card-lookup");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void handlePrepaidDecision(Customer customer, PrepaidPaymentDialog.Action action) {
+        if (customer == null || action == null) {
+            return;
+        }
+
+        currentCustomer = customer;
+        currentOrder.setCustomer(customer);
+        updateCustomerCard();
+
+        if (action == PrepaidPaymentDialog.Action.TOPUP_CARD) {
+            showTopupDialogForCurrentCustomer();
+            return;
+        }
+
         double total = currentOrder.getTotal();
         double balance = currentCustomer.getBalance();
-        if (balance >= total) {
+
+        if (action == PrepaidPaymentDialog.Action.PAY_PREPAID) {
+            if (balance + 0.0001 < total) {
+                showToast("warning", "Solde insuffisant: utilisez Mixte ou Recharge");
+                return;
+            }
             currentOrder.setPrepaidAmount(total);
             processPayment(PaymentType.PREPAYE, 0, total);
-        } else {
-            double prepaid = Math.max(0, balance);
+            return;
+        }
+
+        if (action == PrepaidPaymentDialog.Action.MIXED_CASH) {
+            double prepaid = Math.max(0, Math.min(balance, total));
             double remaining = total - prepaid;
+            if (remaining <= 0.0001) {
+                currentOrder.setPrepaidAmount(total);
+                processPayment(PaymentType.PREPAYE, 0, total);
+                return;
+            }
             Stage owner = rootStack == null || rootStack.getScene() == null
                     ? null
                     : (Stage) rootStack.getScene().getWindow();
@@ -1294,6 +1613,89 @@ public class PosController {
     @FXML
     private void onPayPrepaid() {
         onPrepaidPayment();
+    }
+
+    @FXML
+    private void onWithdrawal() {
+        requireAdminAccess(this::openWithdrawalWithSessionAdmin);
+    }
+
+    private void openWithdrawalWithSessionAdmin() {
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        openWithdrawalDialog(owner, SessionManager.getCurrentUser());
+    }
+
+    private void openWithdrawalDialog(Stage owner, User manager) {
+        Task<Double> cashTask = new Task<>() {
+            @Override
+            protected Double call() throws Exception {
+                return cashMovementDAO.computeExpectedCash(SessionManager.getCurrentWorkPeriodId());
+            }
+        };
+        cashTask.setOnSucceeded(evt -> {
+            double expectedCash = cashTask.getValue() == null ? 0 : cashTask.getValue();
+            CashWithdrawalDialog.Decision decision = CashWithdrawalDialog.showDialog(owner, expectedCash);
+            if (decision == null) {
+                return;
+            }
+            persistWithdrawal(decision, manager);
+        });
+        cashTask.setOnFailed(evt -> {
+            LOG.error("Erreur calcul caisse actuelle", cashTask.getException());
+            showToast("error", "Calcul caisse indisponible");
+        });
+        Thread cashThread = new Thread(cashTask, "withdrawal-expected-cash");
+        cashThread.setDaemon(true);
+        cashThread.start();
+    }
+
+    private void persistWithdrawal(CashWithdrawalDialog.Decision decision, User manager) {
+        Integer workPeriodId = SessionManager.getCurrentWorkPeriodId();
+        Integer userId = manager == null ? null : manager.getId();
+        double amount = decision.amount();
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try (Connection conn = DatabaseManager.openConnection()) {
+                    conn.setAutoCommit(false);
+                    try {
+                        cashWithdrawalDAO.insert(conn, decision.reason(), amount, userId, workPeriodId);
+                        expenseDAO.insert(conn, "WITHDRAWAL", decision.reason(), amount, workPeriodId);
+                        cashMovementDAO.insertMovement(
+                                conn,
+                                CashMovementDAO.TYPE_OUTFLOW,
+                                CashMovementDAO.CATEGORY_WITHDRAWAL,
+                                amount,
+                                decision.reason(),
+                                workPeriodId,
+                                null,
+                                userId
+                        );
+                        conn.commit();
+                    } catch (Exception ex) {
+                        conn.rollback();
+                        throw ex;
+                    } finally {
+                        conn.setAutoCommit(true);
+                    }
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            showToast("success", "💸 Retrait enregistré: -" + formatMoney(amount));
+            refreshPrintBadge();
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur enregistrement retrait", task.getException());
+            showToast("error", "Retrait impossible");
+        });
+        Thread thread = new Thread(task, "withdrawal-save");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     @FXML
@@ -2053,31 +2455,22 @@ public class PosController {
             showTopupDialogForCurrentCustomer();
             return;
         }
-
-        if (lastScannedCardUnknown && lastScannedCardUid != null && !lastScannedCardUid.isBlank()) {
-            startQuickClientFlow(lastScannedCardUid);
-            return;
-        }
-
-        startQuickClientFlow(null);
+        enterScanWaitingMode(ScanIntent.TOPUP);
     }
 
     private void showTopupDialogForCurrentCustomer() {
-        if (topupDialog == null || topupCustomerLabel == null || topupBalanceLabel == null
-                || topupAmountInput == null || topupAfterLabel == null) {
-            showToast("info", "Recharge disponible dans Clients");
-            return;
-        }
         if (currentCustomer == null) {
             return;
         }
-        topupCustomerLabel.setText(currentCustomer.getName());
-        topupBalanceLabel.setText("Solde actuel: " + formatMoney(currentCustomer.getBalance()));
-        topupAmountInput.setText("");
-        updateTopupAfter();
-        topupDialog.setVisible(true);
-        topupDialog.setManaged(true);
-        Platform.runLater(() -> topupAmountInput.requestFocus());
+
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        Double amount = TopupDialog.showDialog(owner, currentCustomer.getName(), currentCustomer.getBalance());
+        if (amount == null) {
+            return;
+        }
+        processTopupAmount(amount);
     }
 
     private void startQuickClientFlow(String suggestedCardUid) {
@@ -2152,6 +2545,10 @@ public class PosController {
             return;
         }
         double amount = parseAmount(topupAmountInput.getText());
+        processTopupAmount(amount);
+    }
+
+    private void processTopupAmount(double amount) {
         if (amount < 100) {
             showToast("warning", "Minimum 100 DZD");
             return;
@@ -2166,7 +2563,9 @@ public class PosController {
             currentCustomer = task.getValue();
             currentOrder.setCustomer(currentCustomer);
             updateCustomerCard();
-            onTopupCancel();
+            if (topupDialog != null && topupDialog.isVisible()) {
+                onTopupCancel();
+            }
             showToast("success", "Carte rechargee");
         });
         task.setOnFailed(evt -> {
@@ -2405,7 +2804,7 @@ public class PosController {
 
     @FXML
     private void onNavStock() {
-        openBackOffice("/com/cafepos/fxml/stock.fxml");
+        requireAdminAccess(() -> openBackOffice("/com/cafepos/fxml/stock.fxml"));
     }
 
     @FXML
@@ -2415,18 +2814,61 @@ public class PosController {
 
     @FXML
     private void onNavRapports() {
-        openBackOffice("/com/cafepos/fxml/reports.fxml");
+        requireAdminAccess(() -> openBackOffice("/com/cafepos/fxml/reports.fxml"));
     }
 
     @FXML
     private void onNavSettings() {
-        openBackOffice("/com/cafepos/fxml/settings.fxml");
+        requireAdminAccess(() -> openBackOffice("/com/cafepos/fxml/settings.fxml"));
     }
 
     @FXML
     private void onLock() {
+        AdminSessionManager.lock();
         SessionManager.setLockedOrder(currentOrder);
         navigateToLaunch();
+    }
+
+    private void requireAdminAccess(Runnable action) {
+        if (action == null) {
+            return;
+        }
+        if (AdminSessionManager.isAdminUnlocked()) {
+            AdminSessionManager.touch();
+            action.run();
+            return;
+        }
+
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        String pin = ManagerPinDialog.showDialog(owner);
+        if (pin == null || pin.isBlank()) {
+            return;
+        }
+
+        Task<User> pinTask = new Task<>() {
+            @Override
+            protected User call() throws Exception {
+                return userDAO.findByPinAndRole(SecurityUtils.sha256Hex(pin), UserRole.MANAGER);
+            }
+        };
+        pinTask.setOnSucceeded(evt -> {
+            User manager = pinTask.getValue();
+            if (manager == null) {
+                showToast("warning", "PIN administrateur invalide");
+                return;
+            }
+            AdminSessionManager.unlock();
+            action.run();
+        });
+        pinTask.setOnFailed(evt -> {
+            LOG.error("Erreur verification PIN admin", pinTask.getException());
+            showToast("error", "Verification PIN impossible");
+        });
+        Thread pinThread = new Thread(pinTask, "admin-pin-check");
+        pinThread.setDaemon(true);
+        pinThread.start();
     }
 
     private void onReprintLast() {
@@ -2505,6 +2947,9 @@ public class PosController {
 
     private void configureShortcuts(Scene scene) {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.getTarget() instanceof TextInputControl) {
+                return;
+            }
             if (event.getCode() == KeyCode.F1) {
                 onNavCaisse();
                 event.consume();
@@ -2515,7 +2960,7 @@ public class PosController {
                 onNavClients();
                 event.consume();
             } else if (event.getCode() == KeyCode.F4) {
-                onNavRapports();
+                onWithdrawal();
                 event.consume();
             } else if (event.getCode() == KeyCode.F5) {
                 onNavSettings();

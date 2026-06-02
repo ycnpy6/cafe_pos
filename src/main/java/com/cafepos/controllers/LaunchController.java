@@ -40,13 +40,14 @@ import java.util.Locale;
 
 public class LaunchController {
     private static final Logger LOG = LoggerFactory.getLogger(LaunchController.class);
+    private static final int PIN_LENGTH = 6;
     private static final int MAX_PIN_ATTEMPTS = 3;
     private static final long LOCKOUT_MS = 30_000;
 
     private final UserDAO userDAO = new UserDAO();
     private final WorkPeriodService workPeriodService = new WorkPeriodService();
 
-    private final StringBuilder pinBuffer = new StringBuilder(4);
+    private final StringBuilder pinBuffer = new StringBuilder(PIN_LENGTH);
 
     private Destination pendingDestination;
     private int failedAttempts;
@@ -67,13 +68,17 @@ public class LaunchController {
     @FXML
     private Label pinDot4;
     @FXML
+    private Label pinDot5;
+    @FXML
+    private Label pinDot6;
+    @FXML
     private Label pinError;
     @FXML
     private StackPane brandLogoContainer;
     @FXML
     private Label appTitle;
 
-    private final List<Label> dynamicPinDots = new ArrayList<>(4);
+    private final List<Label> dynamicPinDots = new ArrayList<>(PIN_LENGTH);
 
     @FXML
     private void initialize() {
@@ -178,7 +183,7 @@ public class LaunchController {
             }
             case "OK" -> onPinConfirm();
             default -> {
-                if (pinBuffer.length() < 4 && value.matches("\\d")) {
+                if (pinBuffer.length() < PIN_LENGTH && value.matches("\\d")) {
                     pinBuffer.append(value);
                 }
             }
@@ -209,8 +214,8 @@ public class LaunchController {
             showPinError(lockMessage());
             return;
         }
-        if (pinBuffer.length() != 4) {
-            showPinError("Code a 4 chiffres requis");
+        if (pinBuffer.length() != PIN_LENGTH) {
+            showPinError("Code a 6 chiffres requis");
             return;
         }
 
@@ -324,6 +329,8 @@ public class LaunchController {
         setDot(pinDot2, pinBuffer.length() > 1);
         setDot(pinDot3, pinBuffer.length() > 2);
         setDot(pinDot4, pinBuffer.length() > 3);
+        setDot(pinDot5, pinBuffer.length() > 4);
+        setDot(pinDot6, pinBuffer.length() > 5);
     }
 
     private void setDot(Label label, boolean filled) {
@@ -337,12 +344,14 @@ public class LaunchController {
         if (pinDots == null) {
             return;
         }
-        if (!pinDots.getChildren().isEmpty() && pinDot1 != null && pinDot2 != null && pinDot3 != null && pinDot4 != null) {
+        if (!pinDots.getChildren().isEmpty()
+                && pinDot1 != null && pinDot2 != null && pinDot3 != null && pinDot4 != null
+                && pinDot5 != null && pinDot6 != null) {
             return;
         }
         pinDots.getChildren().clear();
         dynamicPinDots.clear();
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < PIN_LENGTH; i++) {
             Label dot = new Label("o");
             dot.getStyleClass().add("pin-dot");
             dynamicPinDots.add(dot);
@@ -352,6 +361,8 @@ public class LaunchController {
         pinDot2 = dynamicPinDots.get(1);
         pinDot3 = dynamicPinDots.get(2);
         pinDot4 = dynamicPinDots.get(3);
+        pinDot5 = dynamicPinDots.get(4);
+        pinDot6 = dynamicPinDots.get(5);
     }
 
     private void handleWrongPin() {

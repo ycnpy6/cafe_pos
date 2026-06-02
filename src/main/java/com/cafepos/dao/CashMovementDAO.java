@@ -16,6 +16,7 @@ public class CashMovementDAO {
 
     public static final String CATEGORY_INGREDIENT_PURCHASE = "INGREDIENT_PURCHASE";
     public static final String CATEGORY_SHOPPING = "SHOPPING";
+    public static final String CATEGORY_WITHDRAWAL = "WITHDRAWAL";
     public static final String CATEGORY_OTHER = "OTHER";
 
     public void insertMovement(Connection conn,
@@ -85,5 +86,47 @@ public class CashMovementDAO {
             }
         }
         return results;
+    }
+
+    public double computeExpectedCash(Integer workPeriodId) throws Exception {
+        String salesSql = "SELECT COALESCE(SUM(cash_amount), 0) AS total_cash FROM orders WHERE (? IS NULL OR work_period_id = ?)";
+        String outflowSql = "SELECT COALESCE(SUM(amount), 0) AS total_outflow FROM cash_movements "
+                + "WHERE movement_type = 'OUTFLOW' AND (? IS NULL OR work_period_id = ?)";
+
+        try (Connection conn = DatabaseManager.openConnection()) {
+            double cashIn = 0;
+            double cashOut = 0;
+
+            try (PreparedStatement ps = conn.prepareStatement(salesSql)) {
+                if (workPeriodId == null) {
+                    ps.setObject(1, null);
+                    ps.setObject(2, null);
+                } else {
+                    ps.setInt(1, workPeriodId);
+                    ps.setInt(2, workPeriodId);
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        cashIn = rs.getDouble("total_cash");
+                    }
+                }
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(outflowSql)) {
+                if (workPeriodId == null) {
+                    ps.setObject(1, null);
+                    ps.setObject(2, null);
+                } else {
+                    ps.setInt(1, workPeriodId);
+                    ps.setInt(2, workPeriodId);
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        cashOut = rs.getDouble("total_outflow");
+                    }
+                }
+            }
+            return cashIn - cashOut;
+        }
     }
 }

@@ -32,6 +32,7 @@ public class QuickNewClientDialog extends Stage {
         initStyle(StageStyle.UNDECORATED);
         initModality(Modality.APPLICATION_MODAL);
         initOwner(owner);
+        MainApp.applyAppIcon(this);
         setWidth(360);
         setHeight(240);
 

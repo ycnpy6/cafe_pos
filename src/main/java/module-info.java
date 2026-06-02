@@ -5,6 +5,7 @@ module com.cafepos {
     requires org.slf4j;
     requires atlantafx.base;
     requires java.desktop;
+    requires org.apache.pdfbox;
 
     opens com.cafepos to javafx.fxml;
     opens com.cafepos.controller to javafx.fxml;

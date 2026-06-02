@@ -20,6 +20,11 @@
     -color-button-fg:            #2C1810;
     -color-button-border:        #D4B896;
     -color-button-hover-bg:      #E5D5B0;
+    -fx-font-size: 14px;
+}
+
+.button {
+    -fx-font-size: 13px;
 }
 
 /* Accent/primary buttons */
@@ -64,6 +69,7 @@
 /* TableView */
 .table-view {
     -fx-background-color: #F5ECD7;
+    -fx-font-size: 13px;
 }
 .table-row-cell:even {
     -fx-background-color: #F5ECD7;
@@ -92,6 +98,7 @@
     -fx-background-radius: 6px;
     -fx-text-fill: #2C1810;
     -fx-prompt-text-fill: #A0522D;
+    -fx-font-size: 14px;
 }
 .text-input:focused {
     -fx-border-color: #6B2D1A;
@@ -117,6 +124,7 @@
 /* Labels */
 .label {
     -fx-text-fill: #2C1810;
+    -fx-font-size: 14px;
 }
 .text-muted {
     -fx-text-fill: #7A5C4A;

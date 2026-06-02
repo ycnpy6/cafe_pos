@@ -42,6 +42,7 @@ public final class DatabaseManager {
             try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
                 applyPragmas(conn);
                 runSchema(conn);
+                normalizeCategories(conn);
                 seedIfEmpty(conn);
             }
 
@@ -112,6 +113,110 @@ public final class DatabaseManager {
         linkSupplementGroupsToBeverages(conn);
     }
 
+    private static void normalizeCategories(Connection conn) throws Exception {
+        cleanupDuplicateCategories(conn);
+        migrateCategoriesUniqueNoCase(conn);
+    }
+
+    private static void cleanupDuplicateCategories(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // Repoint products to the survivor category id (MIN id by lower(name)).
+            stmt.executeUpdate("""
+                    UPDATE products
+                    SET category_id = (
+                        SELECT MIN(c2.id)
+                        FROM categories c2
+                        WHERE LOWER(c2.name) = LOWER((
+                            SELECT c3.name FROM categories c3 WHERE c3.id = products.category_id
+                        ))
+                    )
+                    WHERE category_id IS NOT NULL
+                    AND EXISTS (
+                        SELECT 1 FROM categories c WHERE c.id = products.category_id
+                    )
+                    """);
+
+            stmt.executeUpdate("""
+                    DELETE FROM categories
+                    WHERE id NOT IN (
+                        SELECT MIN(id) FROM categories GROUP BY LOWER(name)
+                    )
+                    """);
+        }
+    }
+
+    private static void migrateCategoriesUniqueNoCase(Connection conn) throws Exception {
+        int oldCount = queryCount(conn, "SELECT COUNT(*) FROM categories");
+
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute("PRAGMA foreign_keys=OFF");
+            stmt.execute("BEGIN IMMEDIATE TRANSACTION");
+
+            stmt.execute("DROP TABLE IF EXISTS categories_new");
+            stmt.execute("""
+                    CREATE TABLE IF NOT EXISTS categories_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                        color TEXT DEFAULT '#6B2D1A',
+                        sort_order INTEGER DEFAULT 0
+                    )
+                    """);
+
+            stmt.executeUpdate("""
+                    INSERT OR IGNORE INTO categories_new (id, name, color, sort_order)
+                    SELECT id,
+                           name,
+                           COALESCE(color, '#6B2D1A'),
+                           COALESCE(sort_order, 0)
+                    FROM categories
+                    ORDER BY id
+                    """);
+
+            // Ensure product category ids stay valid after table swap.
+            stmt.executeUpdate("""
+                    UPDATE products
+                    SET category_id = (
+                        SELECT cn.id
+                        FROM categories c
+                        JOIN categories_new cn ON LOWER(cn.name) = LOWER(c.name)
+                        WHERE c.id = products.category_id
+                        LIMIT 1
+                    )
+                    WHERE category_id IS NOT NULL
+                    """);
+
+            int newCount = queryCount(conn, "SELECT COUNT(*) FROM categories_new");
+            if (oldCount > 0 && newCount <= 0) {
+                stmt.execute("ROLLBACK");
+                stmt.execute("PRAGMA foreign_keys=ON");
+                LOG.warn("Migration categories ignoree: categories_new vide");
+                return;
+            }
+
+            stmt.execute("DROP TABLE categories");
+            stmt.execute("ALTER TABLE categories_new RENAME TO categories");
+            stmt.execute("COMMIT");
+            stmt.execute("PRAGMA foreign_keys=ON");
+        } catch (Exception ex) {
+            try (Statement rollback = conn.createStatement()) {
+                rollback.execute("ROLLBACK");
+                rollback.execute("PRAGMA foreign_keys=ON");
+            } catch (Exception ignored) {
+            }
+            throw ex;
+        }
+    }
+
+    private static int queryCount(Connection conn, String sql) throws Exception {
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+            return 0;
+        }
+    }
+
     private static void executeScript(Connection conn, String sqlScript) throws Exception {
         String[] statements = sqlScript.split(";");
         for (String raw : statements) {
@@ -143,22 +248,42 @@ public final class DatabaseManager {
     }
 
     private static void ensureCategory(Connection conn, int id, String name, String color, int sortOrder) throws Exception {
-        try (PreparedStatement insert = conn.prepareStatement(
-                "INSERT OR IGNORE INTO categories (id, name, color, sort_order) VALUES (?, ?, ?, ?)")) {
-            insert.setInt(1, id);
-            insert.setString(2, name);
-            insert.setString(3, color);
-            insert.setInt(4, sortOrder);
-            insert.executeUpdate();
+        Integer existingCategoryId = findCategoryIdByName(conn, name);
+
+        if (existingCategoryId == null) {
+            try (PreparedStatement insert = conn.prepareStatement(
+                    "INSERT OR IGNORE INTO categories (id, name, color, sort_order) VALUES (?, ?, ?, ?)")) {
+                insert.setInt(1, id);
+                insert.setString(2, name);
+                insert.setString(3, color);
+                insert.setInt(4, sortOrder);
+                insert.executeUpdate();
+            }
+            existingCategoryId = findCategoryIdByName(conn, name);
         }
+
+        int targetId = existingCategoryId == null ? id : existingCategoryId;
 
         try (PreparedStatement update = conn.prepareStatement(
                 "UPDATE categories SET name = ?, color = ?, sort_order = ? WHERE id = ?")) {
             update.setString(1, name);
             update.setString(2, color);
             update.setInt(3, sortOrder);
-            update.setInt(4, id);
+            update.setInt(4, targetId);
             update.executeUpdate();
+        }
+    }
+
+    private static Integer findCategoryIdByName(Connection conn, String name) throws Exception {
+        String sql = "SELECT id FROM categories WHERE LOWER(name) = LOWER(?) ORDER BY id LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+                return null;
+            }
         }
     }
 

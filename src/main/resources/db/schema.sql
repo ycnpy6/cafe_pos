@@ -117,12 +117,45 @@ CREATE TABLE IF NOT EXISTS ingredients (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
   unit TEXT NOT NULL DEFAULT 'UNIT',
+  unit_base TEXT DEFAULT 'UNIT',
+  unit_factor REAL NOT NULL DEFAULT 1,
   package_size REAL NOT NULL DEFAULT 1,
   package_price REAL NOT NULL DEFAULT 0,
   stock_quantity REAL NOT NULL DEFAULT 0,
   min_quantity REAL NOT NULL DEFAULT 0,
+  stock_base_quantity REAL NOT NULL DEFAULT 0,
+  min_base_quantity REAL NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1
 );
+
+ALTER TABLE ingredients ADD COLUMN unit_base TEXT DEFAULT 'UNIT';
+ALTER TABLE ingredients ADD COLUMN unit_factor REAL NOT NULL DEFAULT 1;
+ALTER TABLE ingredients ADD COLUMN stock_base_quantity REAL NOT NULL DEFAULT 0;
+ALTER TABLE ingredients ADD COLUMN min_base_quantity REAL NOT NULL DEFAULT 0;
+
+UPDATE ingredients
+SET unit_factor = CASE UPPER(COALESCE(unit, 'UNIT'))
+    WHEN 'KG' THEN 1000
+    WHEN 'L' THEN 1000
+    ELSE 1
+END
+WHERE unit_factor IS NULL OR unit_factor <= 0;
+
+UPDATE ingredients
+SET unit_base = CASE UPPER(COALESCE(unit, 'UNIT'))
+    WHEN 'KG' THEN 'G'
+    WHEN 'L' THEN 'ML'
+    ELSE UPPER(COALESCE(unit, 'UNIT'))
+END
+WHERE unit_base IS NULL OR TRIM(unit_base) = '';
+
+UPDATE ingredients
+SET stock_base_quantity = stock_quantity * COALESCE(unit_factor, 1)
+WHERE stock_base_quantity IS NULL OR stock_base_quantity = 0;
+
+UPDATE ingredients
+SET min_base_quantity = min_quantity * COALESCE(unit_factor, 1)
+WHERE min_base_quantity IS NULL OR min_base_quantity = 0;
 
 CREATE TABLE IF NOT EXISTS product_ingredients (
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -159,6 +192,24 @@ CREATE TABLE IF NOT EXISTS cash_movements (
   work_period_id INTEGER REFERENCES work_periods(id),
   ingredient_id INTEGER REFERENCES ingredients(id),
   user_id INTEGER REFERENCES users(id),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cash_withdrawals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reason TEXT NOT NULL,
+  amount REAL NOT NULL,
+  user_id INTEGER REFERENCES users(id),
+  work_period_id INTEGER REFERENCES work_periods(id),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS expenses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL,
+  description TEXT,
+  amount REAL NOT NULL,
+  work_period_id INTEGER REFERENCES work_periods(id),
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -252,7 +303,11 @@ CREATE TABLE IF NOT EXISTS price_history (
 );
 
 INSERT OR IGNORE INTO users (name, pin, role)
-VALUES ('manager', '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4', 'MANAGER');
+VALUES ('manager', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'MANAGER');
+
+UPDATE users
+SET pin = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'
+WHERE name = 'manager' AND role = 'MANAGER';
 
 INSERT OR IGNORE INTO users (name, pin, role)
 VALUES ('barista', '0ffe1abd1a08215353c233d6e009613e95eec4253832a761af28ff37ac5a150c', 'BARISTA');

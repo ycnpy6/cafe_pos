@@ -35,8 +35,9 @@ public class CashTenderDialog extends Stage {
         initStyle(StageStyle.UNDECORATED);
         initModality(Modality.APPLICATION_MODAL);
         initOwner(owner);
-        setWidth(340);
-        setHeight(420);
+        MainApp.applyAppIcon(this);
+        setWidth(460);
+        setHeight(640);
 
         StackPane root = new StackPane();
         root.setPadding(new Insets(16));
@@ -124,7 +125,7 @@ public class CashTenderDialog extends Stage {
         );
 
         root.getChildren().add(panel);
-        Scene scene = new Scene(root, 340, 420);
+        Scene scene = new Scene(root, 460, 640);
         MainApp.applyBrandTheme(scene);
         scene.setOnKeyPressed(event -> {
             if (event.getCode() == KeyCode.ESCAPE) {

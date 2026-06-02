@@ -10,10 +10,13 @@ import com.cafepos.model.TopItem;
 import com.cafepos.service.PrintQueueService;
 import com.cafepos.service.ReportService;
 import com.cafepos.util.FormatUtils;
+import javafx.collections.FXCollections;
+import javafx.scene.chart.BarChart;
+import javafx.scene.chart.PieChart;
+import javafx.scene.chart.XYChart;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.beans.property.SimpleStringProperty;
-import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.concurrent.Task;
@@ -34,6 +37,11 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.util.Duration;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +51,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -99,6 +109,10 @@ public class ReportsController {
 
     @FXML
     private VBox topItemsBox;
+    @FXML
+    private BarChart<String, Number> dailySalesChart;
+    @FXML
+    private PieChart paymentMixChart;
 
     @FXML
     private TextField historySearchField;
@@ -396,6 +410,7 @@ public class ReportsController {
             ReportBundle bundle = task.getValue();
             updateKpis(bundle.summary());
             renderTopItems(bundle.topItems());
+            renderCharts(bundle.history());
             historyMaster.setAll(bundle.history());
             updateUserFilter(bundle.history());
             sessionMaster.setAll(bundle.sessions());
@@ -411,6 +426,64 @@ public class ReportsController {
         Thread thread = new Thread(task, "reports-load");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private void renderCharts(List<OrderHistoryRow> historyRows) {
+        if (historyRows == null) {
+            historyRows = List.of();
+        }
+        renderDailySalesChart(historyRows);
+        renderPaymentMixChart(historyRows);
+    }
+
+    private void renderDailySalesChart(List<OrderHistoryRow> historyRows) {
+        if (dailySalesChart == null) {
+            return;
+        }
+        Map<String, Double> byDay = new LinkedHashMap<>();
+        LocalDate cursor = rangeStart;
+        while (!cursor.isAfter(rangeEnd)) {
+            byDay.put(cursor.toString(), 0.0);
+            cursor = cursor.plusDays(1);
+        }
+        for (OrderHistoryRow row : historyRows) {
+            if (row.createdAt() == null || row.createdAt().length() < 10) {
+                continue;
+            }
+            String day = row.createdAt().substring(0, 10);
+            byDay.computeIfPresent(day, (k, v) -> v + row.total());
+        }
+
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        for (Map.Entry<String, Double> entry : byDay.entrySet()) {
+            series.getData().add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
+        }
+        dailySalesChart.getData().setAll(series);
+    }
+
+    private void renderPaymentMixChart(List<OrderHistoryRow> historyRows) {
+        if (paymentMixChart == null) {
+            return;
+        }
+        double cash = 0;
+        double prepaid = 0;
+        double mixed = 0;
+        for (OrderHistoryRow row : historyRows) {
+            if (row.paymentType() == PaymentType.ESPECES) {
+                cash += row.total();
+            } else if (row.paymentType() == PaymentType.PREPAYE) {
+                prepaid += row.total();
+            } else if (row.paymentType() == PaymentType.MIXTE) {
+                mixed += row.total();
+            }
+        }
+
+        ObservableList<PieChart.Data> data = FXCollections.observableArrayList(
+                new PieChart.Data("Especes", cash),
+                new PieChart.Data("Prepayes", prepaid),
+                new PieChart.Data("Mixte", mixed)
+        );
+        paymentMixChart.setData(data);
     }
 
     private void updateKpis(SalesSummary summary) {
@@ -674,6 +747,75 @@ public class ReportsController {
             LOG.error("Erreur export Excel", ex);
             showToast("error", "Export Excel impossible");
         }
+    }
+
+    @FXML
+    private void onExportPdf() {
+        List<OrderHistoryRow> rows = new ArrayList<>(historyFiltered);
+        if (rows.isEmpty()) {
+            showToast("warning", "Aucune donnee a exporter");
+            return;
+        }
+        Path path = choosePath("Exporter PDF", "PDF", "*.pdf");
+        if (path == null) {
+            return;
+        }
+
+        try (PDDocument doc = new PDDocument()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            doc.addPage(page);
+
+            float margin = 40;
+            float y = page.getMediaBox().getHeight() - margin;
+
+            try (PDPageContentStream content = new PDPageContentStream(doc, page)) {
+                y = writePdfLine(content, y, 14, "Rapport ventes " + rangeStart + " -> " + rangeEnd);
+                y = writePdfLine(content, y, 11, "Total: " + kpiTotalLabel.getText()
+                        + " | Commandes: " + kpiOrdersLabel.getText()
+                        + " | Net: " + kpiNetRevenueLabel.getText());
+                y -= 6;
+
+                y = writePdfLine(content, y, 10, "# | Date | Total | Paiement | Client | Utilisateur");
+                y = writePdfLine(content, y, 10, "-----------------------------------------------------------------------");
+
+                int limit = Math.min(rows.size(), 34);
+                for (int i = 0; i < limit; i++) {
+                    OrderHistoryRow row = rows.get(i);
+                    String line = row.orderId() + " | "
+                            + safePdf(row.createdAt()) + " | "
+                            + String.format("%.2f", row.total()) + " | "
+                            + row.paymentType().name() + " | "
+                            + safePdf(row.clientName()) + " | "
+                            + safePdf(row.userName());
+                    y = writePdfLine(content, y, 9, line);
+                    if (y < 70) {
+                        break;
+                    }
+                }
+            }
+
+            doc.save(path.toFile());
+            showToast("success", "Export PDF termine");
+        } catch (Exception ex) {
+            LOG.error("Erreur export PDF", ex);
+            showToast("error", "Export PDF impossible");
+        }
+    }
+
+    private float writePdfLine(PDPageContentStream content, float y, int size, String text) throws Exception {
+        content.beginText();
+        content.setFont(PDType1Font.HELVETICA, size);
+        content.newLineAtOffset(40, y);
+        content.showText(safePdf(text));
+        content.endText();
+        return y - (size + 4);
+    }
+
+    private String safePdf(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("\n", " ").replace("\r", " ");
     }
 
     private Path choosePath(String title, String label, String extension) {

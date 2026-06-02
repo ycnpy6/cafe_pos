@@ -38,6 +38,7 @@ public class DiscountDialog extends Stage {
         initStyle(StageStyle.UNDECORATED);
         initModality(Modality.APPLICATION_MODAL);
         initOwner(owner);
+        MainApp.applyAppIcon(this);
         setWidth(320);
         setHeight(280);
 

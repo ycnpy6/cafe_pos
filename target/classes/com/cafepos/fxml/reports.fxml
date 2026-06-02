@@ -12,6 +12,10 @@
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.chart.BarChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.chart.PieChart?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
@@ -29,6 +33,7 @@
             <HBox spacing="8">
                 <Button fx:id="exportCsvButton" text="Exporter CSV" onAction="#onExportCsv" styleClass="ghost-button"/>
                 <Button fx:id="exportXlsxButton" text="Exporter Excel" onAction="#onExportExcel" styleClass="action-button"/>
+                <Button fx:id="exportPdfButton" text="Exporter PDF" onAction="#onExportPdf" styleClass="action-button"/>
             </HBox>
         </HBox>
 
@@ -89,6 +94,22 @@
                         </padding>
                     </VBox>
                 </ScrollPane>
+            </Tab>
+            <Tab text="Graphiques" closable="false">
+                <VBox spacing="12">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+                    <BarChart fx:id="dailySalesChart" title="Ventes par jour" animated="false" legendVisible="false" VBox.vgrow="ALWAYS">
+                        <xAxis>
+                            <CategoryAxis label="Jour"/>
+                        </xAxis>
+                        <yAxis>
+                            <NumberAxis label="Total DZD"/>
+                        </yAxis>
+                    </BarChart>
+                    <PieChart fx:id="paymentMixChart" title="Repartition des paiements" labelsVisible="true" legendVisible="true" />
+                </VBox>
             </Tab>
             <Tab text="Historique" closable="false">
                 <VBox spacing="10">

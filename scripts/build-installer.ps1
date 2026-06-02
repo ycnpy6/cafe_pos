@@ -1,6 +1,7 @@
 param(
-    [ValidateSet("exe", "app-image")]
-    [string]$Type = "exe"
+    [ValidateSet("exe", "msi", "app-image")]
+    [string]$Type = "exe",
+    [switch]$NoClean
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,10 +25,16 @@ try {
         throw "jpackage introuvable. Installez un JDK (17+) incluant jpackage."
     }
 
-    Write-Host "[1/4] Build Maven..."
-    & $mavenCmd clean -DskipTests package
+    $mavenArgs = @("-DskipTests")
+    if (-not $NoClean) {
+        $mavenArgs += "clean"
+    }
+    $mavenArgs += "package"
 
-    Write-Host "[2/4] Copie des dependances runtime..."
+    Write-Host "[1/5] Build Maven..."
+    & $mavenCmd @mavenArgs
+
+    Write-Host "[2/5] Copie des dependances runtime..."
     & $mavenCmd -DskipTests dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=target/installer-input
 
     $mainJar = Get-ChildItem "target" -Filter "cafe-pos-*.jar" |
@@ -41,59 +48,142 @@ try {
 
     Copy-Item $mainJar.FullName "target/installer-input/$($mainJar.Name)" -Force
 
-    $installerDir = Join-Path $projectRoot "target/installer"
+    $installerDir = Join-Path $projectRoot "dist/installer"
+    if (Test-Path $installerDir) {
+        Get-ChildItem $installerDir -Force | Remove-Item -Recurse -Force
+    }
     New-Item -Path $installerDir -ItemType Directory -Force | Out-Null
 
     $version = $mainJar.BaseName.Replace("cafe-pos-", "")
+    $generatedType = $Type
+    $javaFxModulePath = '$APPDIR\javafx-base-21.0.5-win.jar;$APPDIR\javafx-controls-21.0.5-win.jar;$APPDIR\javafx-fxml-21.0.5-win.jar;$APPDIR\javafx-graphics-21.0.5-win.jar'
+
+    if ($Type -in @("exe", "msi")) {
+        $localWixDir = Join-Path $projectRoot ".tools\wix314"
+        $hasSystemCandle = Get-Command candle -ErrorAction SilentlyContinue
+        $hasSystemLight = Get-Command light -ErrorAction SilentlyContinue
+        $hasLocalWix = (Test-Path (Join-Path $localWixDir "candle.exe")) -and
+                       (Test-Path (Join-Path $localWixDir "light.exe"))
+
+        if ((-not $hasSystemCandle -or -not $hasSystemLight) -and $hasLocalWix) {
+            $env:PATH = "$localWixDir;$env:PATH"
+            Write-Host "WiX local detecte: $localWixDir"
+        }
+    }
 
     $jpackageArgs = @(
         "--type", $Type,
         "--name", "CommonGroundsPOS",
-        "--dest", "target/installer",
+        "--dest", $installerDir,
         "--input", "target/installer-input",
         "--main-jar", $mainJar.Name,
         "--main-class", "com.cafepos.MainApp",
         "--app-version", $version,
         "--vendor", "Common Grounds",
         "--description", "Common Grounds Cafe POS",
-        "--win-dir-chooser",
-        "--win-shortcut",
-        "--win-menu",
-        "--win-per-user-install"
+        "--java-options", "--module-path=$javaFxModulePath",
+        "--java-options", "--add-modules=javafx.controls,javafx.fxml",
+        "--java-options", "-Dprism.order=sw"
     )
+
+    if ($Type -in @("exe", "msi")) {
+        $jpackageArgs += @(
+            "--win-upgrade-uuid", "4f3769d8-b20b-47aa-a5f3-6e9897666363",
+            "--win-dir-chooser",
+            "--win-shortcut",
+            "--win-menu",
+            "--win-per-user-install"
+        )
+    }
 
     if (Test-Path "src/main/resources/com/cafepos/images/logo.ico") {
         $jpackageArgs += @("--icon", "src/main/resources/com/cafepos/images/logo.ico")
     }
 
-    Write-Host "[3/4] Generation package jpackage ($Type)..."
-    try {
-        & jpackage @jpackageArgs
-    } catch {
+    Write-Host "[3/5] Generation package jpackage ($Type)..."
+    & jpackage @jpackageArgs
+    $packageExit = $LASTEXITCODE
+
+    if ($packageExit -ne 0) {
         if ($Type -eq "exe") {
-            Write-Warning "Creation EXE impossible (souvent WiX manquant). Generation app-image en fallback..."
-            $fallbackArgs = @(
-                "--type", "app-image",
+            Write-Warning "Creation EXE impossible. Tentative MSI puis app-image en fallback..."
+
+            $msiArgs = @(
+                "--type", "msi",
                 "--name", "CommonGroundsPOS",
-                "--dest", "target/installer",
+                "--dest", $installerDir,
                 "--input", "target/installer-input",
                 "--main-jar", $mainJar.Name,
                 "--main-class", "com.cafepos.MainApp",
                 "--app-version", $version,
                 "--vendor", "Common Grounds",
-                "--description", "Common Grounds Cafe POS"
+                "--description", "Common Grounds Cafe POS",
+                "--java-options", "--module-path=$javaFxModulePath",
+                "--java-options", "--add-modules=javafx.controls,javafx.fxml",
+                "--java-options", "-Dprism.order=sw",
+                "--win-upgrade-uuid", "4f3769d8-b20b-47aa-a5f3-6e9897666363",
+                "--win-dir-chooser",
+                "--win-shortcut",
+                "--win-menu",
+                "--win-per-user-install"
+            )
+            if (Test-Path "src/main/resources/com/cafepos/images/logo.ico") {
+                $msiArgs += @("--icon", "src/main/resources/com/cafepos/images/logo.ico")
+            }
+
+            & jpackage @msiArgs
+            if ($LASTEXITCODE -eq 0) {
+                Write-Warning "EXE non genere, MSI genere avec succes."
+                $generatedType = "msi"
+                $packageExit = 0
+            }
+        }
+
+        if ($packageExit -ne 0) {
+            Write-Warning "Generation app-image en fallback..."
+            $appImageDir = Join-Path $installerDir "CommonGroundsPOS"
+            if (Test-Path $appImageDir) {
+                Remove-Item $appImageDir -Recurse -Force
+            }
+
+            $fallbackArgs = @(
+                "--type", "app-image",
+                "--name", "CommonGroundsPOS",
+                "--dest", $installerDir,
+                "--input", "target/installer-input",
+                "--main-jar", $mainJar.Name,
+                "--main-class", "com.cafepos.MainApp",
+                "--app-version", $version,
+                "--vendor", "Common Grounds",
+                "--description", "Common Grounds Cafe POS",
+                "--java-options", "--module-path=$javaFxModulePath",
+                "--java-options", "--add-modules=javafx.controls,javafx.fxml",
+                "--java-options", "-Dprism.order=sw"
             )
             if (Test-Path "src/main/resources/com/cafepos/images/logo.ico") {
                 $fallbackArgs += @("--icon", "src/main/resources/com/cafepos/images/logo.ico")
             }
+
             & jpackage @fallbackArgs
-            Write-Warning "Installer EXE non genere. Installez WiX Toolset 3.x puis relancez ce script."
-        } else {
-            throw
+            if ($LASTEXITCODE -ne 0) {
+                throw "Echec jpackage principal et fallback app-image."
+            }
+            $generatedType = "app-image"
+            $packageExit = 0
+            if ($Type -in @("exe", "msi")) {
+                Write-Warning "Installer Windows non genere. Fallback app-image cree."
+            }
         }
     }
 
-    Write-Host "[4/4] Fichiers generes dans: $installerDir"
+    Write-Host "[4/5] Generation checksums SHA256..."
+    Get-ChildItem $installerDir -File | ForEach-Object {
+        $hash = Get-FileHash $_.FullName -Algorithm SHA256
+        $line = "$($hash.Hash) *$($_.Name)"
+        Set-Content -Path ($_.FullName + ".sha256") -Value $line -Encoding ascii
+    }
+
+    Write-Host "[5/5] Fichiers generes dans: $installerDir (type final: $generatedType)"
     Get-ChildItem $installerDir | Select-Object Name, Length, LastWriteTime
 }
 finally {
