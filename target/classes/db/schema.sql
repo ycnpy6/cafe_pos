@@ -57,8 +57,14 @@ CREATE TABLE IF NOT EXISTS customers (
   name TEXT NOT NULL,
   card_uid TEXT UNIQUE NOT NULL,
   balance REAL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+ALTER TABLE customers ADD COLUMN active INTEGER NOT NULL DEFAULT 1;
+
+UPDATE customers
+SET active = COALESCE(active, 1);
 
 CREATE TABLE IF NOT EXISTS account_transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -45,6 +45,7 @@
                     <TableColumn fx:id="cardColumn" text="UID" prefWidth="140"/>
                     <TableColumn fx:id="balanceColumn" text="Solde" prefWidth="120"/>
                     <TableColumn fx:id="lastTxColumn" text="Derniere" prefWidth="140"/>
+                    <TableColumn fx:id="activeColumn" text="Etat" prefWidth="90"/>
                     <TableColumn fx:id="actionsColumn" text="Actions" prefWidth="120"/>
                 </columns>
             </TableView>

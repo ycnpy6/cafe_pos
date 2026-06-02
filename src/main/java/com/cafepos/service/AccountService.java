@@ -14,6 +14,9 @@ public class AccountService {
         if (customer == null) {
             throw new IllegalArgumentException("Client requis");
         }
+        if (!customer.isActive()) {
+            throw new IllegalStateException("Client inactif");
+        }
         if (amount < 100) {
             throw new IllegalArgumentException("Montant minimum: 100 DZD");
         }
@@ -25,7 +28,7 @@ public class AccountService {
             customerDAO.updateBalance(conn, customer.getId(), newBalance);
             accountTransactionDAO.insertTransaction(conn, customer.getId(), amount, "Recharge", userId, newBalance, null);
             conn.commit();
-            return new Customer(customer.getId(), customer.getName(), customer.getCardUid(), newBalance);
+            return new Customer(customer.getId(), customer.getName(), customer.getCardUid(), newBalance, true);
         }
     }
 }

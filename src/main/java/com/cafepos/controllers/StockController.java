@@ -18,6 +18,7 @@ import com.cafepos.model.Product;
 import com.cafepos.model.ProductIngredientUsage;
 import com.cafepos.model.Tag;
 import com.cafepos.model.TagGroup;
+import com.cafepos.model.UnitType;
 import com.cafepos.model.User;
 import com.cafepos.service.SessionManager;
 import com.cafepos.util.FormatUtils;
@@ -43,6 +44,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.Alert;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.Label;
@@ -52,6 +54,7 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
@@ -98,6 +101,8 @@ public class StockController {
     private final ObservableList<IngredientRow> ingredientRows = FXCollections.observableArrayList();
     private final ObservableList<Product> recipeProducts = FXCollections.observableArrayList();
     private final ObservableList<RecipeRow> recipeRows = FXCollections.observableArrayList();
+        private final ObservableList<String> ingredientUnitOptions =
+            FXCollections.observableArrayList(UnitType.orderedDisplayUnits());
 
     private final Map<Integer, Category> categoriesById = new HashMap<>();
     private final Map<Integer, String> categoryColors = new HashMap<>();
@@ -133,6 +138,14 @@ public class StockController {
     private Button newIngredientButton;
     @FXML
     private Button purchaseIngredientButton;
+    @FXML
+    private Button editIngredientButton;
+    @FXML
+    private Button deleteIngredientButton;
+    @FXML
+    private Button activateIngredientButton;
+    @FXML
+    private Button deactivateIngredientButton;
     @FXML
     private TableView<IngredientRow> ingredientsTable;
     @FXML
@@ -344,21 +357,12 @@ public class StockController {
         });
 
         ingredientUnitColumn.setCellValueFactory(data -> data.getValue().unitProperty());
-        ingredientUnitColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new StringConverter<>() {
-            @Override
-            public String toString(String object) {
-                return object == null ? "" : object;
-            }
-
-            @Override
-            public String fromString(String string) {
-                return normalizeUnit(string);
-            }
-        }));
+        ingredientUnitColumn.setCellFactory(ComboBoxTableCell.forTableColumn(ingredientUnitOptions));
         ingredientUnitColumn.setOnEditCommit(evt -> {
             IngredientRow row = evt.getRowValue();
             row.setUnit(normalizeUnit(evt.getNewValue()));
             persistIngredient(row);
+            refreshRecipeCost();
         });
 
         ingredientStockColumn.setCellValueFactory(data -> data.getValue().stockQuantityProperty().asObject());
@@ -642,6 +646,88 @@ public class StockController {
         ingredientRows.add(0, row);
         ingredientsTable.getSelectionModel().select(row);
         Platform.runLater(() -> ingredientsTable.edit(0, ingredientNameColumn));
+    }
+
+    @FXML
+    private void onEditIngredient() {
+        if (ingredientsTable == null) {
+            return;
+        }
+        IngredientRow row = ingredientsTable.getSelectionModel().getSelectedItem();
+        if (row == null || row.isNew()) {
+            showToast("warning", "Selectionnez un ingredient");
+            return;
+        }
+        int index = ingredientsTable.getSelectionModel().getSelectedIndex();
+        if (index >= 0) {
+            ingredientsTable.edit(index, ingredientNameColumn);
+        }
+    }
+
+    @FXML
+    private void onDeleteIngredient() {
+        if (ingredientsTable == null) {
+            return;
+        }
+        IngredientRow row = ingredientsTable.getSelectionModel().getSelectedItem();
+        if (row == null || row.isNew()) {
+            showToast("warning", "Selectionnez un ingredient");
+            return;
+        }
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Supprimer ingredient");
+        alert.setHeaderText("Supprimer " + row.getName() + " ?");
+        alert.setContentText("Cette action peut échouer si l'ingredient est utilise dans des recettes ou mouvements.");
+        if (alert.showAndWait().isEmpty()) {
+            return;
+        }
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try (var conn = com.cafepos.db.DatabaseManager.openConnection()) {
+                    conn.setAutoCommit(false);
+                    ingredientDAO.deleteIngredient(conn, row.getId());
+                    conn.commit();
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> loadIngredients());
+        runDbTask(task, "Suppression ingredient impossible");
+    }
+
+    @FXML
+    private void onActivateIngredient() {
+        setSelectedIngredientActive(true);
+    }
+
+    @FXML
+    private void onDeactivateIngredient() {
+        setSelectedIngredientActive(false);
+    }
+
+    private void setSelectedIngredientActive(boolean active) {
+        if (ingredientsTable == null) {
+            return;
+        }
+        IngredientRow row = ingredientsTable.getSelectionModel().getSelectedItem();
+        if (row == null || row.isNew()) {
+            showToast("warning", "Selectionnez un ingredient");
+            return;
+        }
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try (var conn = com.cafepos.db.DatabaseManager.openConnection()) {
+                    conn.setAutoCommit(false);
+                    ingredientDAO.updateActive(conn, row.getId(), active);
+                    conn.commit();
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> loadIngredients());
+        runDbTask(task, active ? "Activation ingredient impossible" : "Desactivation ingredient impossible");
     }
 
     @FXML
@@ -1299,6 +1385,9 @@ public class StockController {
     }
 
     private void deleteTagGroup(TagGroup group) {
+        if (!confirmDeletion("Supprimer groupe", "Supprimer le groupe \"" + group.getName() + "\" ?")) {
+            return;
+        }
         TagGroupDAO tagGroupDao = this.tagGroupDAO;
         Task<Void> task = new Task<>() {
             @Override
@@ -1437,6 +1526,9 @@ public class StockController {
     }
 
     private void deleteTag(Tag tag) {
+        if (!confirmDeletion("Supprimer tag", "Supprimer le tag \"" + tag.getName() + "\" ?")) {
+            return;
+        }
         TagDAO tagDao = this.tagDAO;
         Task<Void> task = new Task<>() {
             @Override
@@ -1564,6 +1656,9 @@ public class StockController {
     }
 
     private void deleteCategory(Category category) {
+        if (!confirmDeletion("Supprimer categorie", "Supprimer la categorie \"" + category.getName() + "\" ?")) {
+            return;
+        }
         CategoryDAO categoryDao = this.categoryDAO;
         Task<Boolean> task = new Task<>() {
             @Override
@@ -1704,8 +1799,10 @@ public class StockController {
     }
 
     private String normalizeUnit(String value) {
-        String normalized = safeString(value).toUpperCase();
-        return normalized.isBlank() ? "UNIT" : normalized;
+        if (value == null || value.isBlank()) {
+            return UnitType.UNIT.displayUnit();
+        }
+        return UnitType.fromUnit(value).displayUnit();
     }
 
     private String safeString(String value) {
@@ -1777,6 +1874,15 @@ public class StockController {
         fade.setToValue(0);
         fade.setOnFinished(evt -> toastContainer.getChildren().remove(toast));
         fade.play();
+    }
+
+    private boolean confirmDeletion(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(message);
+        alert.setContentText("Cette action est definitive.");
+        return alert.showAndWait().orElse(javafx.scene.control.ButtonType.CANCEL)
+            == javafx.scene.control.ButtonType.OK;
     }
 
     private String iconFor(String type) {

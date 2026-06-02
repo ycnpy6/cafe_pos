@@ -19,6 +19,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.image.Image;
@@ -89,6 +90,14 @@ public class MainApp extends Application {
             long uptimeMs = System.currentTimeMillis() - appStartMillis;
             if (uptimeMs < 4_000) {
                 LOG.warn("Fermeture precoce ignoree ({} ms)", uptimeMs);
+                event.consume();
+                return;
+            }
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+            alert.setTitle("Quitter");
+            alert.setHeaderText("Fermer l'application ?");
+            alert.setContentText("Les operations en cours seront interrompues.");
+            if (alert.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
                 event.consume();
             }
         });

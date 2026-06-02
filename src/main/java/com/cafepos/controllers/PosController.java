@@ -39,6 +39,7 @@ import com.cafepos.ui.CashWithdrawalDialog;
 import com.cafepos.ui.DiscountDialog;
 import com.cafepos.ui.ManagerPinDialog;
 import com.cafepos.ui.PrepaidPaymentDialog;
+import com.cafepos.ui.TopupCardDialog;
 import com.cafepos.ui.QuickNewClientDialog;
 import com.cafepos.ui.TopupDialog;
 import com.cafepos.util.FormatUtils;
@@ -1617,7 +1618,10 @@ public class PosController {
 
     @FXML
     private void onWithdrawal() {
-        requireAdminAccess(this::openWithdrawalWithSessionAdmin);
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        openWithdrawalDialog(owner, SessionManager.getCurrentUser());
     }
 
     private void openWithdrawalWithSessionAdmin() {
@@ -2451,11 +2455,16 @@ public class PosController {
 
     @FXML
     private void onTopup() {
-        if (currentCustomer != null) {
-            showTopupDialogForCurrentCustomer();
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        String defaultCardUid = currentCustomer == null ? "" : currentCustomer.getCardUid();
+        double currentBalance = currentCustomer == null ? 0 : currentCustomer.getBalance();
+        TopupCardDialog.Decision decision = TopupCardDialog.showDialog(owner, defaultCardUid, currentBalance);
+        if (decision == null) {
             return;
         }
-        enterScanWaitingMode(ScanIntent.TOPUP);
+        processTopupCard(decision.cardUid(), decision.amount());
     }
 
     private void showTopupDialogForCurrentCustomer() {
@@ -2471,6 +2480,41 @@ public class PosController {
             return;
         }
         processTopupAmount(amount);
+    }
+
+    private void processTopupCard(String cardUid, double amount) {
+        if (cardUid == null || cardUid.isBlank()) {
+            showToast("warning", "UID carte requis");
+            return;
+        }
+        if (amount < 100) {
+            showToast("warning", "Minimum 100 DZD");
+            return;
+        }
+
+        Task<Customer> task = new Task<>() {
+            @Override
+            protected Customer call() throws Exception {
+                return customerDAO.findActiveByCardUid(cardUid.trim());
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            Customer customer = task.getValue();
+            if (customer == null) {
+                showToast("warning", "Carte inconnue ou inactive");
+                return;
+            }
+            currentCustomer = customer;
+            currentOrder.setCustomer(customer);
+            processTopupAmount(amount);
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur recharge carte", task.getException());
+            showToast("error", "Recharge impossible");
+        });
+        Thread thread = new Thread(task, "topup-card-lookup");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private void startQuickClientFlow(String suggestedCardUid) {

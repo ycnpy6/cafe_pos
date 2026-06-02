@@ -53,8 +53,12 @@
                                 <Button fx:id="newIngredientButton" text="+ Ingredient" onAction="#onNewIngredient" styleClass="action-button"/>
                                 <Button fx:id="purchaseIngredientButton" text="Achat / Reappro" onAction="#onPurchaseIngredient" styleClass="ghost-button"/>
                                 <Button fx:id="withdrawShoppingButton" text="Sortie caisse shopping" onAction="#onWithdrawShoppingCash" styleClass="ghost-button"/>
+                                <Button fx:id="editIngredientButton" text="Editer" onAction="#onEditIngredient" styleClass="ghost-button"/>
+                                <Button fx:id="deleteIngredientButton" text="Supprimer" onAction="#onDeleteIngredient" styleClass="ghost-button"/>
+                                <Button fx:id="activateIngredientButton" text="Activer" onAction="#onActivateIngredient" styleClass="ghost-button"/>
+                                <Button fx:id="deactivateIngredientButton" text="Desactiver" onAction="#onDeactivateIngredient" styleClass="ghost-button"/>
                                 <Region HBox.hgrow="ALWAYS"/>
-                                <Label text="Unites: UNIT, L, KG, PACK" styleClass="hint-label"/>
+                                <Label text="Unites: KG, G, MG, L, CL, ML, UNIT, PIECE, PACK" styleClass="hint-label"/>
                             </HBox>
                             <TableView fx:id="ingredientsTable" editable="true" VBox.vgrow="ALWAYS">
                                 <columns>

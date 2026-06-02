@@ -4,6 +4,7 @@ com\cafepos\model\OrderLine.class
 com\cafepos\controllers\StockController$16.class
 com\cafepos\controllers\StockController$29.class
 com\cafepos\service\WorkPeriodService.class
+com\cafepos\controllers\ClientsController$10.class
 com\cafepos\controllers\ClientsController$3.class
 com\cafepos\ui\TopupDialog.class
 com\cafepos\controllers\StockController$36.class
@@ -113,7 +114,9 @@ com\cafepos\controllers\SettingsController$10.class
 com\cafepos\dao\ProductIngredientDAO.class
 com\cafepos\controllers\SettingsController$2.class
 com\cafepos\controllers\StockController$30.class
+com\cafepos\controllers\PosController$28.class
 com\cafepos\controllers\ProductsController$4.class
+com\cafepos\controllers\ClientsController$8.class
 com\cafepos\dao\WaitingOrderDAO.class
 com\cafepos\controllers\PosController$2.class
 com\cafepos\util\EODService.class
@@ -123,6 +126,7 @@ com\cafepos\MainApp.class
 com\cafepos\controllers\StockController$25.class
 com\cafepos\controllers\StockController$31.class
 com\cafepos\controllers\SettingsController$3.class
+com\cafepos\controllers\ClientsController$9.class
 com\cafepos\ui\CashTenderDialog.class
 com\cafepos\controllers\ProductsController.class
 com\cafepos\model\UserRole.class
@@ -143,6 +147,7 @@ com\cafepos\util\AppScheduler.class
 com\cafepos\model\OrderHistoryRow.class
 com\cafepos\controllers\PosController$23.class
 com\cafepos\model\Category.class
+com\cafepos\ui\TopupCardDialog.class
 com\cafepos\controllers\StockController$13.class
 com\cafepos\controllers\StockController$9.class
 com\cafepos\controllers\StockController$33.class
@@ -150,6 +155,7 @@ com\cafepos\controllers\LoginController$LoginContext.class
 com\cafepos\controllers\PosController$10.class
 com\cafepos\controllers\ProductsController$9.class
 com\cafepos\controllers\PosController$4.class
+com\cafepos\controllers\StockController$41.class
 com\cafepos\service\AdminSessionManager.class
 com\cafepos\controllers\StockController$DoubleConverter.class
 com\cafepos\controllers\LaunchController$Destination.class
@@ -220,6 +226,7 @@ com\cafepos\model\TagGroup.class
 com\cafepos\controllers\SettingsController$16.class
 com\cafepos\controllers\StockController$20.class
 com\cafepos\service\AccountService.class
+com\cafepos\ui\TopupCardDialog$Decision.class
 com\cafepos\controllers\StockController$38.class
 com\cafepos\dao\ProductDAO.class
 com\cafepos\model\PosOrderSummary.class

@@ -165,6 +165,23 @@ public class IngredientDAO {
         }
     }
 
+    public void updateActive(Connection conn, int ingredientId, boolean active) throws Exception {
+        String sql = "UPDATE ingredients SET active = ? WHERE id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, active ? 1 : 0);
+            ps.setInt(2, ingredientId);
+            ps.executeUpdate();
+        }
+    }
+
+    public void deleteIngredient(Connection conn, int ingredientId) throws Exception {
+        String sql = "DELETE FROM ingredients WHERE id = ?";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, ingredientId);
+            ps.executeUpdate();
+        }
+    }
+
     public void setStockQuantity(Connection conn, int ingredientId, double stockQuantity) throws Exception {
         String sql = "UPDATE ingredients "
                 + "SET stock_quantity = CASE WHEN ? < 0 THEN 0 ELSE ? END, "

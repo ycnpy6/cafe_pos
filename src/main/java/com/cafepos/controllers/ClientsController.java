@@ -20,12 +20,14 @@ import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
@@ -76,6 +78,8 @@ public class ClientsController {
     private TableColumn<ClientRow, String> balanceColumn;
     @FXML
     private TableColumn<ClientRow, String> lastTxColumn;
+    @FXML
+    private TableColumn<ClientRow, String> activeColumn;
     @FXML
     private TableColumn<ClientRow, String> actionsColumn;
 
@@ -165,6 +169,10 @@ public class ClientsController {
         balanceColumn.setCellValueFactory(data -> new SimpleStringProperty(
                 FormatUtils.formatMoney(data.getValue().customer().getBalance())));
         lastTxColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().lastTransaction()));
+        if (activeColumn != null) {
+            activeColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                data.getValue().customer().isActive() ? "Actif" : "Inactif"));
+        }
 
         balanceColumn.setCellFactory(col -> new TableCell<>() {
             @Override
@@ -194,10 +202,43 @@ public class ClientsController {
         });
 
         actionsColumn.setCellFactory(col -> new TableCell<>() {
-            private final Button button = new Button("+ Crédit");
+            private final Button editButton = new Button("Edit");
+            private final Button deleteButton = new Button("Suppr");
+            private final Button toggleButton = new Button();
+            private final Button topupButton = new Button("+ Crédit");
+            private final HBox box = new HBox(6, editButton, deleteButton, toggleButton, topupButton);
+
             {
-                button.getStyleClass().add("ghost-button");
-                button.setOnAction(event -> {
+                editButton.getStyleClass().add("ghost-button");
+                deleteButton.getStyleClass().add("ghost-button");
+                toggleButton.getStyleClass().add("ghost-button");
+                topupButton.getStyleClass().add("ghost-button");
+
+                editButton.setOnAction(event -> {
+                    ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
+                    if (row != null) {
+                        clientsTable.getSelectionModel().select(row);
+                        editCustomer(row.customer());
+                    }
+                });
+
+                deleteButton.setOnAction(event -> {
+                    ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
+                    if (row != null) {
+                        clientsTable.getSelectionModel().select(row);
+                        deleteCustomer(row.customer());
+                    }
+                });
+
+                toggleButton.setOnAction(event -> {
+                    ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
+                    if (row != null) {
+                        clientsTable.getSelectionModel().select(row);
+                        toggleCustomerActive(row.customer());
+                    }
+                });
+
+                topupButton.setOnAction(event -> {
                     ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
                     if (row != null) {
                         clientsTable.getSelectionModel().select(row);
@@ -212,7 +253,11 @@ public class ClientsController {
                 if (empty) {
                     setGraphic(null);
                 } else {
-                    setGraphic(button);
+                    ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
+                    if (row != null) {
+                        toggleButton.setText(row.customer().isActive() ? "Desactiver" : "Activer");
+                    }
+                    setGraphic(box);
                 }
             }
         });
@@ -348,6 +393,117 @@ public class ClientsController {
         thread.start();
     }
 
+    private void editCustomer(Customer customer) {
+        if (customer == null) {
+            return;
+        }
+        TextInputDialog nameDialog = new TextInputDialog(customer.getName());
+        nameDialog.setTitle("Editer client");
+        nameDialog.setHeaderText("Nom client");
+        nameDialog.setContentText("Nom:");
+        if (nameDialog.showAndWait().isEmpty()) {
+            return;
+        }
+        String name = safeString(nameDialog.getResult());
+        if (name.isBlank()) {
+            showToast("warning", "Nom requis");
+            return;
+        }
+
+        TextInputDialog cardDialog = new TextInputDialog(customer.getCardUid());
+        cardDialog.setTitle("Editer client");
+        cardDialog.setHeaderText("UID carte");
+        cardDialog.setContentText("UID:");
+        if (cardDialog.showAndWait().isEmpty()) {
+            return;
+        }
+        String cardUid = safeString(cardDialog.getResult());
+        if (cardUid.isBlank()) {
+            showToast("warning", "UID carte requis");
+            return;
+        }
+
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try (java.sql.Connection conn = DatabaseManager.openConnection()) {
+                    conn.setAutoCommit(false);
+                    customerDAO.updateName(conn, customer.getId(), name);
+                    customerDAO.updateCardUid(conn, customer.getId(), cardUid);
+                    conn.commit();
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> loadClients());
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur edition client", task.getException());
+            showToast("error", "Edition client impossible");
+        });
+        Thread thread = new Thread(task, "client-edit");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void deleteCustomer(Customer customer) {
+        if (customer == null) {
+            return;
+        }
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Supprimer client");
+        alert.setHeaderText("Supprimer " + customer.getName() + " ?");
+        alert.setContentText("Cette action peut échouer si le client est lié à des transactions.");
+        if (alert.showAndWait().orElse(javafx.scene.control.ButtonType.CANCEL)
+            != javafx.scene.control.ButtonType.OK) {
+            return;
+        }
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try (java.sql.Connection conn = DatabaseManager.openConnection()) {
+                    conn.setAutoCommit(false);
+                    customerDAO.deleteCustomer(conn, customer.getId());
+                    conn.commit();
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> loadClients());
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur suppression client", task.getException());
+            showToast("error", "Suppression client impossible");
+        });
+        Thread thread = new Thread(task, "client-delete");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void toggleCustomerActive(Customer customer) {
+        if (customer == null) {
+            return;
+        }
+        boolean newState = !customer.isActive();
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                try (java.sql.Connection conn = DatabaseManager.openConnection()) {
+                    conn.setAutoCommit(false);
+                    customerDAO.updateActive(conn, customer.getId(), newState);
+                    conn.commit();
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> loadClients());
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur activation client", task.getException());
+            showToast("error", "Changement etat client impossible");
+        });
+        Thread thread = new Thread(task, "client-toggle-active");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     @FXML
     private void onOpenTopup() {
         ClientRow row = clientsTable.getSelectionModel().getSelectedItem();
@@ -359,6 +515,10 @@ public class ClientsController {
     }
 
     private void openTopup(Customer customer) {
+        if (customer == null || !customer.isActive()) {
+            showToast("warning", "Client inactif");
+            return;
+        }
         selectedCustomer = customer;
         topupCustomerLabel.setText(customer.getName());
         topupBalanceLabel.setText("Solde actuel: " + FormatUtils.formatMoney(customer.getBalance()));
@@ -463,7 +623,7 @@ public class ClientsController {
         Task<Customer> task = new Task<>() {
             @Override
             protected Customer call() throws Exception {
-                return customerDAO.findByCardUid(value);
+                return customerDAO.findActiveByCardUid(value);
             }
         };
         task.setOnSucceeded(evt -> {
