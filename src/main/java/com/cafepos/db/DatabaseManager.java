@@ -44,6 +44,13 @@ public final class DatabaseManager {
                 runSchema(conn);
                 migrateCustomersSchema(conn);
                 normalizeCategories(conn);
+
+                // Customer seeding delegates to CustomerImporter, which uses
+                // DatabaseManager.openConnection(). Make the pool available
+                // before any seed work begins so a new database can import its
+                // bundled customer list on first launch.
+                pool = new ConnectionPool(jdbcUrl, 4);
+                initialized = true;
                 seedIfEmpty(conn);
             }
 
@@ -53,8 +60,6 @@ public final class DatabaseManager {
             // background tasks held the pool while a synchronous FX-thread
             // query (TableView cell render -> UnitRegistry.resolve -> DAO)
             // tried to borrow a 3rd connection.
-            pool = new ConnectionPool(jdbcUrl, 4);
-            initialized = true;
         }
     }
 
