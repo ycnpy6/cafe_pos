@@ -1,9 +1,16 @@
 package com.cafepos.controllers;
 
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.cafepos.dao.CustomerDAO;
+import com.cafepos.hardware.RFIDDecoder;
 import com.cafepos.model.Customer;
 import com.cafepos.service.AccountService;
 import com.cafepos.util.FormatUtils;
+
 import javafx.beans.property.SimpleStringProperty;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -11,10 +18,6 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.List;
 
 public class CustomersController {
     private static final Logger LOG = LoggerFactory.getLogger(CustomersController.class);
@@ -100,20 +103,20 @@ public class CustomersController {
     @FXML
     private void onAddCustomer() {
         String name = customerNameField.getText();
-        String cardUid = cardUidField.getText();
+        String cardUid = RFIDDecoder.normalize(cardUidField.getText());
         double balance = parseAmount(initialBalanceField.getText());
         if (name == null || name.isBlank()) {
             showAlert("Nom requis", "Saisissez un nom.");
             return;
         }
-        if (cardUid == null || cardUid.isBlank()) {
+        if (cardUid.isBlank()) {
             showAlert("Carte requise", "Saisissez l'UID carte.");
             return;
         }
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
-                customerDAO.insertCustomer(name.trim(), cardUid.trim(), balance);
+                customerDAO.insertCustomer(name.trim(), cardUid, balance);
                 return null;
             }
         };

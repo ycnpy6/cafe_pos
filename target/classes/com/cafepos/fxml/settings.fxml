@@ -120,6 +120,7 @@
                     <PasswordField fx:id="newUserPinField" promptText="PIN" prefWidth="120"/>
                     <ComboBox fx:id="newUserRoleBox" promptText="Role" prefWidth="140"/>
                     <Button text="Ajouter" onAction="#onAddUser" styleClass="action-button"/>
+                    <Button text="Changer PIN" onAction="#onChangePin" styleClass="ghost-button"/>
                     <Button text="Supprimer" onAction="#onDeleteUser" styleClass="ghost-button"/>
                 </HBox>
             </VBox>
@@ -155,6 +156,34 @@
                     <Button text="Restaurer depuis fichier" onAction="#onRestoreFromBackup" styleClass="ghost-button"/>
                 </HBox>
                 <Label fx:id="backupStatusLabel" text="" styleClass="hint-label"/>
+            </VBox>
+
+            <!-- ═══ Matériel & Périphériques ═══ -->
+            <VBox spacing="12" styleClass="card">
+                <Label text="Materiel &amp; Peripheriques" styleClass="section-title"/>
+
+                <!-- RFID status row -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Lecteur RFID" styleClass="hint-label" style="-fx-font-weight: bold;"/>
+                    <Label fx:id="rfidStatusDot" text="●" style="-fx-text-fill: gray; -fx-font-size: 14px;"/>
+                    <Label fx:id="rfidStatusLabel" text="Non configure" styleClass="hint-label"/>
+                </HBox>
+
+                <!-- RFID live decode test row -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Test scan carte" styleClass="hint-label"/>
+                    <TextField fx:id="rfidTestInput" promptText="Scannez une carte..." prefWidth="200"/>
+                    <Label text="→" style="-fx-font-size: 14px;"/>
+                    <Label fx:id="rfidDecodedResult" text="" styleClass="hint-label" style="-fx-font-size: 13px; -fx-font-family: monospace;"/>
+                </HBox>
+
+                <!-- Printer row -->
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Imprimante thermique" styleClass="hint-label" style="-fx-font-weight: bold;"/>
+                    <ComboBox fx:id="printerCombo" promptText="Choisir imprimante" prefWidth="260"/>
+                    <Button fx:id="btnTestPrint" text="Imprimer ticket test" onAction="#onTestPrint" styleClass="action-button"/>
+                    <Label fx:id="printerStatusLabel" text="" styleClass="hint-label"/>
+                </HBox>
             </VBox>
         </VBox>
     </ScrollPane>

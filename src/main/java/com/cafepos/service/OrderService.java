@@ -83,11 +83,19 @@ public class OrderService {
                 int productId = line.getProduct().getId();
                 Product soldProduct = productDAO.findById(conn, productId);
                 boolean isPrepared = soldProduct != null && soldProduct.isPrepared();
+                Integer linkedIngredientId = soldProduct != null ? soldProduct.getLinkedIngredientId() : null;
 
-                if (!isPrepared) {
+                if (!isPrepared && linkedIngredientId == null) {
                     // Produit non prepare: on suit le stock unitaire, sans bloquer la vente.
                     productDAO.decrementStock(conn, productId, line.getQuantity());
                     stockMovementDAO.insertMovement(conn, productId, -line.getQuantity(), "Vente");
+                    continue;
+                }
+
+                if (!isPrepared && linkedIngredientId != null) {
+                    // Produit lie a un ingredient: decrémenter l'ingredient (1 vente = 1 unite ingredient).
+                    double qty = line.getQuantity();
+                    requiredIngredients.merge(linkedIngredientId, qty, Double::sum);
                     continue;
                 }
 
@@ -224,10 +232,17 @@ public class OrderService {
                 orderDAO.insertRefundLine(conn, refundId, selection.orderLineId(), selection.quantity(), lineTotal);
                 Product soldProduct = productDAO.findById(conn, selection.productId());
                 boolean isPrepared = soldProduct != null && soldProduct.isPrepared();
+                Integer linkedIngredientId = soldProduct != null ? soldProduct.getLinkedIngredientId() : null;
 
-                if (!isPrepared) {
+                if (!isPrepared && linkedIngredientId == null) {
                     productDAO.adjustStock(conn, selection.productId(), selection.quantity());
                     stockMovementDAO.insertMovement(conn, selection.productId(), selection.quantity(), "Remboursement");
+                }
+
+                if (!isPrepared && linkedIngredientId != null) {
+                    // Produit lie: restaurer l'ingredient.
+                    double qty = selection.quantity();
+                    restoredIngredients.merge(linkedIngredientId, qty, Double::sum);
                 }
 
                 if (isPrepared) {

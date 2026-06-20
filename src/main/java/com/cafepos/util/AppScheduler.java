@@ -14,7 +14,15 @@ import java.util.concurrent.TimeUnit;
 
 public class AppScheduler {
     private static final Logger LOG = LoggerFactory.getLogger(AppScheduler.class);
-    private static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor();
+    // Daemon thread so the JVM exits when the JavaFX window closes.
+    // Without this, each "closed" app session leaks a live process that
+    // accumulates over the day and starves low-end PCs of RAM.
+    private static final ScheduledExecutorService EXECUTOR =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "app-scheduler");
+                t.setDaemon(true);
+                return t;
+            });
     private static volatile boolean started;
 
     private AppScheduler() {

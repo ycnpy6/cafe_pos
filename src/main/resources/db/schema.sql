@@ -8,6 +8,19 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT
 );
 
+-- Custom / user-defined units of measurement. Overrides the built-in
+-- UnitType enum when the display_unit matches. family is one of
+-- LIQUIDE / SOLIDE / PIECE and only drives the editor's combo filter.
+CREATE TABLE IF NOT EXISTS custom_units (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  display_unit TEXT NOT NULL UNIQUE,
+  base_unit TEXT NOT NULL,
+  factor_to_base REAL NOT NULL,
+  family TEXT NOT NULL DEFAULT 'PIECE',
+  label TEXT,
+  active INTEGER NOT NULL DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
@@ -63,13 +76,26 @@ CREATE TABLE IF NOT EXISTS product_tag_groups (
 CREATE TABLE IF NOT EXISTS customers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  card_uid TEXT UNIQUE NOT NULL,
+  card_uid TEXT UNIQUE,
   balance REAL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1,
+  phone TEXT,
+  email TEXT,
+  address TEXT,
+  lifetime_spent REAL DEFAULT 0,
+  visit_count INTEGER DEFAULT 0,
+  last_visit_at TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
 ALTER TABLE customers ADD COLUMN active INTEGER NOT NULL DEFAULT 1;
+
+ALTER TABLE customers ADD COLUMN phone TEXT;
+ALTER TABLE customers ADD COLUMN email TEXT;
+ALTER TABLE customers ADD COLUMN address TEXT;
+ALTER TABLE customers ADD COLUMN lifetime_spent REAL DEFAULT 0;
+ALTER TABLE customers ADD COLUMN visit_count INTEGER DEFAULT 0;
+ALTER TABLE customers ADD COLUMN last_visit_at TEXT;
 
 UPDATE customers
 SET active = COALESCE(active, 1);
@@ -355,3 +381,75 @@ WHERE name = 'manager' AND role = 'MANAGER';
 
 INSERT OR IGNORE INTO users (name, pin, role)
 VALUES ('barista', '0ffe1abd1a08215353c233d6e009613e95eec4253832a761af28ff37ac5a150c', 'BARISTA');
+
+ALTER TABLE products ADD COLUMN linked_ingredient_id INTEGER REFERENCES ingredients(id);
+
+-- ============================================================
+-- CGC price list migration (only updates products with price=0)
+-- ============================================================
+
+-- Hot Beverages
+UPDATE products SET price = 200 WHERE LOWER(name) = 'espresso'        AND price = 0;
+UPDATE products SET price = 400 WHERE LOWER(name) = 'double espresso'  AND price = 0;
+UPDATE products SET price = 400 WHERE LOWER(name) = 'cappuccino'       AND price = 0;
+UPDATE products SET price = 400 WHERE LOWER(name) = 'latte'            AND price = 0;
+UPDATE products SET price = 400 WHERE LOWER(name) = 'hot chocolate'    AND price = 0;
+UPDATE products SET price = 500 WHERE LOWER(name) = 'chocolate latte'  AND price = 0;
+UPDATE products SET price = 300 WHERE LOWER(name) = 'mocha'            AND price = 0;
+UPDATE products SET price = 400 WHERE LOWER(name) = 'dalgona coffee'   AND price = 0;
+UPDATE products SET price = 250 WHERE LOWER(name) = 'vienna coffee'    AND price = 0;
+UPDATE products SET price = 100 WHERE LOWER(name) = 'hot milk'         AND price = 0;
+UPDATE products SET price = 100 WHERE LOWER(name) = 'americano'        AND price = 0;
+
+-- Cold Beverages
+UPDATE products SET price = 250 WHERE LOWER(name) = 'iced tea'                   AND price = 0;
+UPDATE products SET price = 300 WHERE LOWER(name) = 'orange juice'               AND price = 0;
+UPDATE products SET price = 450 WHERE LOWER(name) = 'banana milkshake'           AND price = 0;
+UPDATE products SET price = 400 WHERE LOWER(name) = 'chocolate milkshake'        AND price = 0;
+UPDATE products SET price = 400 WHERE LOWER(name) = 'vanilla milkshake'          AND price = 0;
+UPDATE products SET price = 400 WHERE LOWER(name) = 'caramel milkshake'          AND price = 0;
+UPDATE products SET price = 400 WHERE LOWER(name) = 'banana chocolate milkshake' AND price = 0;
+UPDATE products SET price = 100 WHERE LOWER(name) = 'bottle of water'            AND price = 0;
+
+-- Sweets / Cookies
+UPDATE products SET price = 350 WHERE LOWER(name) = 'kinder cookie'        AND price = 0;
+UPDATE products SET price = 300 WHERE LOWER(name) = 'nutella cookie'        AND price = 0;
+UPDATE products SET price = 300 WHERE LOWER(name) = 'cookies bueno'         AND price = 0;
+UPDATE products SET price = 250 WHERE LOWER(name) = 'dark chocolate cookie' AND price = 0;
+UPDATE products SET price = 250 WHERE LOWER(name) = 'chocolate cookie'      AND price = 0;
+UPDATE products SET price = 300 WHERE LOWER(name) = 'cookie m&ms'           AND price = 0;
+
+-- Donuts
+UPDATE products SET price = 200 WHERE LOWER(name) = 'donut'          AND price = 0;
+UPDATE products SET price = 250 WHERE LOWER(name) = 'donut gourmand'  AND price = 0;
+UPDATE products SET price = 250 WHERE LOWER(name) = 'donut filled'    AND price = 0;
+UPDATE products SET price = 250 WHERE LOWER(name) = 'donut smile'     AND price = 0;
+
+-- Additions
+UPDATE products SET price = 50 WHERE LOWER(name) = 'syrup'    AND price = 0;
+UPDATE products SET price = 50 WHERE LOWER(name) = 'ice cup'   AND price = 0;
+
+-- New products (inserted only if they don't exist yet)
+INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
+SELECT 'Americano', 100, 0, 1, 0, 1, 1
+WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'americano');
+
+INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
+SELECT 'Cookie M&Ms', 300, 0, 3, 0, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'cookie m&ms');
+
+INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
+SELECT 'Donut Filled', 250, 0, 3, 0, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'donut filled');
+
+INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
+SELECT 'Bottle of Water', 100, 0, 2, 0, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'bottle of water');
+
+INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
+SELECT 'Syrup', 50, 0, 6, 0, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'syrup');
+
+INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
+SELECT 'Ice Cup', 50, 0, 6, 0, 1, 0
+WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'ice cup');

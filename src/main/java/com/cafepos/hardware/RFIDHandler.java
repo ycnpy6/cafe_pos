@@ -1,8 +1,8 @@
 package com.cafepos.hardware;
 
-import javafx.scene.control.TextField;
-
 import java.util.function.Consumer;
+
+import javafx.scene.control.TextField;
 
 public class RFIDHandler {
     private final TextField input;
@@ -35,6 +35,6 @@ public class RFIDHandler {
     }
 
     private String normalize(String raw) {
-        return raw.trim().toUpperCase();
+        return RFIDDecoder.normalize(raw);
     }
 }

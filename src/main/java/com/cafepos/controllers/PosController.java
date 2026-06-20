@@ -1,9 +1,22 @@
 package com.cafepos.controllers;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import org.kordamp.ikonli.javafx.FontIcon;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.cafepos.MainApp;
-import com.cafepos.dao.CustomerDAO;
 import com.cafepos.dao.CashMovementDAO;
 import com.cafepos.dao.CashWithdrawalDAO;
+import com.cafepos.dao.CustomerDAO;
 import com.cafepos.dao.ExpenseDAO;
 import com.cafepos.dao.OrderDAO;
 import com.cafepos.dao.ProductDAO;
@@ -14,15 +27,16 @@ import com.cafepos.dao.TagGroupDAO;
 import com.cafepos.dao.UserDAO;
 import com.cafepos.dao.WaitingOrderDAO;
 import com.cafepos.db.DatabaseManager;
+import com.cafepos.hardware.RFIDDecoder;
 import com.cafepos.model.Category;
 import com.cafepos.model.Customer;
 import com.cafepos.model.Order;
 import com.cafepos.model.OrderLine;
 import com.cafepos.model.PaymentType;
 import com.cafepos.model.PosOrderSummary;
+import com.cafepos.model.PrintTicketType;
 import com.cafepos.model.Product;
 import com.cafepos.model.ProductIngredientUsage;
-import com.cafepos.model.PrintTicketType;
 import com.cafepos.model.RefundLineSelection;
 import com.cafepos.model.RefundableOrderLine;
 import com.cafepos.model.Tag;
@@ -31,10 +45,10 @@ import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
 import com.cafepos.model.WaitingOrderSummary;
 import com.cafepos.service.AccountService;
+import com.cafepos.service.AdminSessionManager;
 import com.cafepos.service.OrderService;
 import com.cafepos.service.PrintQueueService;
 import com.cafepos.service.SessionManager;
-import com.cafepos.service.AdminSessionManager;
 import com.cafepos.ui.CashTenderDialog;
 import com.cafepos.ui.CashWithdrawalDialog;
 import com.cafepos.ui.DiscountDialog;
@@ -42,8 +56,8 @@ import com.cafepos.ui.InvoiceDialog;
 import com.cafepos.ui.ManagerPinDialog;
 import com.cafepos.ui.PrepaidPaymentDialog;
 import com.cafepos.ui.PrintTicketDialog;
-import com.cafepos.ui.TopupCardDialog;
 import com.cafepos.ui.QuickNewClientDialog;
+import com.cafepos.ui.TopupCardDialog;
 import com.cafepos.ui.TopupDialog;
 import com.cafepos.util.FormatUtils;
 import com.cafepos.util.IdleMonitor;
@@ -51,6 +65,7 @@ import com.cafepos.util.SecurityUtils;
 import com.cafepos.util.ToastService;
 import com.cafepos.util.UiIconHelper;
 import com.cafepos.util.WindowUtils;
+
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
@@ -60,22 +75,22 @@ import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.TextInputControl;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -83,22 +98,10 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-import javafx.scene.paint.Color;
-import org.kordamp.ikonli.javafx.FontIcon;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 
 public class PosController {
     private static final Logger LOG = LoggerFactory.getLogger(PosController.class);
@@ -733,10 +736,7 @@ public class PosController {
     }
 
     private String normalizeCardUid(String raw) {
-        if (raw == null) {
-            return "";
-        }
-        return raw.trim().toUpperCase(Locale.ROOT);
+        return RFIDDecoder.normalize(raw);
     }
 
     private void enterScanWaitingMode(ScanIntent intent) {
@@ -1660,7 +1660,20 @@ public class PosController {
                 ? null
                 : (Stage) rootStack.getScene().getWindow();
         String suggestedUid = currentCustomer == null ? lastScannedCardUid : currentCustomer.getCardUid();
-        PrepaidPaymentDialog.Decision decision = PrepaidPaymentDialog.showDialog(owner, currentOrder.getTotal(), suggestedUid);
+        // Pass a resolver so the dialog can show the live balance + cash delta
+        // as soon as the card is scanned.
+        PrepaidPaymentDialog.Decision decision = PrepaidPaymentDialog.showDialog(
+                owner,
+                currentOrder.getTotal(),
+                suggestedUid,
+                uid -> {
+                    try {
+                        return customerDAO.findByCardUid(uid);
+                    } catch (Exception ex) {
+                        LOG.warn("Lookup carte prepayee impossible: {}", ex.getMessage());
+                        return null;
+                    }
+                });
         if (decision == null || decision.action() == PrepaidPaymentDialog.Action.CANCEL) {
             return;
         }
@@ -1724,12 +1737,16 @@ public class PosController {
 
         if (action == PrepaidPaymentDialog.Action.PAY_PREPAID) {
             if (balance + 0.0001 < total) {
-                showToast("warning", "Solde insuffisant: utilisez Mixte ou Recharge");
+                // Defensive fallback — the dialog should have switched to
+                // MIXED_CASH automatically, but if it didn't (legacy caller
+                // without resolver) we degrade gracefully to the mixed flow
+                // instead of forcing the cashier to start over.
+                action = PrepaidPaymentDialog.Action.MIXED_CASH;
+            } else {
+                currentOrder.setPrepaidAmount(total);
+                processPayment(PaymentType.PREPAYE, 0, total);
                 return;
             }
-            currentOrder.setPrepaidAmount(total);
-            processPayment(PaymentType.PREPAYE, 0, total);
-            return;
         }
 
         if (action == PrepaidPaymentDialog.Action.MIXED_CASH) {

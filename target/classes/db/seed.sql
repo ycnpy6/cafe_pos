@@ -9,68 +9,72 @@ INSERT OR IGNORE INTO categories (id, name, color, icon, icon_code, sort_order) 
 
 -- HOT BEVERAGES (category_id=1, is_prepared=1)
 INSERT OR IGNORE INTO products (name, price, cost, category_id, stock, active, is_prepared) VALUES
-('Macchiato',          0, 0, 1, 0, 1, 1),
-('Drip Coffee',        0, 0, 1, 0, 1, 1),
-('Hot Chocolate',      0, 0, 1, 0, 1, 1),
-('Espresso',           0, 0, 1, 0, 1, 1),
-('Mocha',              0, 0, 1, 0, 1, 1),
-('Double Espresso',    0, 0, 1, 0, 1, 1),
-('Vienna Coffee',      0, 0, 1, 0, 1, 1),
-('Hot Tea',            0, 0, 1, 0, 1, 1),
-('Dalgona Coffee',     0, 0, 1, 0, 1, 1),
-('Latte',              0, 0, 1, 0, 1, 1),
-('Hot Milk',           0, 0, 1, 0, 1, 1),
-('Chocolate Latte',    0, 0, 1, 0, 1, 1),
-('Chocolate Milk',     0, 0, 1, 0, 1, 1),
-('Cappuccino',         0, 0, 1, 0, 1, 1);
+('Macchiato',          0,   0, 1, 0, 1, 1),
+('Americano',          100, 0, 1, 0, 1, 1),
+('Drip Coffee',        0,   0, 1, 0, 1, 1),
+('Hot Chocolate',      400, 0, 1, 0, 1, 1),
+('Espresso',           200, 0, 1, 0, 1, 1),
+('Mocha',              300, 0, 1, 0, 1, 1),
+('Double Espresso',    400, 0, 1, 0, 1, 1),
+('Vienna Coffee',      250, 0, 1, 0, 1, 1),
+('Hot Tea',            0,   0, 1, 0, 1, 1),
+('Dalgona Coffee',     400, 0, 1, 0, 1, 1),
+('Latte',              400, 0, 1, 0, 1, 1),
+('Hot Milk',           100, 0, 1, 0, 1, 1),
+('Chocolate Latte',    500, 0, 1, 0, 1, 1),
+('Chocolate Milk',     0,   0, 1, 0, 1, 1),
+('Cappuccino',         400, 0, 1, 0, 1, 1);
 
 -- COLD BEVERAGES (category_id=2, is_prepared=1)
 INSERT OR IGNORE INTO products (name, price, cost, category_id, stock, active, is_prepared) VALUES
-('Frappuccino Vanilla',          0, 0, 2, 0, 1, 1),
-('Banana Juice',                 0, 0, 2, 0, 1, 1),
-('Iced Espresso',                0, 0, 2, 0, 1, 1),
-('Frappuccino Caramel',          0, 0, 2, 0, 1, 1),
-('Chocolate Milkshake',          0, 0, 2, 0, 1, 1),
-('Iced Latte',                   0, 0, 2, 0, 1, 1),
-('Frappuccino Banana',           0, 0, 2, 0, 1, 1),
-('Vanilla Milkshake',            0, 0, 2, 0, 1, 1),
-('Iced Chocolate Latte',         0, 0, 2, 0, 1, 1),
-('Caramel Milkshake',            0, 0, 2, 0, 1, 1),
-('Banana Milkshake',             0, 0, 2, 0, 1, 1),
-('Iced Tea',                     0, 0, 2, 0, 1, 1),
-('Juice',                        0, 0, 2, 0, 1, 0),
-('Banana Chocolate Milkshake',   0, 0, 2, 0, 1, 1),
-('Orange Juice',                 0, 0, 2, 0, 1, 0),
-('Frappuccino Coffee',           0, 0, 2, 0, 1, 1),
-('Lemonade',                     0, 0, 2, 0, 1, 0);
+('Frappuccino Vanilla',          0,   0, 2, 0, 1, 1),
+('Banana Juice',                 0,   0, 2, 0, 1, 1),
+('Iced Espresso',                0,   0, 2, 0, 1, 1),
+('Frappuccino Caramel',          0,   0, 2, 0, 1, 1),
+('Chocolate Milkshake',          400, 0, 2, 0, 1, 1),
+('Iced Latte',                   0,   0, 2, 0, 1, 1),
+('Frappuccino Banana',           0,   0, 2, 0, 1, 1),
+('Vanilla Milkshake',            400, 0, 2, 0, 1, 1),
+('Iced Chocolate Latte',         0,   0, 2, 0, 1, 1),
+('Caramel Milkshake',            400, 0, 2, 0, 1, 1),
+('Banana Milkshake',             450, 0, 2, 0, 1, 1),
+('Iced Tea',                     250, 0, 2, 0, 1, 1),
+('Juice',                        0,   0, 2, 0, 1, 0),
+('Banana Chocolate Milkshake',   400, 0, 2, 0, 1, 1),
+('Orange Juice',                 300, 0, 2, 0, 1, 0),
+('Frappuccino Coffee',           0,   0, 2, 0, 1, 1),
+('Lemonade',                     0,   0, 2, 0, 1, 0),
+('Bottle of Water',              100, 0, 2, 0, 1, 0);
 
 -- SWEETS (category_id=3, is_prepared=0)
 INSERT OR IGNORE INTO products (name, price, cost, category_id, stock, active, is_prepared) VALUES
-('Br Speculoos',          0, 0, 3, 0, 1, 0),
-('Br Caramelo',           0, 0, 3, 0, 1, 0),
-('Nutella Cookie',        0, 0, 3, 0, 1, 0),
-('Chocolate Cookie',      0, 0, 3, 0, 1, 0),
-('Br Bueno',              0, 0, 3, 0, 1, 0),
-('Br Simple',             0, 0, 3, 0, 1, 0),
-('Salted Caramel',        0, 0, 3, 0, 1, 0),
-('Cookies Bueno',         0, 0, 3, 0, 1, 0),
-('Br Ferrero',            0, 0, 3, 0, 1, 0),
-('Br Pistache',           0, 0, 3, 0, 1, 0),
-('Salbuz',                0, 0, 3, 0, 1, 0),
-('Kinder Cookie',         0, 0, 3, 0, 1, 0),
-('Pain au Chocolat',      0, 0, 3, 0, 1, 0),
-('Br Oreo',               0, 0, 3, 0, 1, 0),
-('Zlabiya',               0, 0, 3, 0, 1, 0),
-('Lemon Bar',             0, 0, 3, 0, 1, 0),
-('Croissant',             0, 0, 3, 0, 1, 0),
-('Classic Cookies',       0, 0, 3, 0, 1, 0),
-('Brownies',              0, 0, 3, 0, 1, 0),
-('Dark Chocolate Cookie', 0, 0, 3, 0, 1, 0),
-('FM''s Cookies',         0, 0, 3, 0, 1, 0),
-('Cheese Cake',           0, 0, 3, 0, 1, 0),
-('Donut',                 0, 0, 3, 0, 1, 0),
-('Donut Gourmand',        0, 0, 3, 0, 1, 0),
-('Donut Smile',           0, 0, 3, 0, 1, 0);
+('Br Speculoos',          0,   0, 3, 0, 1, 0),
+('Br Caramelo',           0,   0, 3, 0, 1, 0),
+('Nutella Cookie',        300, 0, 3, 0, 1, 0),
+('Chocolate Cookie',      250, 0, 3, 0, 1, 0),
+('Br Bueno',              0,   0, 3, 0, 1, 0),
+('Br Simple',             0,   0, 3, 0, 1, 0),
+('Salted Caramel',        0,   0, 3, 0, 1, 0),
+('Cookies Bueno',         300, 0, 3, 0, 1, 0),
+('Br Ferrero',            0,   0, 3, 0, 1, 0),
+('Br Pistache',           0,   0, 3, 0, 1, 0),
+('Salbuz',                0,   0, 3, 0, 1, 0),
+('Kinder Cookie',         350, 0, 3, 0, 1, 0),
+('Cookie M&Ms',           300, 0, 3, 0, 1, 0),
+('Pain au Chocolat',      0,   0, 3, 0, 1, 0),
+('Br Oreo',               0,   0, 3, 0, 1, 0),
+('Zlabiya',               0,   0, 3, 0, 1, 0),
+('Lemon Bar',             0,   0, 3, 0, 1, 0),
+('Croissant',             0,   0, 3, 0, 1, 0),
+('Classic Cookies',       0,   0, 3, 0, 1, 0),
+('Brownies',              0,   0, 3, 0, 1, 0),
+('Dark Chocolate Cookie', 250, 0, 3, 0, 1, 0),
+('FM''s Cookies',         0,   0, 3, 0, 1, 0),
+('Cheese Cake',           0,   0, 3, 0, 1, 0),
+('Donut',                 200, 0, 3, 0, 1, 0),
+('Donut Gourmand',        250, 0, 3, 0, 1, 0),
+('Donut Filled',          250, 0, 3, 0, 1, 0),
+('Donut Smile',           0,   0, 3, 0, 1, 0);
 
 -- SALTIES (category_id=4, is_prepared=0)
 INSERT OR IGNORE INTO products (name, price, cost, category_id, stock, active, is_prepared) VALUES
@@ -81,6 +85,11 @@ INSERT OR IGNORE INTO products (name, price, cost, category_id, stock, active, i
 ('Bagels',        0, 0, 4, 0, 1, 0),
 ('Mini Sandwich', 0, 0, 4, 0, 1, 0),
 ('Pop Corn',      0, 0, 4, 0, 1, 0);
+
+-- ADDITIONS (category_id=6, is_prepared=0)
+INSERT OR IGNORE INTO products (name, price, cost, category_id, stock, active, is_prepared) VALUES
+('Syrup',    50, 0, 6, 0, 1, 0),
+('Ice Cup',  50, 0, 6, 0, 1, 0);
 
 -- CARDS (category_id=5): no seed products
 

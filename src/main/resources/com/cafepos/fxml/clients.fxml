@@ -22,47 +22,29 @@
         <HBox alignment="CENTER_LEFT" spacing="10" styleClass="page-header">
             <Label text="Clients" styleClass="page-title"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <TextField fx:id="searchField" promptText="Rechercher nom ou carte" prefWidth="240"/>
-            <Button fx:id="newCustomerButton" text="Nouveau" onAction="#onToggleNewCustomer" styleClass="ghost-button"/>
+            <TextField fx:id="searchField" promptText="Rechercher nom, carte ou telephone" prefWidth="280"/>
+            <Button fx:id="newCustomerButton" text="Nouveau" onAction="#onNewCustomer" styleClass="ghost-button"/>
+            <Button fx:id="importCsvButton" text="Importer CSV" onAction="#onImportCsv" styleClass="ghost-button"/>
             <Button fx:id="topupToolbarButton" text="Recharge" onAction="#onOpenTopup" styleClass="action-button"/>
         </HBox>
 
-        <VBox fx:id="newCustomerPane" spacing="8" visible="false" managed="false" styleClass="card">
-            <Label text="Nouveau client" styleClass="section-title"/>
-            <HBox spacing="8">
-                <TextField fx:id="newNameField" promptText="Nom" HBox.hgrow="ALWAYS"/>
-                <TextField fx:id="newCardField" promptText="UID carte" prefWidth="160"/>
-                <TextField fx:id="newBalanceField" promptText="Solde initial" prefWidth="120"/>
-                <Button text="Ajouter" onAction="#onAddCustomer" styleClass="action-button"/>
-                <Button text="Fermer" onAction="#onToggleNewCustomer" styleClass="ghost-button"/>
-            </HBox>
-        </VBox>
+        <Label fx:id="statsLabel" text="" styleClass="hint-label"/>
 
-        <HBox spacing="12" VBox.vgrow="ALWAYS">
-            <TableView fx:id="clientsTable" prefWidth="560" VBox.vgrow="ALWAYS">
-                <columns>
-                    <TableColumn fx:id="nameColumn" text="Nom" prefWidth="160"/>
-                    <TableColumn fx:id="cardColumn" text="UID" prefWidth="140"/>
-                    <TableColumn fx:id="balanceColumn" text="Solde" prefWidth="120"/>
-                    <TableColumn fx:id="lastTxColumn" text="Derniere" prefWidth="140"/>
-                    <TableColumn fx:id="activeColumn" text="Etat" prefWidth="90"/>
-                    <TableColumn fx:id="actionsColumn" text="Actions" prefWidth="120"/>
-                </columns>
-            </TableView>
-
-            <VBox fx:id="detailPane" spacing="8" visible="false" managed="false" styleClass="card" HBox.hgrow="ALWAYS">
-                <Label text="Historique" styleClass="section-title"/>
-                <TableView fx:id="transactionsTable" prefHeight="260" VBox.vgrow="ALWAYS">
-                    <columns>
-                        <TableColumn fx:id="txDateColumn" text="Date" prefWidth="140"/>
-                        <TableColumn fx:id="txTypeColumn" text="Type" prefWidth="140"/>
-                        <TableColumn fx:id="txAmountColumn" text="Montant" prefWidth="110"/>
-                        <TableColumn fx:id="txBalanceColumn" text="Solde" prefWidth="110"/>
-                        <TableColumn fx:id="txOrderColumn" text="Cmd" prefWidth="70"/>
-                    </columns>
-                </TableView>
-            </VBox>
-        </HBox>
+        <TableView fx:id="clientsTable" VBox.vgrow="ALWAYS" maxWidth="Infinity">
+            <columns>
+                <TableColumn fx:id="nameColumn" text="Nom" prefWidth="200"/>
+                <TableColumn fx:id="cardColumn" text="UID" prefWidth="120"/>
+                <TableColumn fx:id="phoneColumn" text="Telephone" prefWidth="120"/>
+                <TableColumn fx:id="balanceColumn" text="Solde" prefWidth="100"/>
+                <TableColumn fx:id="spentColumn" text="Total depense" prefWidth="120"/>
+                <TableColumn fx:id="lastTxColumn" text="Derniere op." prefWidth="140"/>
+                <TableColumn fx:id="activeColumn" text="Etat" prefWidth="80"/>
+                <TableColumn fx:id="actionsColumn" text="" prefWidth="110"/>
+            </columns>
+            <columnResizePolicy>
+                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+            </columnResizePolicy>
+        </TableView>
 
         <TextField fx:id="rfidField" opacity="0" prefWidth="1" prefHeight="1"/>
     </VBox>

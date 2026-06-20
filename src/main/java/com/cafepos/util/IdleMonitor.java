@@ -1,6 +1,7 @@
 package com.cafepos.util;
 
 import com.cafepos.service.SessionManager;
+import com.cafepos.service.AdminSessionManager;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.input.InputEvent;
@@ -14,7 +15,13 @@ import java.util.concurrent.TimeUnit;
 public class IdleMonitor {
     private static final Logger LOG = LoggerFactory.getLogger(IdleMonitor.class);
     private static final long TIMEOUT_MS = TimeUnit.HOURS.toMillis(2);
-    private static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor();
+    // Daemon so the JVM exits cleanly when the window is closed.
+    private static final ScheduledExecutorService EXECUTOR =
+            Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "idle-monitor");
+                t.setDaemon(true);
+                return t;
+            });
     private static volatile long lastActivity = System.currentTimeMillis();
     private static volatile Runnable onTimeout;
     private static volatile boolean started;
@@ -52,6 +59,7 @@ public class IdleMonitor {
         }
         SessionManager.setCurrentUser(null);
         SessionManager.setCurrentWorkPeriodId(null);
+        AdminSessionManager.lock();
         if (onTimeout != null) {
             Platform.runLater(() -> {
                 try {

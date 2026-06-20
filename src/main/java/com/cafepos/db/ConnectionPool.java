@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ConnectionPool {
@@ -26,15 +27,29 @@ public final class ConnectionPool {
         }
     }
 
+    /**
+     * Borrow a pooled connection, waiting at most {@value #BORROW_TIMEOUT_SECONDS}
+     * seconds. A timeout is far better than the original {@code take()} which
+     * blocked forever — that turned any pool exhaustion into a silent UI freeze
+     * ("application not responding"). With a timeout, the caller sees a real
+     * SQLException, the stack trace is logged, and the UI thread is freed.
+     */
     public Connection borrowConnection() throws SQLException {
         try {
-            Connection physical = pool.take();
+            Connection physical = pool.poll(BORROW_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (physical == null) {
+                LOG.error("Pool de connexions sature ({} actives). Operation annulee pour eviter un blocage UI.",
+                        pool.remainingCapacity());
+                throw new SQLException("Pool SQLite sature (timeout " + BORROW_TIMEOUT_SECONDS + "s)");
+            }
             return wrap(physical);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new SQLException("Interruption lors de l'acces a la connexion", ex);
         }
     }
+
+    private static final long BORROW_TIMEOUT_SECONDS = 10;
 
     private void returnConnection(Connection conn) {
         if (conn == null) {

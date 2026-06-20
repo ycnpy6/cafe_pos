@@ -1,11 +1,15 @@
 package com.cafepos.hardware;
 
-import com.cafepos.dao.SettingsDAO;
-import com.cafepos.model.Customer;
-import com.cafepos.model.Order;
-import com.cafepos.model.OrderLine;
-import com.cafepos.model.PaymentType;
-import com.cafepos.model.PrintTicketType;
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Base64;
+import java.util.Locale;
 
 import javax.print.Doc;
 import javax.print.DocFlavor;
@@ -13,17 +17,13 @@ import javax.print.DocPrintJob;
 import javax.print.PrintService;
 import javax.print.PrintServiceLookup;
 import javax.print.SimpleDoc;
-import java.io.ByteArrayOutputStream;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Base64;
-import java.util.Locale;
+
+import com.cafepos.dao.SettingsDAO;
+import com.cafepos.model.Customer;
+import com.cafepos.model.Order;
+import com.cafepos.model.OrderLine;
+import com.cafepos.model.PaymentType;
+import com.cafepos.model.PrintTicketType;
 
 public class PrinterService {
     private static final DateTimeFormatter DATE_FORMAT =
@@ -193,13 +193,14 @@ public class PrinterService {
         ReceiptTemplate template = loadTemplate();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         appendCommand(out, 0x1B, 0x40); // ESC @
+        appendCommand(out, 0x1B, 0x74, 0x02); // ESC t 2 = codepage CP850
 
         setAlign(out, 1);
         setBold(out, true);
         appendLine(out, "COMMON GROUNDS");
         setBold(out, false);
         appendLine(out, "American Institute, Alger");
-        appendLine(out, "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+        appendLine(out, repeat('-', LINE_WIDTH));
         if (!template.phone().isBlank()) {
             appendLine(out, template.phone());
         }
@@ -339,12 +340,13 @@ public class PrinterService {
         ReceiptTemplate template = loadTemplate();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         appendCommand(out, 0x1B, 0x40);
+        appendCommand(out, 0x1B, 0x74, 0x02); // ESC t 2 = codepage CP850
         setAlign(out, 1);
         setBold(out, true);
         appendLine(out, "COMMON GROUNDS");
         setBold(out, false);
         appendLine(out, "American Institute, Alger");
-        appendLine(out, "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500");
+        appendLine(out, repeat('-', LINE_WIDTH));
         if (!template.phone().isBlank()) {
             appendLine(out, template.phone());
         }
@@ -411,6 +413,19 @@ public class PrinterService {
         }
     }
 
+    /** Remplace les caractères de dessin de boîtes Unicode par des équivalents ASCII sûrs pour CP850. */
+    private static String sanitizeReceiptTemplate(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text
+                .replace('\u2500', '-').replace('\u2550', '=').replace('\u2501', '-')
+                .replace('\u2502', '|').replace('\u2503', '|').replace('\u2551', '|')
+                .replace('\u2554', '+').replace('\u2557', '+').replace('\u255A', '+')
+                .replace('\u255D', '+').replace('\u2560', '+').replace('\u2563', '+')
+                .replace('\u2566', '+').replace('\u2569', '+').replace('\u256C', '+');
+    }
+
     private ReceiptTemplate loadTemplate() {
         String storeName = readSetting(RECEIPT_STORE_NAME_KEY, DEFAULT_STORE_NAME);
         String phone = readSetting(RECEIPT_PHONE_KEY, DEFAULT_PHONE);
@@ -423,10 +438,10 @@ public class PrinterService {
         boolean showCustomer = Boolean.parseBoolean(showCustomerRaw);
 
         return new ReceiptTemplate(
-                safeLine(storeName),
+                sanitizeReceiptTemplate(safeLine(storeName)),
                 safeLine(phone),
                 safeLine(ticketPrefix),
-                safeLine(footer),
+                sanitizeReceiptTemplate(safeLine(footer)),
                 safeLine(currency),
                 separatorChar,
                 showCustomer
@@ -480,8 +495,14 @@ public class PrinterService {
     }
 
     private void appendLine(ByteArrayOutputStream out, String text) {
-        byte[] bytes = (text + "\n").getBytes(StandardCharsets.UTF_8);
-        out.writeBytes(bytes);
+        try {
+            byte[] bytes = (text + "\n").getBytes("CP850");
+            out.writeBytes(bytes);
+        } catch (java.io.UnsupportedEncodingException e) {
+            // Fallback to ASCII if somehow CP850 not available
+            byte[] bytes = (text + "\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            out.writeBytes(bytes);
+        }
     }
 
     private void appendCommand(ByteArrayOutputStream out, int... bytes) {

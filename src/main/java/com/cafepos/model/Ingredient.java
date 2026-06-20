@@ -22,8 +22,18 @@ public class Ingredient {
                       double stockQuantity,
                       double minQuantity,
                       boolean active) {
-                this(id, name, unit, unit, 1.0, packageSize, packagePrice, stockQuantity, minQuantity,
-                    stockQuantity, minQuantity, active);
+                // Derive base unit + factor from the display unit so callers that only
+                // know the human-facing unit (e.g. "KG" or "L") still get a correctly
+                // populated base-quantity pair. Without this, KG/L/CL ingredients would
+                // be stored with a 1:1 base factor and stock conversions would break.
+                this(id, name, unit,
+                    StockUnit.fromDisplayUnit(unit).unitBase(),
+                    StockUnit.fromDisplayUnit(unit).factorToBase(),
+                    packageSize, packagePrice,
+                    stockQuantity, minQuantity,
+                    stockQuantity * StockUnit.fromDisplayUnit(unit).factorToBase(),
+                    minQuantity * StockUnit.fromDisplayUnit(unit).factorToBase(),
+                    active);
                 }
 
                 public Ingredient(int id,

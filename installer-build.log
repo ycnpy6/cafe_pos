@@ -1,0 +1,487 @@
+[1/5] Build Maven...
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------------------------< com.cafepos:cafe-pos >------------------------
+[INFO] Building cafe-pos 0.1.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.2.0:clean (default-clean) @ cafe-pos ---
+[INFO] Deleting C:\Users\adjao\Bureau\desktop_POS\target
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ cafe-pos ---
+[INFO] Copying 24 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ cafe-pos ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 104 source files with javac [debug release 21 module-path] to target\classes
+[INFO] /C:/Users/adjao/Bureau/desktop_POS/src/main/java/com/cafepos/controllers/ClientsController.java: C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\ClientsController.java uses or overrides a deprecated API.
+[INFO] /C:/Users/adjao/Bureau/desktop_POS/src/main/java/com/cafepos/controllers/ClientsController.java: Recompile with -Xlint:deprecation for details.
+[INFO] /C:/Users/adjao/Bureau/desktop_POS/src/main/java/com/cafepos/controllers/ReportsController.java: Some input files use unchecked or unsafe operations.
+[INFO] /C:/Users/adjao/Bureau/desktop_POS/src/main/java/com/cafepos/controllers/ReportsController.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ cafe-pos ---
+[INFO] skip non existing resourceDirectory C:\Users\adjao\Bureau\desktop_POS\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ cafe-pos ---
+[INFO] Changes detected - recompiling the module! :dependency
+[INFO] Compiling 5 source files with javac [debug release 21 module-path] to target\test-classes
+[INFO] 
+[INFO] --- surefire:3.5.2:test (default-test) @ cafe-pos ---
+[INFO] Tests are skipped.
+[INFO] 
+[INFO] --- jar:3.3.0:jar (default-jar) @ cafe-pos ---
+[INFO] Building jar: C:\Users\adjao\Bureau\desktop_POS\target\cafe-pos-0.1.0.jar
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  03:08 min
+[INFO] Finished at: 2026-06-04T15:53:26+01:00
+[INFO] ------------------------------------------------------------------------
+[2/5] Copie des dependances runtime...
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ------------------------< com.cafepos:cafe-pos >------------------------
+[INFO] Building cafe-pos 0.1.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- dependency:3.7.0:copy-dependencies (default-cli) @ cafe-pos ---
+[INFO] Copying artifact 'io.github.mkpaz:atlantafx-base:jar:1.2.0:compile' (C:\Users\adjao\.m2\repository\io\github\mkpaz\atlantafx-base\1.2.0\atlantafx-base-1.2.0.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\atlantafx-base-1.2.0.jar
+[INFO] Copying artifact 'org.kordamp.ikonli:ikonli-javafx:jar:12.3.1:compile' (C:\Users\adjao\.m2\repository\org\kordamp\ikonli\ikonli-javafx\12.3.1\ikonli-javafx-12.3.1.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\ikonli-javafx-12.3.1.jar
+[INFO] Copying artifact 'org.kordamp.ikonli:ikonli-core:jar:12.3.1:compile' (C:\Users\adjao\.m2\repository\org\kordamp\ikonli\ikonli-core\12.3.1\ikonli-core-12.3.1.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\ikonli-core-12.3.1.jar
+[INFO] Copying artifact 'org.kordamp.ikonli:ikonli-materialdesign2-pack:jar:12.3.1:compile' (C:\Users\adjao\.m2\repository\org\kordamp\ikonli\ikonli-materialdesign2-pack\12.3.1\ikonli-materialdesign2-pack-12.3.1.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\ikonli-materialdesign2-pack-12.3.1.jar
+[INFO] Copying artifact 'org.kordamp.ikonli:ikonli-fontawesome5-pack:jar:12.3.1:compile' (C:\Users\adjao\.m2\repository\org\kordamp\ikonli\ikonli-fontawesome5-pack\12.3.1\ikonli-fontawesome5-pack-12.3.1.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\ikonli-fontawesome5-pack-12.3.1.jar
+[INFO] Copying artifact 'org.xerial:sqlite-jdbc:jar:3.45.1.0:compile' (C:\Users\adjao\.m2\repository\org\xerial\sqlite-jdbc\3.45.1.0\sqlite-jdbc-3.45.1.0.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\sqlite-jdbc-3.45.1.0.jar
+[INFO] Copying artifact 'com.github.anastaciocintra:escpos-coffee:jar:4.1.0:compile' (C:\Users\adjao\.m2\repository\com\github\anastaciocintra\escpos-coffee\4.1.0\escpos-coffee-4.1.0.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\escpos-coffee-4.1.0.jar
+[INFO] Copying artifact 'org.slf4j:slf4j-api:jar:2.0.13:compile' (C:\Users\adjao\.m2\repository\org\slf4j\slf4j-api\2.0.13\slf4j-api-2.0.13.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\slf4j-api-2.0.13.jar
+[INFO] Copying artifact 'ch.qos.logback:logback-classic:jar:1.4.14:compile' (C:\Users\adjao\.m2\repository\ch\qos\logback\logback-classic\1.4.14\logback-classic-1.4.14.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\logback-classic-1.4.14.jar
+[INFO] Copying artifact 'ch.qos.logback:logback-core:jar:1.4.14:compile' (C:\Users\adjao\.m2\repository\ch\qos\logback\logback-core\1.4.14\logback-core-1.4.14.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\logback-core-1.4.14.jar
+[INFO] Copying artifact 'org.apache.pdfbox:pdfbox:jar:2.0.31:compile' (C:\Users\adjao\.m2\repository\org\apache\pdfbox\pdfbox\2.0.31\pdfbox-2.0.31.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\pdfbox-2.0.31.jar
+[INFO] Copying artifact 'org.apache.pdfbox:fontbox:jar:2.0.31:compile' (C:\Users\adjao\.m2\repository\org\apache\pdfbox\fontbox\2.0.31\fontbox-2.0.31.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\fontbox-2.0.31.jar
+[INFO] Copying artifact 'commons-logging:commons-logging:jar:1.2:compile' (C:\Users\adjao\.m2\repository\commons-logging\commons-logging\1.2\commons-logging-1.2.jar) to C:\Users\adjao\Bureau\desktop_POS\target\app-input\lib\commons-logging-1.2.jar
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:05 min
+[INFO] Finished at: 2026-06-04T15:54:51+01:00
+[INFO] ------------------------------------------------------------------------
+[3/5] Generation app-image jpackage...
+[4/5] Build Inno Setup...
+Inno Setup 6 Command-Line Compiler
+Copyright (C) 1997-2026 Jordan Russell. All rights reserved.
+Portions Copyright (C) 2000-2026 Martijn Laan. All rights reserved.
+Portions Copyright (C) 2001-2004 Alex Yackimoff. All rights reserved.
+https://www.innosetup.com
+
+Compiler engine version: Inno Setup 6.7.3
+Non-commercial use only
+
+Preprocessing
+   Reading file: C:\Program Files (x86)\Inno Setup 6\ISPPBuiltins.iss
+Parsing [Setup] section, line 12
+Parsing [Setup] section, line 13
+Parsing [Setup] section, line 14
+Parsing [Setup] section, line 15
+Parsing [Setup] section, line 16
+Parsing [Setup] section, line 17
+Parsing [Setup] section, line 18
+Parsing [Setup] section, line 19
+Parsing [Setup] section, line 20
+Parsing [Setup] section, line 21
+Parsing [Setup] section, line 22
+Parsing [Setup] section, line 23
+Parsing [Setup] section, line 24
+Parsing [Setup] section, line 25
+Parsing [Setup] section, line 26
+Parsing [Setup] section, line 27
+Reading file (WizardImageFile)
+   Reading file: C:\Users\adjao\Bureau\desktop_POS\installer\assets\wizard-side.bmp
+Reading file (WizardSmallImageFile)
+   Reading file: C:\Users\adjao\Bureau\desktop_POS\installer\assets\wizard-header.bmp
+Preparing Setup program executable
+   Verification successful
+   Updating icons (Setup.e32)
+   Updating version info (Setup.e32)
+Determining language code pages
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Default.isl
+   Messages in script file
+Reading default messages from Default.isl
+Parsing [LangOptions], [Messages], and [CustomMessages] sections
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Default.isl
+   Messages in script file
+Reading [Code] section
+Parsing [Tasks] section, line 30
+Parsing [Icons] section, line 38
+Parsing [Icons] section, line 39
+Parsing [Run] section, line 42
+Parsing [Files] section, line 33
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\CommonGroundsPOS.exe
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\.jpackage.xml
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\cafe-pos-0.1.0.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\CommonGroundsPOS.cfg
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\jfx\javafx-base-21.0.5-win.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\jfx\javafx-controls-21.0.5-win.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\jfx\javafx-fxml-21.0.5-win.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\jfx\javafx-graphics-21.0.5-win.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\atlantafx-base-1.2.0.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\commons-logging-1.2.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\escpos-coffee-4.1.0.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\fontbox-2.0.31.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\ikonli-core-12.3.1.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\ikonli-fontawesome5-pack-12.3.1.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\ikonli-javafx-12.3.1.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\ikonli-materialdesign2-pack-12.3.1.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\logback-classic-1.4.14.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\logback-core-1.4.14.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\pdfbox-2.0.31.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\slf4j-api-2.0.13.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\sqlite-jdbc-3.45.1.0.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\release
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-console-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-console-l1-2-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-datetime-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-debug-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-errorhandling-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-fibers-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-file-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-file-l1-2-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-file-l2-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-handle-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-heap-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-interlocked-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-libraryloader-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-localization-l1-2-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-memory-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-namedpipe-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-processenvironment-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-processthreads-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-processthreads-l1-1-1.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-profile-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-rtlsupport-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-string-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-synch-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-synch-l1-2-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-sysinfo-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-timezone-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-util-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-conio-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-convert-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-environment-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-filesystem-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-heap-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-locale-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-math-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-multibyte-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-private-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-process-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-runtime-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-stdio-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-string-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-time-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-utility-l1-1-0.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\awt.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\fontmanager.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\freetype.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\java.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\java.exe
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\javajpeg.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\javaw.exe
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\jawt.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\jimage.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\jli.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\jsound.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\lcms.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\management.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\mlib_image.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\msvcp140.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\net.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\nio.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\prefs.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\splashscreen.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\syslookup.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\ucrtbase.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\vcruntime140.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\vcruntime140_1.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\verify.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\zip.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\server\jvm.dll
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\jaxp.properties
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\logging.properties
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\net.properties
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\sound.properties
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\java.policy
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\java.security
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\README.txt
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\limited\default_local.policy
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\limited\default_US_export.policy
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\limited\exempt_local.policy
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\unlimited\default_local.policy
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\unlimited\default_US_export.policy
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\aes.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\asm.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\c-libutl.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\cldr.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\icu.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\public_suffix.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\siphash.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\unicode.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\wepoll.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\zlib.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.datatransfer\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.datatransfer\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.datatransfer\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\colorimaging.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\freetype.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\giflib.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\harfbuzz.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\jpeg.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\lcms.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\libpng.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\mesa3d.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.logging\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.logging\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.logging\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.management\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.management\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.management\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.naming\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.naming\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.naming\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.net.http\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.net.http\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.net.http\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.prefs\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.prefs\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.prefs\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.scripting\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.scripting\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.scripting\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.security.sasl\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.security.sasl\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.security.sasl\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.sql\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.sql\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.sql\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.transaction.xa\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.transaction.xa\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.transaction.xa\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\bcel.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\dom.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\jcup.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\xalan.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\xerces.md
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.crypto.ec\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.crypto.ec\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.crypto.ec\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.unsupported\ADDITIONAL_LICENSE_INFO
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.unsupported\ASSEMBLY_EXCEPTION
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.unsupported\LICENSE
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\classlist
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\fontconfig.bfc
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\fontconfig.properties.src
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\jawt.lib
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\jrt-fs.jar
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\jvm.cfg
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\jvm.lib
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\modules
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\psfont.properties.ja
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\psfontj2d.properties
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\tzdb.dat
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\tzmappings
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\security\blocked.certs
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\security\cacerts
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\security\default.policy
+   Reading version info: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\security\public_suffix_list.dat
+Parsing [Files] section, line 34
+Parsing [Files] section, line 35
+Creating setup files
+   Verification successful
+   Updating icons (Setup.exe)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\CommonGroundsPOS.exe   (0.1.0.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\.jpackage.xml
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\cafe-pos-0.1.0.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\CommonGroundsPOS.cfg
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\jfx\javafx-base-21.0.5-win.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\jfx\javafx-controls-21.0.5-win.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\jfx\javafx-fxml-21.0.5-win.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\jfx\javafx-graphics-21.0.5-win.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\atlantafx-base-1.2.0.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\commons-logging-1.2.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\escpos-coffee-4.1.0.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\fontbox-2.0.31.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\ikonli-core-12.3.1.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\ikonli-fontawesome5-pack-12.3.1.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\ikonli-javafx-12.3.1.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\ikonli-materialdesign2-pack-12.3.1.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\logback-classic-1.4.14.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\logback-core-1.4.14.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\pdfbox-2.0.31.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\slf4j-api-2.0.13.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\app\lib\sqlite-jdbc-3.45.1.0.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\release
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-console-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-console-l1-2-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-datetime-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-debug-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-errorhandling-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-fibers-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-file-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-file-l1-2-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-file-l2-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-handle-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-heap-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-interlocked-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-libraryloader-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-localization-l1-2-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-memory-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-namedpipe-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-processenvironment-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-processthreads-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-processthreads-l1-1-1.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-profile-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-rtlsupport-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-string-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-synch-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-synch-l1-2-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-sysinfo-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-timezone-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-core-util-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-conio-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-convert-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-environment-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-filesystem-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-heap-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-locale-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-math-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-multibyte-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-private-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-process-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-runtime-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-stdio-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-string-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-time-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\api-ms-win-crt-utility-l1-1-0.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\awt.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\fontmanager.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\freetype.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\java.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\java.exe   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\javajpeg.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\javaw.exe   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\jawt.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\jimage.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\jli.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\jsound.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\lcms.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\management.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\mlib_image.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\msvcp140.dll   (14.44.35208.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\net.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\nio.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\prefs.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\splashscreen.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\syslookup.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\ucrtbase.dll   (10.0.22621.5040)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\vcruntime140.dll   (14.44.35208.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\vcruntime140_1.dll   (14.44.35208.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\verify.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\zip.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\bin\server\jvm.dll   (21.0.8.0)
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\jaxp.properties
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\logging.properties
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\net.properties
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\sound.properties
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\java.policy
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\java.security
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\README.txt
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\limited\default_local.policy
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\limited\default_US_export.policy
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\limited\exempt_local.policy
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\unlimited\default_local.policy
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\conf\security\policy\unlimited\default_US_export.policy
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\aes.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\asm.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\c-libutl.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\cldr.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\icu.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\public_suffix.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\siphash.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\unicode.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\wepoll.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.base\zlib.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.datatransfer\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.datatransfer\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.datatransfer\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\colorimaging.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\freetype.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\giflib.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\harfbuzz.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\jpeg.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\lcms.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\libpng.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.desktop\mesa3d.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.logging\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.logging\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.logging\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.management\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.management\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.management\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.naming\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.naming\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.naming\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.net.http\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.net.http\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.net.http\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.prefs\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.prefs\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.prefs\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.scripting\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.scripting\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.scripting\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.security.sasl\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.security.sasl\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.security.sasl\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.sql\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.sql\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.sql\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.transaction.xa\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.transaction.xa\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.transaction.xa\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\bcel.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\dom.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\jcup.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\xalan.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\java.xml\xerces.md
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.crypto.ec\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.crypto.ec\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.crypto.ec\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.unsupported\ADDITIONAL_LICENSE_INFO
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.unsupported\ASSEMBLY_EXCEPTION
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\legal\jdk.unsupported\LICENSE
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\classlist
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\fontconfig.bfc
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\fontconfig.properties.src
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\jawt.lib
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\jrt-fs.jar
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\jvm.cfg
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\jvm.lib
+   Compressing: C:\Users\adjao\Bureau\desktop_POS\installer\..\dist\app-image\CommonGroundsPOS\runtime\lib\modules

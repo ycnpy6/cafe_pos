@@ -4,14 +4,14 @@ $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Push-Location $projectRoot
 
 try {
-    $buildScript = Join-Path $PSScriptRoot "build-installer.ps1"
+    $buildScript = Join-Path $PSScriptRoot "build-clean-installer.ps1"
     if (-not (Test-Path $buildScript)) {
         throw "Script introuvable: $buildScript"
     }
 
-    & $buildScript -Type app-image -NoClean
+    & $buildScript -NoClean
 
-    $appImageSource = Join-Path $projectRoot "dist\installer\CommonGroundsPOS"
+    $appImageSource = Join-Path $projectRoot "dist\app-image\CommonGroundsPOS"
     if (-not (Test-Path $appImageSource)) {
         throw "App-image introuvable: $appImageSource"
     }

@@ -2,8 +2,20 @@ package com.cafepos.controllers;
 
 
 
-import com.cafepos.dao.CategoryDAO;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
+import org.kordamp.ikonli.javafx.FontIcon;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.cafepos.dao.CashMovementDAO;
+import com.cafepos.dao.CategoryDAO;
 import com.cafepos.dao.IngredientDAO;
 import com.cafepos.dao.IngredientMovementDAO;
 import com.cafepos.dao.ProductDAO;
@@ -17,15 +29,16 @@ import com.cafepos.model.Category;
 import com.cafepos.model.Ingredient;
 import com.cafepos.model.Product;
 import com.cafepos.model.ProductIngredientUsage;
+import com.cafepos.model.StockUnit;
 import com.cafepos.model.Tag;
 import com.cafepos.model.TagGroup;
-import com.cafepos.model.StockUnit;
 import com.cafepos.model.UnitType;
 import com.cafepos.model.User;
 import com.cafepos.service.SessionManager;
 import com.cafepos.util.ActionAccessManager;
 import com.cafepos.util.FormatUtils;
 import com.cafepos.util.UiIconHelper;
+
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -46,11 +59,11 @@ import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.ColorPicker;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
@@ -58,7 +71,6 @@ import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
-import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.KeyCode;
@@ -73,17 +85,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
-import org.kordamp.ikonli.javafx.FontIcon;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
 
 public class StockController {
     private static final Logger LOG = LoggerFactory.getLogger(StockController.class);
@@ -123,6 +124,8 @@ public class StockController {
     private TextField searchField;
     @FXML
     private Button newProductButton;
+    @FXML
+    private Button linkIngredientButton;
 
     @FXML
     private TableView<ProductRow> productsTable;
@@ -154,6 +157,8 @@ public class StockController {
     @FXML
     private Button deactivateIngredientButton;
     @FXML
+    private Button manageUnitsButton;
+    @FXML
     private TableView<IngredientRow> ingredientsTable;
     @FXML
     private TableColumn<IngredientRow, Boolean> ingredientActiveColumn;
@@ -171,6 +176,8 @@ public class StockController {
     private TableColumn<IngredientRow, Double> ingredientPackagePriceColumn;
     @FXML
     private TableColumn<IngredientRow, Double> ingredientUnitCostColumn;
+    @FXML
+    private TableColumn<IngredientRow, Number> ingredientPacksColumn;
 
     @FXML
     private ComboBox<Product> recipeProductCombo;
@@ -342,84 +349,60 @@ public class StockController {
             return;
         }
         ingredientsTable.setItems(ingredientRows);
-        ingredientsTable.setEditable(true);
+        // Inline cell editing is disabled — all modifications go through
+        // IngredientEditorDialog (clearer UX requested by the manager).
+        // The Actif column keeps working because its IngredientActiveCell
+        // toggles via its own onAction, independent of the cell-editing pipeline.
+        ingredientsTable.setEditable(false);
 
         ingredientActiveColumn.setCellValueFactory(data -> data.getValue().activeProperty());
         ingredientActiveColumn.setCellFactory(col -> new IngredientActiveCell());
 
         ingredientNameColumn.setCellValueFactory(data -> data.getValue().nameProperty());
-        ingredientNameColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new StringConverter<>() {
-            @Override
-            public String toString(String object) {
-                return object == null ? "" : object;
-            }
-
-            @Override
-            public String fromString(String string) {
-                return string == null ? "" : string;
-            }
-        }));
-        ingredientNameColumn.setOnEditCommit(evt -> {
-            IngredientRow row = evt.getRowValue();
-            row.setName(safeString(evt.getNewValue()));
-            persistIngredient(row);
-        });
 
         ingredientUnitColumn.setCellValueFactory(data -> data.getValue().unitProperty());
-        ingredientUnitColumn.setCellFactory(ComboBoxTableCell.forTableColumn(ingredientUnitOptions));
-        ingredientUnitColumn.setOnEditCommit(evt -> {
-            IngredientRow row = evt.getRowValue();
-            row.setUnit(normalizeUnit(evt.getNewValue()));
-            persistIngredient(row);
-            refreshRecipeCost();
-        });
 
         ingredientStockColumn.setCellValueFactory(data -> data.getValue().stockQuantityProperty().asObject());
-        ingredientStockColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new DoubleConverter()));
-        ingredientStockColumn.setOnEditCommit(evt -> {
-            IngredientRow row = evt.getRowValue();
-            if (row == null) {
-                return;
-            }
-            double newQuantity = Math.max(0, safeDouble(evt.getNewValue()));
-            if (row.isNew()) {
-                row.setStockQuantity(newQuantity);
-                persistIngredient(row);
-            } else {
-                overrideIngredientStock(row, newQuantity);
-            }
-            refreshRecipeCost();
-        });
+        ingredientStockColumn.setCellFactory(col -> unitFormattedCell());
 
         ingredientMinColumn.setCellValueFactory(data -> data.getValue().minQuantityProperty().asObject());
-        ingredientMinColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new DoubleConverter()));
-        ingredientMinColumn.setOnEditCommit(evt -> {
-            IngredientRow row = evt.getRowValue();
-            row.setMinQuantity(Math.max(0, safeDouble(evt.getNewValue())));
-            persistIngredient(row);
-        });
+        ingredientMinColumn.setCellFactory(col -> unitFormattedCell());
 
         ingredientPackageSizeColumn.setCellValueFactory(data -> data.getValue().packageSizeProperty().asObject());
-        ingredientPackageSizeColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new DoubleConverter()));
-        ingredientPackageSizeColumn.setOnEditCommit(evt -> {
-            IngredientRow row = evt.getRowValue();
-            row.setPackageSize(Math.max(0, safeDouble(evt.getNewValue())));
-            persistIngredient(row);
-            ingredientsTable.refresh();
-            refreshRecipeCost();
-        });
+        ingredientPackageSizeColumn.setCellFactory(col -> unitFormattedCell());
 
         ingredientPackagePriceColumn.setCellValueFactory(data -> data.getValue().packagePriceProperty().asObject());
-        ingredientPackagePriceColumn.setCellFactory(col -> new IngredientAutoCommitCell<>(new DoubleConverter()));
-        ingredientPackagePriceColumn.setOnEditCommit(evt -> {
-            IngredientRow row = evt.getRowValue();
-            row.setPackagePrice(Math.max(0, safeDouble(evt.getNewValue())));
-            persistIngredient(row);
-            ingredientsTable.refresh();
-            refreshRecipeCost();
-        });
+        ingredientPackagePriceColumn.setCellFactory(col -> dzdCell());
 
         ingredientUnitCostColumn.setCellValueFactory(data -> data.getValue().unitCostProperty().asObject());
+        ingredientUnitCostColumn.setCellFactory(col -> dzdCell());
+
+        if (ingredientPacksColumn != null) {
+            ingredientPacksColumn.setCellValueFactory(data -> {
+                IngredientRow row = data.getValue();
+                double size = row.getPackageSize();
+                double packs = size > 0 ? row.getStockQuantity() / size : 0;
+                return new javafx.beans.property.SimpleDoubleProperty(packs);
+            });
+            ingredientPacksColumn.setCellFactory(col -> new TableCell<>() {
+                @Override
+                protected void updateItem(Number value, boolean empty) {
+                    super.updateItem(value, empty);
+                    if (empty || value == null) {
+                        setText(null);
+                        return;
+                    }
+                    double v = value.doubleValue();
+                    if (v <= 0) {
+                        setText("—");
+                    } else if (v == Math.floor(v)) {
+                        setText(String.format("%d pack%s", (long) v, v > 1 ? "s" : ""));
+                    } else {
+                        setText(String.format(java.util.Locale.ROOT, "%.2f packs", v));
+                    }
+                }
+            });
+        }
 
         ingredientsTable.setRowFactory(table -> new TableRow<>() {
             @Override
@@ -438,6 +421,53 @@ public class StockController {
                 }
             }
         });
+
+        // Double-click a row → open editor dialog
+        ingredientsTable.setOnMouseClicked(evt -> {
+            if (evt.getClickCount() == 2 && ingredientsTable.getSelectionModel().getSelectedItem() != null) {
+                onEditIngredient();
+            }
+        });
+    }
+
+    /** Display cell that suffixes the row's display unit (e.g. "1.30 L"). */
+    private TableCell<IngredientRow, Double> unitFormattedCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(Double value, boolean empty) {
+                super.updateItem(value, empty);
+                if (empty || value == null || getTableRow() == null || getTableRow().getItem() == null) {
+                    setText(null);
+                    return;
+                }
+                IngredientRow row = getTableRow().getItem();
+                String unit = row.getUnit() == null ? "" : row.getUnit();
+                double v = value;
+                String num = (v == Math.floor(v) && Math.abs(v) < 1e15)
+                        ? String.valueOf((long) v)
+                        : String.format(java.util.Locale.ROOT, "%.2f", v);
+                setText(num + " " + unit);
+            }
+        };
+    }
+
+    /** Display cell for DZD currency amounts. */
+    private TableCell<IngredientRow, Double> dzdCell() {
+        return new TableCell<>() {
+            @Override
+            protected void updateItem(Double value, boolean empty) {
+                super.updateItem(value, empty);
+                if (empty || value == null) {
+                    setText(null);
+                    return;
+                }
+                double v = value;
+                String num = (v == Math.floor(v) && Math.abs(v) < 1e15)
+                        ? String.valueOf((long) v)
+                        : String.format(java.util.Locale.ROOT, "%.2f", v);
+                setText(num + " DZD");
+            }
+        };
     }
 
     private void configureRecipeTable() {
@@ -663,17 +693,20 @@ public class StockController {
 
     @FXML
     private void onNewIngredient() {
+        if (!ensureAccess(AppAction.EDIT_INGREDIENTS)) {
+            return;
+        }
         if (ingredientsTable == null) {
             return;
         }
-        IngredientRow row = IngredientRow.newRow();
-        ingredientRows.add(0, row);
-        ingredientsTable.getSelectionModel().select(row);
-        Platform.runLater(() -> ingredientsTable.edit(0, ingredientNameColumn));
+        IngredientEditorDialog.showAndWait(null).ifPresent(this::saveIngredientFromDialog);
     }
 
     @FXML
     private void onEditIngredient() {
+        if (!ensureAccess(AppAction.EDIT_INGREDIENTS)) {
+            return;
+        }
         if (ingredientsTable == null) {
             return;
         }
@@ -682,10 +715,32 @@ public class StockController {
             showToast("warning", "Selectionnez un ingredient");
             return;
         }
-        int index = ingredientsTable.getSelectionModel().getSelectedIndex();
-        if (index >= 0) {
-            ingredientsTable.edit(index, ingredientNameColumn);
+        IngredientEditorDialog.showAndWait(row.toIngredient()).ifPresent(this::saveIngredientFromDialog);
+    }
+
+    /** Persist an Ingredient produced by the editor dialog (new or updated). */
+    private void saveIngredientFromDialog(com.cafepos.model.Ingredient ingredient) {
+        if (ingredient == null || ingredient.getName() == null || ingredient.getName().isBlank()) {
+            showToast("warning", "Nom obligatoire");
+            return;
         }
+        boolean isNew = ingredient.getId() <= 0;
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                if (isNew) {
+                    ingredientDAO.insertIngredient(ingredient);
+                } else {
+                    ingredientDAO.updateIngredient(ingredient);
+                }
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            showToast("success", isNew ? "Ingredient ajoute" : "Ingredient mis a jour");
+            loadIngredients();
+        });
+        runDbTask(task, isNew ? "Ajout ingredient impossible" : "Mise a jour ingredient impossible");
     }
 
     @FXML
@@ -728,6 +783,17 @@ public class StockController {
     @FXML
     private void onDeactivateIngredient() {
         setSelectedIngredientActive(false);
+    }
+
+    @FXML
+    private void onManageUnits() {
+        javafx.stage.Window owner = ingredientsTable != null && ingredientsTable.getScene() != null
+                ? ingredientsTable.getScene().getWindow()
+                : null;
+        boolean changed = com.cafepos.ui.UnitsManagerDialog.showAndWait(owner);
+        if (changed) {
+            loadIngredients();
+        }
     }
 
     private void setSelectedIngredientActive(boolean active) {
@@ -1204,6 +1270,75 @@ public class StockController {
         masterProducts.add(0, row);
         productsTable.getSelectionModel().select(row);
         Platform.runLater(() -> productsTable.edit(0, nameColumn));
+    }
+
+    @FXML
+    private void onLinkIngredient() {
+        if (!ensureAccess(AppAction.MANAGE_PRODUCTS)) {
+            return;
+        }
+        ProductRow row = productsTable == null ? null : productsTable.getSelectionModel().getSelectedItem();
+        if (row == null || row.isNew()) {
+            showToast("warning", "Selectionnez un produit");
+            return;
+        }
+
+        // Build ingredient choices: "-- Aucun --" first, then all active ingredients
+        List<IngredientRow> choices = new ArrayList<>();
+        choices.addAll(ingredientRows.filtered(IngredientRow::isActive));
+
+        javafx.scene.control.ChoiceDialog<String> dialog = new javafx.scene.control.ChoiceDialog<>();
+        dialog.setTitle("Lier a un ingredient");
+        dialog.setHeaderText("Produit: " + row.getName());
+        dialog.setContentText("Ingredient:");
+
+        List<String> options = new ArrayList<>();
+        options.add("-- Aucun (deconnecter) --");
+        for (IngredientRow ing : choices) {
+            options.add(ing.getName() + " (" + ing.getUnit() + ")");
+        }
+        dialog.getItems().addAll(options);
+
+        // Pre-select current link
+        if (row.getLinkedIngredientId() != null) {
+            IngredientRow current = ingredientById.get(row.getLinkedIngredientId());
+            if (current != null) {
+                dialog.setSelectedItem(current.getName() + " (" + current.getUnit() + ")");
+            } else {
+                dialog.setSelectedItem(options.get(0));
+            }
+        } else {
+            dialog.setSelectedItem(options.get(0));
+        }
+
+        dialog.showAndWait().ifPresent(selected -> {
+            Integer newIngId;
+            if (selected.startsWith("-- Aucun")) {
+                newIngId = null;
+            } else {
+                int idx = options.indexOf(selected) - 1; // -1 because of "Aucun" at index 0
+                newIngId = idx >= 0 && idx < choices.size() ? choices.get(idx).getId() : null;
+            }
+            final Integer finalNewIngId = newIngId;
+            Task<Void> task = new Task<>() {
+                @Override
+                protected Void call() throws Exception {
+                    productDAO.updateLinkedIngredient(row.getId(), finalNewIngId);
+                    return null;
+                }
+            };
+            task.setOnSucceeded(evt -> {
+                row.setLinkedIngredientId(finalNewIngId);
+                productsTable.refresh();
+                if (finalNewIngId != null) {
+                    IngredientRow ing = ingredientById.get(finalNewIngId);
+                    showToast("success", "Lie a: " + (ing != null ? ing.getName() : "ingredient"));
+                } else {
+                    showToast("success", "Lien supprime");
+                }
+            });
+            runDbTask(task, "Mise a jour lien impossible");
+        });
     }
 
     private Category defaultCategory() {
@@ -2830,6 +2965,18 @@ public class StockController {
                 setGraphic(null);
                 return;
             }
+            ProductRow row = getTableRow().getItem();
+            if (row.getLinkedIngredientId() != null) {
+                // Linked product: show ingredient stock as read-only badge
+                IngredientRow ing = ingredientById.get(row.getLinkedIngredientId());
+                String stockText = ing != null
+                        ? String.format("%.0f %s", ing.getStockQuantity(), ing.getUnit())
+                        : "—";
+                Label badge = new Label("\uD83D\uDD17 " + stockText);
+                badge.setStyle("-fx-text-fill: #1A4A6B; -fx-font-weight: bold;");
+                setGraphic(badge);
+                return;
+            }
             valueLabel.setText(String.valueOf(value == null ? 0 : value));
             setGraphic(root);
         }
@@ -2885,6 +3032,7 @@ public class StockController {
         private final BooleanProperty prepared = new SimpleBooleanProperty(false);
         private final ObjectProperty<Category> category = new SimpleObjectProperty<>();
         private boolean isNew;
+        private Integer linkedIngredientId;
 
         public static ProductRow from(Product product, Category category) {
             ProductRow row = new ProductRow();
@@ -2896,6 +3044,7 @@ public class StockController {
             row.setActive(product.isActive());
             row.setPrepared(product.isPrepared());
             row.setCategory(category);
+            row.setLinkedIngredientId(product.getLinkedIngredientId());
             row.setNew(false);
             return row;
         }
@@ -3009,6 +3158,14 @@ public class StockController {
 
         public void setNew(boolean value) {
             isNew = value;
+        }
+
+        public Integer getLinkedIngredientId() {
+            return linkedIngredientId;
+        }
+
+        public void setLinkedIngredientId(Integer value) {
+            linkedIngredientId = value;
         }
     }
 }

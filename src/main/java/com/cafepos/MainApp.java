@@ -1,9 +1,45 @@
 package com.cafepos;
 
-import com.cafepos.dao.SettingsDAO;
+import java.net.URL;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
+import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.Optional;
+import java.util.ResourceBundle;
+
+import org.kordamp.ikonli.IkonHandler;
+import org.kordamp.ikonli.javafx.IkonResolver;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignAIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignCIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignFIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignGIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignHIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignIIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignLIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignMIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignPIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignRIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignSIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignTIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignUIkonHandler;
+import org.kordamp.ikonli.materialdesign2.MaterialDesignVIkonHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cafepos.dao.SettingsDAO;
 import com.cafepos.db.DatabaseManager;
 import com.cafepos.service.AdminSessionManager;
 import com.cafepos.util.AppScheduler;
@@ -27,26 +63,6 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
-import java.nio.channels.OverlappingFileLockException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.FileAlreadyExistsException;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
-import java.util.Locale;
-import java.util.MissingResourceException;
-import java.util.Optional;
-import java.util.ResourceBundle;
-import java.net.URL;
-
 public class MainApp extends Application {
     private static final Logger LOG = LoggerFactory.getLogger(MainApp.class);
     private static final String APP_LANGUAGE_KEY = "app.language";
@@ -65,6 +81,11 @@ public class MainApp extends Application {
 
     @Override
     public void start(Stage stage) {
+        initLoggingDir();
+        ensureAppDirectories();
+        registerIkonliHandlers();
+        LOG.info("Application startup (pid={})", ProcessHandle.current().pid());
+        writeStartupMarker("start entry", null);
         if (!ensureSingleInstance()) {
             Platform.exit();
             return;
@@ -103,6 +124,9 @@ public class MainApp extends Application {
         });
         stage.setScene(splashScene);
         stage.show();
+        stage.toFront();
+        stage.requestFocus();
+        writeStartupMarker("stage shown", null);
         if (primaryInstance) {
             startFocusTriggerWatcher(stage);
         }
@@ -117,6 +141,10 @@ public class MainApp extends Application {
                     LOG.error("Echec application restauration en attente", ex);
                 }
                 DatabaseManager.initialize();
+                // Pre-build the unit cache on this background thread so the
+                // first FX-thread lookup (e.g. a TableView cell render) is a
+                // pure HashMap.get and never blocks on a DB connection.
+                com.cafepos.model.UnitRegistry.prewarm();
                 applySavedLocaleFromSettings();
                 AppScheduler.start();
                 return null;
@@ -128,13 +156,17 @@ public class MainApp extends Application {
                 IdleMonitor.start(() -> {
                     try {
                         loadLaunchScene(stage);
+                        writeStartupMarker("launch.fxml loaded", null);
                     } catch (Exception ex) {
                         LOG.error("Erreur retour launch", ex);
+                        writeStartupMarker("launch.fxml error", ex);
                     }
                 });
                 loadLaunchScene(stage);
+                writeStartupMarker("launch.fxml loaded", null);
             } catch (Exception ex) {
                 LOG.error("Erreur au chargement de launch.fxml", ex);
+                writeStartupMarker("launch.fxml error", ex);
                 showErrorAndExit("Echec du chargement de l'interface.", ex);
             }
         });
@@ -164,6 +196,64 @@ public class MainApp extends Application {
         BorderPane.setAlignment(progress, javafx.geometry.Pos.CENTER);
         pane.setPrefSize(520, 320);
         return pane;
+    }
+
+    private static void registerIkonliHandlers() {
+        IkonResolver resolver = IkonResolver.getInstance();
+        registerHandlerSafe(resolver, new MaterialDesignAIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignCIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignFIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignGIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignHIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignIIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignLIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignMIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignPIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignRIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignSIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignTIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignUIkonHandler());
+        registerHandlerSafe(resolver, new MaterialDesignVIkonHandler());
+    }
+
+    private static void registerHandlerSafe(IkonResolver resolver, IkonHandler handler) {
+        try {
+            resolver.registerHandler(handler);
+        } catch (IllegalArgumentException ignored) {
+            // Handler already registered via ServiceLoader.
+        }
+    }
+
+    private static void initLoggingDir() {
+        try {
+            Path baseDir = resolveAppDataDir();
+            Path logDir = baseDir.resolve("logs");
+            Files.createDirectories(logDir);
+            System.setProperty("cafepos.logs.dir", logDir.toString());
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static void writeStartupMarker(String message, Throwable ex) {
+        try {
+            Path baseDir = resolveAppDataDir();
+            Files.createDirectories(baseDir);
+            Path marker = baseDir.resolve("startup.log");
+            StringBuilder line = new StringBuilder();
+            line.append(java.time.Instant.now()).append(" ").append(message == null ? "" : message);
+            if (ex != null) {
+                line.append(" -> ").append(ex.toString());
+            }
+            line.append(System.lineSeparator());
+            Files.writeString(marker, line.toString(), StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static void installCrashHandler() {
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) ->
+                writeStartupMarker("uncaught: " + thread.getName(), throwable));
     }
 
     private void loadLaunchScene(Stage stage) throws Exception {
@@ -232,6 +322,28 @@ public class MainApp extends Application {
         }
     }
 
+    private void ensureAppDirectories() {
+        try {
+            String appData = System.getenv("APPDATA");
+            Path baseDir;
+            if (appData == null || appData.isBlank()) {
+                String userHome = System.getProperty("user.home");
+                baseDir = Paths.get(userHome, ".CafePOS");
+            } else {
+                baseDir = Paths.get(appData, "CafePOS");
+            }
+            Files.createDirectories(baseDir.resolve("data"));
+            Files.createDirectories(baseDir.resolve("backups"));
+            Files.createDirectories(baseDir.resolve("exports"));
+            Path logDir = baseDir.resolve("logs");
+            Files.createDirectories(logDir);
+            Files.createDirectories(baseDir.resolve("temp"));
+            System.setProperty("cafepos.logs.dir", logDir.toString());
+        } catch (Exception ex) {
+            LOG.warn("Creation dossiers application impossible", ex);
+        }
+    }
+
     public static ResourceBundle getMessages() {
         if (messages == null) {
             Locale locale = appLocale == null ? Locale.getDefault() : appLocale;
@@ -293,9 +405,28 @@ public class MainApp extends Application {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Erreur");
         alert.setHeaderText(message);
-        alert.setContentText(ex == null ? "" : String.valueOf(ex.getMessage()));
+        alert.setContentText(ex == null ? "" : buildErrorDetails(ex));
         alert.showAndWait();
         Platform.exit();
+    }
+
+    private String buildErrorDetails(Throwable ex) {
+        if (ex == null) {
+            return "";
+        }
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            message = ex.toString();
+        }
+        Throwable cause = ex.getCause();
+        if (cause == null) {
+            return message;
+        }
+        String causeMessage = cause.getMessage();
+        if (causeMessage == null || causeMessage.isBlank()) {
+            causeMessage = cause.toString();
+        }
+        return message + "\nCause: " + causeMessage;
     }
 
     private void startFocusTriggerWatcher(Stage stage) {
@@ -553,9 +684,16 @@ public class MainApp extends Application {
     public void stop() throws Exception {
         releaseInstanceLock();
         super.stop();
+        // Guarantee the process exits even if some library left a non-daemon
+        // thread alive. Without this, "closed" windows leave zombie JVMs that
+        // accumulate over the day and starve low-end PCs of RAM.
+        Runtime.getRuntime().exit(0);
     }
 
     public static void main(String[] args) {
+        initLoggingDir();
+        installCrashHandler();
+        writeStartupMarker("main entry", null);
         if (!ensureSingleInstance()) {
             releaseInstanceLock();
             return;

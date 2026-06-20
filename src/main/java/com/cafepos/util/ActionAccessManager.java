@@ -1,18 +1,20 @@
 package com.cafepos.util;
 
+import java.util.Locale;
+import java.util.Optional;
+
 import com.cafepos.dao.SettingsDAO;
 import com.cafepos.dao.UserDAO;
 import com.cafepos.model.AppAction;
 import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
+import com.cafepos.service.AdminSessionManager;
 import com.cafepos.service.SessionManager;
+
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.TextInputDialog;
 import javafx.stage.Window;
-
-import java.util.Locale;
-import java.util.Optional;
 
 public class ActionAccessManager {
     private static final String ACTION_ROLE_KEY_PREFIX = "action.role.";
@@ -26,18 +28,25 @@ public class ActionAccessManager {
         boolean pinRequired = resolvePinRequired(action);
         User current = SessionManager.getCurrentUser();
 
-        if (current == null && !pinRequired && requiredRole == UserRole.BARISTA) {
-            return true;
-        }
-        if (current != null && isRoleAllowed(current.getRole(), requiredRole) && !pinRequired) {
+        // Temporary manager elevation is orthogonal to cashier identity.
+        if (requiredRole == UserRole.MANAGER && AdminSessionManager.isAdminUnlocked()) {
             return true;
         }
 
-        if (!pinRequired && current != null && !isRoleAllowed(current.getRole(), requiredRole)) {
+        if (!pinRequired) {
+            // No PIN required: role check is the only gate.
+            if (current == null && requiredRole == UserRole.BARISTA) {
+                return true;
+            }
+            if (current != null && isRoleAllowed(current.getRole(), requiredRole)) {
+                return true;
+            }
+            // Role insufficient and PIN not required → deny without prompting.
             showWarning("Acces refuse", "Role requis: " + requiredRole.name());
             return false;
         }
 
+        // PIN is required → always prompt for a PIN with the required role.
         return requestPin(action, requiredRole, owner);
     }
 
@@ -96,7 +105,9 @@ public class ActionAccessManager {
                 showWarning("Acces refuse", "PIN invalide.");
                 return false;
             }
-            SessionManager.setCurrentUser(user);
+            if (requiredRole == UserRole.MANAGER) {
+                AdminSessionManager.unlock();
+            }
             return true;
         } catch (Exception ex) {
             showWarning("Erreur", "Verification PIN impossible.");

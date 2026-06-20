@@ -9,13 +9,19 @@ public class Product {
     private final int stock;
     private final boolean active;
     private final boolean prepared;
+    private final Integer linkedIngredientId;
 
     public Product(int id, String name, double price, double cost, int categoryId, int stock, boolean active) {
-        this(id, name, price, cost, categoryId, stock, active, false);
+        this(id, name, price, cost, categoryId, stock, active, false, null);
     }
 
     public Product(int id, String name, double price, double cost, int categoryId, int stock,
                    boolean active, boolean prepared) {
+        this(id, name, price, cost, categoryId, stock, active, prepared, null);
+    }
+
+    public Product(int id, String name, double price, double cost, int categoryId, int stock,
+                   boolean active, boolean prepared, Integer linkedIngredientId) {
         this.id = id;
         this.name = name;
         this.price = price;
@@ -24,6 +30,7 @@ public class Product {
         this.stock = stock;
         this.active = active;
         this.prepared = prepared;
+        this.linkedIngredientId = linkedIngredientId;
     }
 
     public int getId() {
@@ -56,5 +63,9 @@ public class Product {
 
     public boolean isPrepared() {
         return prepared;
+    }
+
+    public Integer getLinkedIngredientId() {
+        return linkedIngredientId;
     }
 }

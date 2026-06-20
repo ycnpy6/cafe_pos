@@ -5,6 +5,7 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\Products
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\CustomersController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\StockUnit.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\MainApp.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\CustomerImporter.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\ExpenseDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\OrderHistoryRow.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\AccountTransactionDAO.java
@@ -17,6 +18,7 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\Settings
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\IngredientDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\ActionAccessManager.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\ProductDAO.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\hardware\RFIDDecoder.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\SettingsDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\TopItem.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\service\AdminSessionManager.java
@@ -36,12 +38,14 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\service\ReportServic
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\CashMovementRow.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\User.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\ui\TopupDialog.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\CustomUnitDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\CategoryDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\LoginController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\OrderDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controller\LaunchController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\UiIconHelper.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\db\DatabaseManager.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\CustomUnit.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\ui\TagSelectionDialog.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\WaitingOrderDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\service\PrintQueueService.java
@@ -53,6 +57,7 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\Tag.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\ui\CashTenderDialog.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\service\AccountService.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\CashWithdrawalDAO.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\Launcher.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\ProductIngredientUsage.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\Ingredient.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\EODService.java
@@ -67,7 +72,9 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\OrderLineDetai
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\DashboardController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\LaunchController.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\PosController.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\UnitRegistry.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\Customer.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\ui\UnitsManagerDialog.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\IngredientUsageRow.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\PrintQueueDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\TagDAO.java
@@ -81,6 +88,7 @@ C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\StockCon
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\UnitType.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\UserDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\hardware\PrinterService.java
+C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\controllers\IngredientEditorDialog.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\model\UserRole.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\dao\ProductTagGroupDAO.java
 C:\Users\adjao\Bureau\desktop_POS\src\main\java\com\cafepos\util\ToastService.java

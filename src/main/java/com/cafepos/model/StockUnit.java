@@ -2,8 +2,10 @@ package com.cafepos.model;
 
 public record StockUnit(String unitDisplay, String unitBase, double factorToBase) {
     public static StockUnit fromDisplayUnit(String displayUnit) {
-        UnitType type = UnitType.fromUnit(displayUnit);
-        return new StockUnit(type.displayUnit(), type.baseUnit(), type.factorToBase());
+        // Consult the runtime registry so admin-defined unit overrides win
+        // over the built-in enum. Falls back to UnitType.UNIT for unknowns.
+        UnitRegistry.Entry e = UnitRegistry.resolve(displayUnit);
+        return new StockUnit(e.displayUnit(), e.baseUnit(), e.factorToBase());
     }
 
     public double toBase(double amountInDisplay) {

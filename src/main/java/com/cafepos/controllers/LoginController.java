@@ -4,11 +4,13 @@ import com.cafepos.MainApp;
 import com.cafepos.dao.UserDAO;
 import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
+import com.cafepos.service.AdminSessionManager;
 import com.cafepos.service.SessionManager;
 import com.cafepos.service.WorkPeriodService;
 import com.cafepos.util.SecurityUtils;
 import com.cafepos.util.IdleMonitor;
 import com.cafepos.util.WindowUtils;
+import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -17,7 +19,9 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.Toggle;
 import javafx.scene.control.ToggleGroup;
@@ -41,6 +45,8 @@ public class LoginController {
     @FXML
     private ToggleGroup roleGroup;
     @FXML
+    private ComboBox<User> userCombo;
+    @FXML
     private Label statusLabel;
     @FXML
     private Button loginButton;
@@ -53,6 +59,11 @@ public class LoginController {
         if (roleGroup != null && roleGroup.getSelectedToggle() == null && !roleGroup.getToggles().isEmpty()) {
             roleGroup.selectToggle(roleGroup.getToggles().get(0));
         }
+        configureUserCombo();
+        if (roleGroup != null) {
+            roleGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> loadUsersForSelectedRole());
+        }
+        loadUsersForSelectedRole();
         showStatus("");
     }
 
@@ -92,13 +103,29 @@ public class LoginController {
         }
         String pin = pinField.getText();
         String role = getSelectedRole();
+        User selectedUser = userCombo == null ? null : userCombo.getSelectionModel().getSelectedItem();
 
-        if (pin == null || pin.isBlank()) {
-            showStatus("Entrez le PIN.");
+        UserRole selectedRole;
+        try {
+            selectedRole = role == null ? null : UserRole.valueOf(role.trim().toUpperCase());
+        } catch (Exception ex) {
+            selectedRole = null;
+        }
+
+        if (selectedRole == null) {
+            showStatus("Choisissez un role.");
             return;
         }
-        if (role == null || role.isBlank()) {
-            showStatus("Choisissez un role.");
+        if (selectedUser == null) {
+            showStatus("Choisissez un utilisateur.");
+            return;
+        }
+        if (selectedUser.getRole() != selectedRole) {
+            showStatus("Utilisateur incompatible avec le role choisi.");
+            return;
+        }
+        if (selectedRole == UserRole.MANAGER && (pin == null || pin.isBlank())) {
+            showStatus("PIN manager requis.");
             return;
         }
 
@@ -109,18 +136,20 @@ public class LoginController {
         Task<LoginContext> authTask = new Task<>() {
             @Override
             protected LoginContext call() throws Exception {
-                return authenticate(pin, role);
+                return authenticate(pin, selectedUser);
             }
         };
 
         authTask.setOnSucceeded(evt -> {
             LoginContext context = authTask.getValue();
             if (context != null && context.user != null) {
+                // A new cashier login must reset any transient manager unlock.
+                AdminSessionManager.lock();
                 SessionManager.setCurrentUser(context.user);
                 SessionManager.setCurrentWorkPeriodId(context.workPeriodId);
                 loadPosScreen(context.user.getName(), context.user.getRole().name());
             } else {
-                showStatus("PIN invalide.");
+                showStatus("Connexion invalide (PIN/role).");
             }
             pinField.setText("");
             setBusy(false);
@@ -160,14 +189,72 @@ public class LoginController {
         return String.valueOf(toggle.getUserData());
     }
 
-    private LoginContext authenticate(String pin, String role) throws Exception {
-        String pinHash = SecurityUtils.sha256Hex(pin);
-        User user = userDAO.findByPinAndRole(pinHash, UserRole.valueOf(role));
+    private LoginContext authenticate(String pin, User selectedUser) throws Exception {
+        UserRole selectedRole = selectedUser.getRole();
+        User user;
+
+        // Operational mode: barista can start a cashier session without a PIN.
+        // Manager role remains PIN-protected.
+        if (selectedRole == UserRole.BARISTA && (pin == null || pin.isBlank())) {
+            user = selectedUser;
+        } else {
+            String pinHash = SecurityUtils.sha256Hex(pin == null ? "" : pin);
+            user = userDAO.findByIdAndPin(selectedUser.getId(), pinHash);
+        }
+
         if (user == null) {
             return null;
         }
         int workPeriodId = workPeriodService.openIfNeeded(user.getId());
         return new LoginContext(user, workPeriodId);
+    }
+
+    private void configureUserCombo() {
+        if (userCombo == null) {
+            return;
+        }
+        userCombo.setCellFactory(cb -> new ListCell<>() {
+            @Override
+            protected void updateItem(User item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.getName());
+            }
+        });
+        userCombo.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(User item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.getName());
+            }
+        });
+    }
+
+    private void loadUsersForSelectedRole() {
+        if (userCombo == null) {
+            return;
+        }
+        String role = getSelectedRole();
+        UserRole selectedRole;
+        try {
+            selectedRole = role == null ? null : UserRole.valueOf(role.trim().toUpperCase());
+        } catch (Exception ex) {
+            selectedRole = null;
+        }
+        if (selectedRole == null) {
+            userCombo.getItems().clear();
+            return;
+        }
+
+        try {
+            userCombo.setItems(FXCollections.observableArrayList(userDAO.findByRole(selectedRole)));
+            if (!userCombo.getItems().isEmpty()) {
+                userCombo.getSelectionModel().selectFirst();
+            }
+        } catch (Exception ex) {
+            LOG.error("Erreur chargement utilisateurs login", ex);
+            userCombo.getItems().clear();
+            showStatus("Chargement utilisateurs impossible.");
+        }
     }
 
     private static class LoginContext {

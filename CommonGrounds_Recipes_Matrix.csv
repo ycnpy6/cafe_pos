@@ -1,0 +1,28 @@
+﻿Recette,Café moulu (espresso) (g),Lait (ml),Glace (1sc=150ml) (ml),Poudre choco (1sc=30g) (g),Mordjane (choco) (g),Nescafé (Dalgona) (g),Sirop (arôme) (ml),Lait concentré sucré (ml),Thé (g),Banane (unité)
+Espresso,15,,,,,,,,,
+Americano,15,,,,,,,,,
+Double Espresso,30,,,,,,,,,
+Latte,15,240,,,,,,,,
+Cappuccino,15,240,,,,,,,,
+Macchiato,15,180,,,,,,,,
+Mocha,15,,,,20,,,,,
+Hot Chocolate,,300,,30,20,,,,,
+Chocolate Latte,15,240,,15,,,,,,
+Dalgona Coffee,,180,,,,15,,,,
+Spanish Latte,15,180,,,,,,40,,
+Iced Latte,15,180,300,,,,,,,
+Iced Coffee,15,,300,,,,,,,
+Iced Tea,,,,,,,40,,15,
+Banana Milkshake,,180,150,,,,,,,1
+Chocolate Milkshake,,180,150,60,,,,,,
+Caramel Milkshake,,180,150,60,,,,,,
+Vanilla Milkshake,,180,150,60,,,,,,
+Strawberry Milkshake,,180,150,,,,80,,,
+Banana Choco Milkshake,,180,150,60,,,,,,1
+Frappuccino Coffee,15,120,450,,,,,,,
+Frappuccino Vanilla,15,120,450,,,,40,,,
+Frappuccino Caramel,15,120,450,,,,40,,,
+Frappuccino Chocolate,15,120,450,60,,,,,,
+Frappuccino Hazelnut,15,120,450,,,,40,,,
+Frappuccino Pistachio,15,120,450,,,,40,,,
+Frappuccino Banana,15,120,450,,,,,,,1

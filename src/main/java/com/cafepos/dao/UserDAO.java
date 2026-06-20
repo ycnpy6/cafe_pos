@@ -49,6 +49,16 @@ public class UserDAO {
         }
     }
 
+    public void updatePin(int userId, String pinHash) throws Exception {
+        String sql = "UPDATE users SET pin = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, pinHash);
+            ps.setInt(2, userId);
+            ps.executeUpdate();
+        }
+    }
+
     public int countByRole(UserRole role) throws Exception {
         String sql = "SELECT COUNT(*) AS total FROM users WHERE role = ?";
         try (Connection conn = DatabaseManager.openConnection();
@@ -68,6 +78,46 @@ public class UserDAO {
         try (Connection conn = DatabaseManager.openConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, role.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new User(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getString("pin"),
+                            UserRole.valueOf(rs.getString("role"))
+                    );
+                }
+            }
+        }
+        return null;
+    }
+
+    public List<User> findByRole(UserRole role) throws Exception {
+        String sql = "SELECT id, name, pin, role FROM users WHERE role = ? ORDER BY name";
+        List<User> results = new ArrayList<>();
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, role.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    results.add(new User(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getString("pin"),
+                            UserRole.valueOf(rs.getString("role"))
+                    ));
+                }
+            }
+        }
+        return results;
+    }
+
+    public User findByIdAndPin(int userId, String pinHash) throws Exception {
+        String sql = "SELECT id, name, pin, role FROM users WHERE id = ? AND pin = ? LIMIT 1";
+        try (Connection conn = DatabaseManager.openConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setString(2, pinHash);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return new User(

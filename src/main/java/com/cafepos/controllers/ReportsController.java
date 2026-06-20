@@ -948,16 +948,16 @@ public class ReportsController {
     }
 
     private void writeSummarySection(BufferedWriter writer, SalesSummary summary) throws Exception {
-        writer.write("SECTION;Summary\n");
-        writer.write("start;end;total;orders;cash;prepaid;ingredient_cost;gross_profit;withdrawals;net_revenue\n");
+        writer.write("SECTION;Resume\n");
+        writer.write("debut;fin;total;commandes;especes;prepayes;cout_ingredients;marge_brute;sorties;net\n");
         writer.write(rangeStart + ";" + rangeEnd + ";" + summary.total() + ";" + summary.orderCount() + ";"
                 + summary.cashTotal() + ";" + summary.prepaidTotal() + ";" + summary.ingredientCost() + ";"
                 + summary.grossProfit() + ";" + summary.cashWithdrawals() + ";" + summary.netRevenue() + "\n\n");
     }
 
     private void writeTopProductsSection(BufferedWriter writer, List<TopItem> items) throws Exception {
-        writer.write("SECTION;Top Products\n");
-        writer.write("rank;product;quantity;revenue\n");
+        writer.write("SECTION;Top produits\n");
+        writer.write("rang;produit;quantite;chiffre_affaires\n");
         int rank = 1;
         for (TopItem item : items) {
             writer.write(rank++ + ";" + escape(item.name()) + ";" + item.quantity() + ";" + item.revenue() + "\n");
@@ -966,8 +966,8 @@ public class ReportsController {
     }
 
     private void writeTopIngredientsSection(BufferedWriter writer, List<IngredientUsageRow> items) throws Exception {
-        writer.write("SECTION;Top Ingredients (Sales)\n");
-        writer.write("rank;ingredient;unit;quantity;total_cost\n");
+        writer.write("SECTION;Top ingredients (ventes)\n");
+        writer.write("rang;ingredient;unite;quantite;cout_total\n");
         int rank = 1;
         for (IngredientUsageRow row : items) {
             writer.write(rank++ + ";" + escape(row.name()) + ";" + escape(row.unit()) + ";"
@@ -978,8 +978,8 @@ public class ReportsController {
 
     private void writeIngredientMovementsSection(BufferedWriter writer, List<IngredientMovementSummaryRow> rows)
             throws Exception {
-        writer.write("SECTION;Ingredient Movements\n");
-        writer.write("rank;ingredient;unit;inflow;outflow;net;total_cost\n");
+        writer.write("SECTION;Mouvements ingredients\n");
+        writer.write("rang;ingredient;unite;entrees;sorties;net;cout_total\n");
         int rank = 1;
         for (IngredientMovementSummaryRow row : rows) {
             writer.write(rank++ + ";" + escape(row.name()) + ";" + escape(row.unit()) + ";"
@@ -989,8 +989,8 @@ public class ReportsController {
     }
 
     private void writeOrdersSection(BufferedWriter writer, List<OrderHistoryRow> rows) throws Exception {
-        writer.write("SECTION;Orders\n");
-        writer.write("id;date;items;total;ingredient_cost;gross_profit;payment;client_id;client_name;user\n");
+        writer.write("SECTION;Commandes\n");
+        writer.write("id;date;articles;total;cout_ingredients;marge_brute;paiement;client_id;client;utilisateur\n");
         for (OrderHistoryRow row : rows) {
             String clientId = row.clientId() == null ? "" : String.valueOf(row.clientId());
             writer.write(row.orderId() + ";" + escape(row.createdAt()) + ";" + row.itemCount() + ";"
@@ -1003,8 +1003,8 @@ public class ReportsController {
     }
 
     private void writeOrderLinesSection(BufferedWriter writer, List<OrderLineExportRow> rows) throws Exception {
-        writer.write("SECTION;Order Lines\n");
-        writer.write("order_id;date;product;quantity;unit_price;line_total;tags;payment;client_id;client;user\n");
+        writer.write("SECTION;Lignes commande\n");
+        writer.write("commande_id;date;produit;quantite;prix_unitaire;total_ligne;tags;paiement;client_id;client;utilisateur\n");
         for (OrderLineExportRow row : rows) {
             String clientId = row.clientId() == null ? "" : String.valueOf(row.clientId());
             writer.write(row.orderId() + ";" + escape(row.createdAt()) + ";" + escape(row.productName()) + ";"
@@ -1017,7 +1017,7 @@ public class ReportsController {
 
     private void writeSessionsSection(BufferedWriter writer, List<SessionRow> rows) throws Exception {
         writer.write("SECTION;Sessions\n");
-        writer.write("id;opened_at;closed_at;orders;total;cash;prepaid;mode\n");
+        writer.write("id;ouverture;fermeture;commandes;total;especes;prepayes;mode\n");
         for (SessionRow row : rows) {
             writer.write(row.sessionId() + ";" + escape(row.openedAt()) + ";" + escape(row.closedAt()) + ";"
                     + row.orderCount() + ";" + row.total() + ";" + row.cashTotal() + ";"
@@ -1027,8 +1027,8 @@ public class ReportsController {
     }
 
     private void writeCashMovementsSection(BufferedWriter writer, List<CashMovementRow> rows) throws Exception {
-        writer.write("SECTION;Cash Movements\n");
-        writer.write("date;type;category;amount;user;note\n");
+        writer.write("SECTION;Mouvements caisse\n");
+        writer.write("date;type;categorie;montant;utilisateur;note\n");
         for (CashMovementRow row : rows) {
             writer.write(escape(row.createdAt()) + ";" + escape(row.movementType()) + ";"
                     + escape(row.category()) + ";" + row.amount() + ";"
@@ -1038,9 +1038,9 @@ public class ReportsController {
     }
 
     private void appendSummaryTable(StringBuilder sb, SalesSummary summary) {
-        sb.append("<h3>Summary</h3><table border=\"1\">")
-                .append("<tr><th>Start</th><th>End</th><th>Total</th><th>Orders</th><th>Cash</th><th>Prepaid</th>"
-                        + "<th>Ingredient Cost</th><th>Gross Profit</th><th>Withdrawals</th><th>Net Revenue</th></tr>")
+        sb.append("<h3>Resume</h3><table border=\"1\">")
+            .append("<tr><th>Debut</th><th>Fin</th><th>Total</th><th>Commandes</th><th>Especes</th><th>Prepayes</th>"
+                + "<th>Cout ingredients</th><th>Marge brute</th><th>Sorties</th><th>Net</th></tr>")
                 .append("<tr><td>").append(rangeStart).append("</td><td>").append(rangeEnd).append("</td><td>")
                 .append(summary.total()).append("</td><td>").append(summary.orderCount()).append("</td><td>")
                 .append(summary.cashTotal()).append("</td><td>").append(summary.prepaidTotal()).append("</td><td>")
@@ -1050,8 +1050,8 @@ public class ReportsController {
     }
 
     private void appendTopProductsTable(StringBuilder sb, List<TopItem> items) {
-        sb.append("<h3>Top Products</h3><table border=\"1\">")
-                .append("<tr><th>Rank</th><th>Product</th><th>Quantity</th><th>Revenue</th></tr>");
+        sb.append("<h3>Top produits</h3><table border=\"1\">")
+            .append("<tr><th>Rang</th><th>Produit</th><th>Quantite</th><th>Chiffre d'affaires</th></tr>");
         int rank = 1;
         for (TopItem item : items) {
             sb.append("<tr><td>").append(rank++).append("</td><td>").append(escapeHtml(item.name()))
@@ -1062,8 +1062,8 @@ public class ReportsController {
     }
 
     private void appendTopIngredientsTable(StringBuilder sb, List<IngredientUsageRow> rows) {
-        sb.append("<h3>Top Ingredients (Sales)</h3><table border=\"1\">")
-                .append("<tr><th>Rank</th><th>Ingredient</th><th>Unit</th><th>Quantity</th><th>Total Cost</th></tr>");
+        sb.append("<h3>Top ingredients (ventes)</h3><table border=\"1\">")
+            .append("<tr><th>Rang</th><th>Ingredient</th><th>Unite</th><th>Quantite</th><th>Cout total</th></tr>");
         int rank = 1;
         for (IngredientUsageRow row : rows) {
             sb.append("<tr><td>").append(rank++).append("</td><td>").append(escapeHtml(row.name()))
@@ -1074,9 +1074,9 @@ public class ReportsController {
     }
 
     private void appendIngredientMovementsTable(StringBuilder sb, List<IngredientMovementSummaryRow> rows) {
-        sb.append("<h3>Ingredient Movements</h3><table border=\"1\">")
-                .append("<tr><th>Rank</th><th>Ingredient</th><th>Unit</th><th>Inflow</th><th>Outflow</th>"
-                        + "<th>Net</th><th>Total Cost</th></tr>");
+        sb.append("<h3>Mouvements ingredients</h3><table border=\"1\">")
+            .append("<tr><th>Rang</th><th>Ingredient</th><th>Unite</th><th>Entrees</th><th>Sorties</th>"
+                + "<th>Net</th><th>Cout total</th></tr>");
         int rank = 1;
         for (IngredientMovementSummaryRow row : rows) {
             sb.append("<tr><td>").append(rank++).append("</td><td>").append(escapeHtml(row.name()))
@@ -1088,9 +1088,9 @@ public class ReportsController {
     }
 
     private void appendOrdersTable(StringBuilder sb, List<OrderHistoryRow> rows) {
-        sb.append("<h3>Orders</h3><table border=\"1\">")
-                .append("<tr><th>ID</th><th>Date</th><th>Items</th><th>Total</th><th>Ingredient Cost</th>"
-                        + "<th>Gross Profit</th><th>Payment</th><th>Client ID</th><th>Client</th><th>User</th></tr>");
+        sb.append("<h3>Commandes</h3><table border=\"1\">")
+            .append("<tr><th>ID</th><th>Date</th><th>Articles</th><th>Total</th><th>Cout ingredients</th>"
+                + "<th>Marge brute</th><th>Paiement</th><th>Client ID</th><th>Client</th><th>Utilisateur</th></tr>");
         for (OrderHistoryRow row : rows) {
             sb.append("<tr>")
                     .append("<td>").append(row.orderId()).append("</td>")
@@ -1109,10 +1109,10 @@ public class ReportsController {
     }
 
     private void appendOrderLinesTable(StringBuilder sb, List<OrderLineExportRow> rows) {
-        sb.append("<h3>Order Lines</h3><table border=\"1\">")
-                .append("<tr><th>Order ID</th><th>Date</th><th>Product</th><th>Qty</th><th>Unit Price</th>"
-                        + "<th>Line Total</th><th>Tags</th><th>Payment</th><th>Client ID</th><th>Client</th>"
-                        + "<th>User</th></tr>");
+        sb.append("<h3>Lignes commande</h3><table border=\"1\">")
+            .append("<tr><th>Commande ID</th><th>Date</th><th>Produit</th><th>Qte</th><th>Prix unitaire</th>"
+                + "<th>Total ligne</th><th>Tags</th><th>Paiement</th><th>Client ID</th><th>Client</th>"
+                + "<th>Utilisateur</th></tr>");
         for (OrderLineExportRow row : rows) {
             sb.append("<tr>")
                     .append("<td>").append(row.orderId()).append("</td>")
@@ -1133,8 +1133,8 @@ public class ReportsController {
 
     private void appendSessionsTable(StringBuilder sb, List<SessionRow> rows) {
         sb.append("<h3>Sessions</h3><table border=\"1\">")
-                .append("<tr><th>ID</th><th>Opened</th><th>Closed</th><th>Orders</th><th>Total</th><th>Cash</th>"
-                        + "<th>Prepaid</th><th>Mode</th></tr>");
+            .append("<tr><th>ID</th><th>Ouverture</th><th>Fermeture</th><th>Commandes</th><th>Total</th><th>Especes</th>"
+                + "<th>Prepayes</th><th>Mode</th></tr>");
         for (SessionRow row : rows) {
             sb.append("<tr>")
                     .append("<td>").append(row.sessionId()).append("</td>")
@@ -1151,8 +1151,8 @@ public class ReportsController {
     }
 
     private void appendCashMovementsTable(StringBuilder sb, List<CashMovementRow> rows) {
-        sb.append("<h3>Cash Movements</h3><table border=\"1\">")
-                .append("<tr><th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>User</th><th>Note</th></tr>");
+        sb.append("<h3>Mouvements caisse</h3><table border=\"1\">")
+            .append("<tr><th>Date</th><th>Type</th><th>Categorie</th><th>Montant</th><th>Utilisateur</th><th>Note</th></tr>");
         for (CashMovementRow row : rows) {
             sb.append("<tr>")
                     .append("<td>").append(escapeHtml(row.createdAt())).append("</td>")

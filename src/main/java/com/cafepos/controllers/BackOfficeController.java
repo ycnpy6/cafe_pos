@@ -97,16 +97,18 @@ public class BackOfficeController {
         if (!accessManager.ensureAccess(AppAction.BACK_TO_POS, currentWindow())) {
             return;
         }
+        User user = SessionManager.getCurrentUser();
+        if (user == null) {
+            openLoginScene();
+            return;
+        }
         try {
             FXMLLoader loader = new FXMLLoader(
                     getClass().getResource("/com/cafepos/fxml/pos.fxml"),
                     MainApp.getMessages());
             Parent root = loader.load();
             PosController controller = loader.getController();
-            User user = SessionManager.getCurrentUser();
-            if (user != null) {
-                controller.setUserInfo(user.getName(), user.getRole().name());
-            }
+            controller.setUserInfo(user.getName(), user.getRole().name());
             Scene scene = new Scene(root, 1100, 700);
             MainApp.applyBrandTheme(scene);
             IdleMonitor.bindScene(scene);
@@ -118,6 +120,26 @@ public class BackOfficeController {
             stage.toFront();
         } catch (Exception ex) {
             LOG.error("Echec retour POS", ex);
+        }
+    }
+
+    private void openLoginScene() {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/com/cafepos/fxml/login.fxml"),
+                    MainApp.getMessages());
+            Parent root = loader.load();
+            Scene scene = new Scene(root, 1100, 700);
+            MainApp.applyBrandTheme(scene);
+            IdleMonitor.bindScene(scene);
+            Stage stage = (Stage) contentPane.getScene().getWindow();
+            stage.setScene(scene);
+            WindowUtils.applyFullSize(stage);
+            stage.setIconified(false);
+            stage.show();
+            stage.toFront();
+        } catch (Exception ex) {
+            LOG.error("Echec ouverture login depuis back-office", ex);
         }
     }
 

@@ -5,8 +5,8 @@ import com.cafepos.dao.UserDAO;
 import com.cafepos.model.AppAction;
 import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
+import com.cafepos.service.AdminSessionManager;
 import com.cafepos.service.SessionManager;
-import com.cafepos.service.WorkPeriodService;
 import com.cafepos.util.ActionAccessManager;
 import com.cafepos.util.IdleMonitor;
 import com.cafepos.util.SecurityUtils;
@@ -47,7 +47,6 @@ public class LaunchController {
     private static final long LOCKOUT_MS = 30_000;
 
     private final UserDAO userDAO = new UserDAO();
-    private final WorkPeriodService workPeriodService = new WorkPeriodService();
     private final ActionAccessManager accessManager = new ActionAccessManager();
 
     private final StringBuilder pinBuffer = new StringBuilder(PIN_LENGTH);
@@ -119,33 +118,13 @@ public class LaunchController {
         if (!accessManager.ensureAccess(AppAction.OPEN_POS, currentWindow())) {
             return;
         }
-        Task<LaunchContext> task = new Task<>() {
-            @Override
-            protected LaunchContext call() throws Exception {
-                User user = userDAO.findFirstByRole(UserRole.BARISTA);
-                if (user == null) {
-                    user = userDAO.findFirstByRole(UserRole.MANAGER);
-                }
-                if (user == null) {
-                    throw new IllegalStateException("Aucun utilisateur disponible");
-                }
-                int workPeriodId = workPeriodService.openIfNeeded(user.getId());
-                return new LaunchContext(user, workPeriodId);
-            }
-        };
-        task.setOnSucceeded(evt -> {
-            LaunchContext ctx = task.getValue();
-            SessionManager.setCurrentUser(ctx.user());
-            SessionManager.setCurrentWorkPeriodId(ctx.workPeriodId());
-            openPos();
-        });
-        task.setOnFailed(evt -> {
-            LOG.error("Echec ouverture caisse", task.getException());
-            showPinError("Ouverture caisse impossible");
-        });
-        Thread thread = new Thread(task, "launch-caisse");
-        thread.setDaemon(true);
-        thread.start();
+        // Start POS with an explicit user login every time.
+        // This avoids the old auto-barista fallback and prevents accidental
+        // sales attribution to the wrong role.
+        SessionManager.setCurrentUser(null);
+        SessionManager.setCurrentWorkPeriodId(null);
+        AdminSessionManager.lock();
+        openLogin();
     }
 
     @FXML
@@ -255,7 +234,7 @@ public class LaunchController {
                 return;
             }
             failedAttempts = 0;
-            SessionManager.setCurrentUser(admin);
+            AdminSessionManager.unlock();
             Destination destination = pendingDestination;
             hidePinDialog();
             switch (destination) {
@@ -450,6 +429,22 @@ public class LaunchController {
         }
     }
 
+    private void openLogin() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cafepos/fxml/login.fxml"), MainApp.getMessages());
+            Parent root = loader.load();
+            Scene scene = new Scene(root, 1100, 700);
+            MainApp.applyBrandTheme(scene);
+            IdleMonitor.bindScene(scene);
+            Stage stage = (Stage) pinDialog.getScene().getWindow();
+            stage.setScene(scene);
+            WindowUtils.applyFullSize(stage);
+        } catch (Exception ex) {
+            LOG.error("Echec ouverture login", ex);
+            showPinError("Ouverture ecran login impossible");
+        }
+    }
+
     private void openBackOffice(String initialView) {
         try {
             BackOfficeController.setInitialView(initialView);
@@ -473,6 +468,4 @@ public class LaunchController {
         SETTINGS
     }
 
-    private record LaunchContext(User user, int workPeriodId) {
-    }
 }

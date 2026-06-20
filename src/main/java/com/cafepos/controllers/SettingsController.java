@@ -1,16 +1,28 @@
 package com.cafepos.controllers;
 
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Locale;
+
+import org.kordamp.ikonli.javafx.FontIcon;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.cafepos.MainApp;
 import com.cafepos.dao.SettingsDAO;
 import com.cafepos.dao.UserDAO;
-import com.cafepos.model.AppAction;
 import com.cafepos.hardware.PrinterService;
+import com.cafepos.hardware.RFIDDecoder;
+import com.cafepos.model.AppAction;
 import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
 import com.cafepos.service.PrintQueueService;
 import com.cafepos.util.BackupService;
 import com.cafepos.util.SecurityUtils;
 import com.cafepos.util.UiIconHelper;
+
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.beans.property.SimpleStringProperty;
@@ -18,6 +30,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -35,15 +48,6 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import javafx.util.Duration;
-import org.kordamp.ikonli.javafx.FontIcon;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Locale;
 
 public class SettingsController {
     private static final Logger LOG = LoggerFactory.getLogger(SettingsController.class);
@@ -116,6 +120,20 @@ public class SettingsController {
     @FXML
     private TextField rfidDeviceNameField;
 
+    // Hardware diagnostic section
+    @FXML
+    private TextField rfidTestInput;
+    @FXML
+    private Label rfidDecodedResult;
+    @FXML
+    private Label rfidStatusDot;
+    @FXML
+    private Label rfidStatusLabel;
+    @FXML
+    private ComboBox<String> printerCombo;
+    @FXML
+    private Label printerStatusLabel;
+
     @FXML
     private TextField backupDriveField;
     @FXML
@@ -172,6 +190,7 @@ public class SettingsController {
         loadUsers();
         loadActionPolicies();
         refreshQueueStatus();
+        initHardwareDiagnostics();
     }
 
     private void configureLanguageBox() {
@@ -184,6 +203,75 @@ public class SettingsController {
         if (rfidModeBox != null) {
             rfidModeBox.getItems().setAll("Clavier RFID (USB)", "Desactive");
         }
+    }
+
+    private void initHardwareDiagnostics() {
+        // Wire RFID live decode test field
+        if (rfidTestInput != null) {
+            rfidTestInput.setOnAction(evt -> {
+                String raw = rfidTestInput.getText();
+                String normalized = RFIDDecoder.normalize(raw);
+                if (rfidDecodedResult != null) {
+                    if (normalized.isBlank()) {
+                        rfidDecodedResult.setText("(vide)");
+                    } else {
+                        rfidDecodedResult.setText(normalized
+                                + (RFIDDecoder.isValidUID(raw) ? "  ✓" : "  ✗ longueur invalide"));
+                    }
+                }
+                rfidTestInput.clear();
+            });
+        }
+
+        // Populate printerCombo from system printers
+        if (printerCombo != null) {
+            Task<java.util.List<String>> task = new Task<>() {
+                @Override
+                protected java.util.List<String> call() throws Exception {
+                    return printerService.getPrinterNames();
+                }
+            };
+            task.setOnSucceeded(evt -> printerCombo.getItems().setAll(task.getValue()));
+            task.setOnFailed(evt -> LOG.warn("Impossible de lister les imprimantes", task.getException()));
+            Thread thread = new Thread(task, "hw-printer-load");
+            thread.setDaemon(true);
+            thread.start();
+        }
+    }
+
+    @FXML
+    private void onTestPrint() {
+        // If a printer is selected in the HW combo, persist it first so PrinterService picks it up
+        String selectedPrinter = printerCombo != null ? printerCombo.getValue() : null;
+        if (selectedPrinter != null && !selectedPrinter.isBlank()) {
+            try {
+                settingsDAO.setValue(PRINTER_KEY, selectedPrinter);
+            } catch (Exception ignored) {}
+        }
+        if (printerStatusLabel != null) {
+            printerStatusLabel.setText("Impression en cours...");
+        }
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                printerService.printTestTicket();
+                return null;
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            if (printerStatusLabel != null) {
+                printerStatusLabel.setText("Ticket test envoye ✓");
+            }
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur impression test", task.getException());
+            if (printerStatusLabel != null) {
+                printerStatusLabel.setText("Erreur impression ✗");
+            }
+        });
+        Thread thread = new Thread(task, "hw-test-print");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     private void loadPrinters() {
@@ -548,24 +636,6 @@ public class SettingsController {
     }
 
     @FXML
-    private void onTestPrint() {
-        Task<Void> task = new Task<>() {
-            @Override
-            protected Void call() throws Exception {
-                printerService.printTestTicket();
-                return null;
-            }
-        };
-        task.setOnSucceeded(evt -> showToast("success", "Test impression envoye"));
-        task.setOnFailed(evt -> {
-            LOG.error("Erreur test impression", task.getException());
-            showToast("error", "Test impression impossible");
-        });
-        Thread thread = new Thread(task, "printer-test");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
     private void loadStockThreshold() {
         Task<Void> task = new Task<>() {
             private String value;
@@ -858,6 +928,69 @@ public class SettingsController {
         Thread thread = new Thread(task, "user-delete");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    @FXML
+    private void onChangePin() {
+        User selected = usersTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showToast("warning", "Selectionnez un utilisateur");
+            return;
+        }
+
+        javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Changer PIN");
+        dialog.setHeaderText("Nouveau PIN pour: " + selected.getName());
+
+        javafx.scene.control.ButtonType okType =
+                new javafx.scene.control.ButtonType("Confirmer", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(okType, javafx.scene.control.ButtonType.CANCEL);
+
+        javafx.scene.control.PasswordField pinField = new javafx.scene.control.PasswordField();
+        pinField.setPromptText("Nouveau PIN");
+        javafx.scene.control.PasswordField confirmField = new javafx.scene.control.PasswordField();
+        confirmField.setPromptText("Confirmer PIN");
+
+        javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(10,
+                new javafx.scene.control.Label("Nouveau PIN:"), pinField,
+                new javafx.scene.control.Label("Confirmer:"), confirmField);
+        content.setPadding(new Insets(10));
+        dialog.getDialogPane().setContent(content);
+
+        javafx.scene.Node okButton = dialog.getDialogPane().lookupButton(okType);
+        okButton.setDisable(true);
+
+        javafx.beans.value.ChangeListener<String> pinListener = (obs, oldVal, newVal) -> {
+            String p = pinField.getText();
+            String c = confirmField.getText();
+            okButton.setDisable(p.isBlank() || !p.equals(c));
+        };
+        pinField.textProperty().addListener(pinListener);
+        confirmField.textProperty().addListener(pinListener);
+
+        dialog.setResultConverter(btn -> btn == okType ? pinField.getText() : null);
+        if (currentWindow() != null) {
+            dialog.initOwner(currentWindow());
+        }
+
+        dialog.showAndWait().ifPresent(newPin -> {
+            Task<Void> task = new Task<>() {
+                @Override
+                protected Void call() throws Exception {
+                    String hash = SecurityUtils.sha256Hex(newPin.trim());
+                    userDAO.updatePin(selected.getId(), hash);
+                    return null;
+                }
+            };
+            task.setOnSucceeded(evt -> showToast("success", "PIN mis a jour: " + selected.getName()));
+            task.setOnFailed(evt -> {
+                LOG.error("Erreur maj PIN", task.getException());
+                showToast("error", "Mise a jour PIN impossible");
+            });
+            Thread thread = new Thread(task, "user-pin-update");
+            thread.setDaemon(true);
+            thread.start();
+        });
     }
 
     @FXML

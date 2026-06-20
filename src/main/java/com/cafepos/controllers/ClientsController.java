@@ -1,17 +1,29 @@
 package com.cafepos.controllers;
 
+import java.io.File;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+
+import org.kordamp.ikonli.javafx.FontIcon;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.cafepos.dao.AccountTransactionDAO;
 import com.cafepos.dao.CustomerDAO;
 import com.cafepos.dao.SettingsDAO;
 import com.cafepos.db.DatabaseManager;
+import com.cafepos.hardware.RFIDDecoder;
 import com.cafepos.hardware.RFIDHandler;
 import com.cafepos.model.AccountTransaction;
 import com.cafepos.model.Customer;
 import com.cafepos.model.User;
 import com.cafepos.service.AccountService;
 import com.cafepos.service.SessionManager;
+import com.cafepos.util.CustomerImporter;
 import com.cafepos.util.FormatUtils;
 import com.cafepos.util.UiIconHelper;
+
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
@@ -28,20 +40,14 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
 import javafx.util.Duration;
-import org.kordamp.ikonli.javafx.FontIcon;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
 public class ClientsController {
     private static final Logger LOG = LoggerFactory.getLogger(ClientsController.class);
@@ -67,6 +73,8 @@ public class ClientsController {
     @FXML
     private Button newCustomerButton;
     @FXML
+    private Button importCsvButton;
+    @FXML
     private Button topupToolbarButton;
     @FXML
     private TextField rfidField;
@@ -78,7 +86,11 @@ public class ClientsController {
     @FXML
     private TableColumn<ClientRow, String> cardColumn;
     @FXML
+    private TableColumn<ClientRow, String> phoneColumn;
+    @FXML
     private TableColumn<ClientRow, String> balanceColumn;
+    @FXML
+    private TableColumn<ClientRow, String> spentColumn;
     @FXML
     private TableColumn<ClientRow, String> lastTxColumn;
     @FXML
@@ -87,28 +99,7 @@ public class ClientsController {
     private TableColumn<ClientRow, String> actionsColumn;
 
     @FXML
-    private VBox detailPane;
-    @FXML
-    private TableView<AccountTransaction> transactionsTable;
-    @FXML
-    private TableColumn<AccountTransaction, String> txDateColumn;
-    @FXML
-    private TableColumn<AccountTransaction, String> txTypeColumn;
-    @FXML
-    private TableColumn<AccountTransaction, String> txAmountColumn;
-    @FXML
-    private TableColumn<AccountTransaction, String> txBalanceColumn;
-    @FXML
-    private TableColumn<AccountTransaction, String> txOrderColumn;
-
-    @FXML
-    private VBox newCustomerPane;
-    @FXML
-    private TextField newNameField;
-    @FXML
-    private TextField newCardField;
-    @FXML
-    private TextField newBalanceField;
+    private Label statsLabel;
 
     @FXML
     private VBox topupDialog;
@@ -127,7 +118,6 @@ public class ClientsController {
     @FXML
     private void initialize() {
         configureTable();
-        configureTransactionsTable();
         configureSearch();
         loadClients();
         setupRfid();
@@ -141,7 +131,7 @@ public class ClientsController {
                     onOpenTopup();
                     event.consume();
                 } else if (event.getCode() == KeyCode.N && event.isControlDown()) {
-                    onToggleNewCustomer();
+                    onNewCustomer();
                     event.consume();
                 } else if (event.getCode() == KeyCode.ESCAPE) {
                     onTopupCancel();
@@ -161,16 +151,25 @@ public class ClientsController {
         topupAmountField.textProperty().addListener((obs, oldVal, newVal) -> updateTopupAfter());
         clientsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             selectedCustomer = newVal == null ? null : newVal.customer();
-            loadTransactions();
         });
     }
 
     private void configureTable() {
         clientsTable.setItems(filtered);
+        clientsTable.setPlaceholder(new Label("Aucun client. Cliquez sur 'Nouveau' ou 'Importer CSV'."));
+
         nameColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().customer().getName()));
-        cardColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().customer().getCardUid()));
+        cardColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                data.getValue().customer().getCardUid() == null ? "" : data.getValue().customer().getCardUid()));
+        if (phoneColumn != null) {
+            phoneColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().phone()));
+        }
         balanceColumn.setCellValueFactory(data -> new SimpleStringProperty(
                 FormatUtils.formatMoney(data.getValue().customer().getBalance())));
+        if (spentColumn != null) {
+            spentColumn.setCellValueFactory(data -> new SimpleStringProperty(
+                    FormatUtils.formatMoney(data.getValue().lifetimeSpent())));
+        }
         lastTxColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().lastTransaction()));
         if (activeColumn != null) {
             activeColumn.setCellValueFactory(data -> new SimpleStringProperty(
@@ -205,42 +204,11 @@ public class ClientsController {
         });
 
         actionsColumn.setCellFactory(col -> new TableCell<>() {
-            private final Button editButton = new Button("Edit");
-            private final Button deleteButton = new Button("Suppr");
-            private final Button toggleButton = new Button();
             private final Button topupButton = new Button("+ Crédit");
-            private final HBox box = new HBox(6, editButton, deleteButton, toggleButton, topupButton);
+            private final HBox box = new HBox(6, topupButton);
 
             {
-                editButton.getStyleClass().add("ghost-button");
-                deleteButton.getStyleClass().add("ghost-button");
-                toggleButton.getStyleClass().add("ghost-button");
                 topupButton.getStyleClass().add("ghost-button");
-
-                editButton.setOnAction(event -> {
-                    ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
-                    if (row != null) {
-                        clientsTable.getSelectionModel().select(row);
-                        editCustomer(row.customer());
-                    }
-                });
-
-                deleteButton.setOnAction(event -> {
-                    ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
-                    if (row != null) {
-                        clientsTable.getSelectionModel().select(row);
-                        deleteCustomer(row.customer());
-                    }
-                });
-
-                toggleButton.setOnAction(event -> {
-                    ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
-                    if (row != null) {
-                        clientsTable.getSelectionModel().select(row);
-                        toggleCustomerActive(row.customer());
-                    }
-                });
-
                 topupButton.setOnAction(event -> {
                     ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
                     if (row != null) {
@@ -253,29 +221,20 @@ public class ClientsController {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty) {
-                    setGraphic(null);
-                } else {
-                    ClientRow row = getTableRow() == null ? null : (ClientRow) getTableRow().getItem();
-                    if (row != null) {
-                        toggleButton.setText(row.customer().isActive() ? "Desactiver" : "Activer");
-                    }
-                    setGraphic(box);
-                }
+                setGraphic(empty ? null : box);
             }
         });
-    }
 
-    private void configureTransactionsTable() {
-        txDateColumn.setCellValueFactory(data -> new SimpleStringProperty(
-                FormatUtils.formatDateTime(data.getValue().createdAt())));
-        txTypeColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().description()));
-        txAmountColumn.setCellValueFactory(data -> new SimpleStringProperty(
-                FormatUtils.formatMoney(data.getValue().amount())));
-        txBalanceColumn.setCellValueFactory(data -> new SimpleStringProperty(
-                FormatUtils.formatMoney(data.getValue().balanceAfter())));
-        txOrderColumn.setCellValueFactory(data -> new SimpleStringProperty(
-                data.getValue().orderId() == null ? "" : String.valueOf(data.getValue().orderId())));
+        // Double-click on a row -> open edit dialog
+        clientsTable.setRowFactory(tv -> {
+            javafx.scene.control.TableRow<ClientRow> row = new javafx.scene.control.TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && !row.isEmpty()) {
+                    openEditDialog(row.getItem().customer());
+                }
+            });
+            return row;
+        });
     }
 
     private void configureSearch() {
@@ -286,7 +245,8 @@ public class ClientsController {
                     return true;
                 }
                 return row.customer().getName().toLowerCase().contains(query)
-                        || row.customer().getCardUid().toLowerCase().contains(query);
+                        || (row.customer().getCardUid() != null && row.customer().getCardUid().toLowerCase().contains(query))
+                        || row.phone().toLowerCase().contains(query);
             });
         });
     }
@@ -294,20 +254,32 @@ public class ClientsController {
     private void loadClients() {
         Task<List<Customer>> task = new Task<>() {
             private Map<Integer, String> lastDates;
+            private Map<Integer, CustomerDAO.CustomerExtras> extras;
 
             @Override
             protected List<Customer> call() throws Exception {
                 List<Customer> customers = customerDAO.findAll();
                 lastDates = accountTransactionDAO.findLastTransactionDates();
+                extras = customerDAO.loadAllExtras();
                 return customers;
             }
 
             @Override
             protected void succeeded() {
                 master.clear();
+                double totalBalance = 0;
+                double totalSpent = 0;
                 for (Customer customer : getValue()) {
                     String last = lastDates.getOrDefault(customer.getId(), "");
-                    master.add(new ClientRow(customer, FormatUtils.formatDateTime(last)));
+                    CustomerDAO.CustomerExtras ex = extras.getOrDefault(customer.getId(), CustomerDAO.CustomerExtras.EMPTY);
+                    master.add(new ClientRow(customer, FormatUtils.formatDateTime(last), ex.phone(), ex.lifetimeSpent()));
+                    totalBalance += customer.getBalance();
+                    totalSpent += ex.lifetimeSpent();
+                }
+                if (statsLabel != null) {
+                    statsLabel.setText(getValue().size() + " clients \u2022 Solde total: " +
+                            FormatUtils.formatMoney(totalBalance) +
+                            " \u2022 Total depense: " + FormatUtils.formatMoney(totalSpent));
                 }
             }
         };
@@ -321,131 +293,283 @@ public class ClientsController {
     }
 
     private void loadTransactions() {
-        if (selectedCustomer == null) {
-            detailPane.setVisible(false);
-            detailPane.setManaged(false);
-            return;
-        }
-        detailPane.setVisible(true);
-        detailPane.setManaged(true);
-        Task<List<AccountTransaction>> task = new Task<>() {
-            @Override
-            protected List<AccountTransaction> call() throws Exception {
-                return accountTransactionDAO.findRecentByCustomer(selectedCustomer.getId(), 20);
-            }
-        };
-        task.setOnSucceeded(evt -> transactionsTable.getItems().setAll(task.getValue()));
-        task.setOnFailed(evt -> {
-            LOG.error("Erreur transactions", task.getException());
-            showToast("error", "Historique indisponible");
-        });
-        Thread thread = new Thread(task, "transactions-load");
-        thread.setDaemon(true);
-        thread.start();
+        // history is now shown in the edit dialog only
     }
 
     @FXML
-    private void onToggleNewCustomer() {
-        boolean show = !newCustomerPane.isVisible();
-        newCustomerPane.setVisible(show);
-        newCustomerPane.setManaged(show);
-        if (show) {
-            Platform.runLater(newNameField::requestFocus);
+    private void onNewCustomer() {
+        openEditDialog(null);
+    }
+
+    @FXML
+    private void onImportCsv() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Importer des clients depuis un CSV");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Fichiers CSV", "*.csv"));
+        Window owner = rootStack.getScene() == null ? null : rootStack.getScene().getWindow();
+        File file = chooser.showOpenDialog(owner);
+        if (file == null) {
+            return;
         }
+        if (importCsvButton != null) importCsvButton.setDisable(true);
+        Task<CustomerImporter.ImportResult> task = new Task<>() {
+            @Override
+            protected CustomerImporter.ImportResult call() throws Exception {
+                return CustomerImporter.importFromFile(file.toPath());
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            if (importCsvButton != null) importCsvButton.setDisable(false);
+            CustomerImporter.ImportResult r = task.getValue();
+            String kind = r.failed() > 0 ? "warning" : "success";
+            showToast(kind, "Import: " + r.summary());
+            if (r.hasErrors()) {
+                LOG.warn("Erreurs import: {}", r.errors());
+            }
+            loadClients();
+        });
+        task.setOnFailed(evt -> {
+            if (importCsvButton != null) importCsvButton.setDisable(false);
+            LOG.error("Erreur import CSV", task.getException());
+            showToast("error", "Import CSV impossible");
+        });
+        Thread t = new Thread(task, "csv-import");
+        t.setDaemon(true);
+        t.start();
     }
 
     @FXML
     private void onAddCustomer() {
-        String name = safeString(newNameField.getText());
-        String uid = safeString(newCardField.getText());
-        double balance = parseAmount(newBalanceField.getText());
-        if (name.isBlank() || uid.isBlank()) {
-            showToast("warning", "Nom et UID requis");
+        // Legacy entry point (no longer wired in FXML). Kept for keyboard shortcut compatibility.
+        openEditDialog(null);
+    }
+
+    /**
+     * Opens the modal edit dialog. Pass {@code null} to create a new customer,
+     * or an existing {@link Customer} to edit it.
+     */
+    private void openEditDialog(Customer customer) {
+        boolean isNew = (customer == null);
+        final int customerId = isNew ? -1 : customer.getId();
+
+        // Load extras + recent transactions in the background, then build dialog
+        Task<Object[]> loader = new Task<>() {
+            @Override
+            protected Object[] call() throws Exception {
+                CustomerDAO.CustomerExtras ex = isNew
+                        ? CustomerDAO.CustomerExtras.EMPTY
+                        : customerDAO.loadExtras(customerId);
+                List<AccountTransaction> history = isNew
+                        ? java.util.Collections.emptyList()
+                        : accountTransactionDAO.findRecentByCustomer(customerId, 50);
+                return new Object[]{ ex, history };
+            }
+        };
+        loader.setOnSucceeded(evt -> {
+            Object[] data = loader.getValue();
+            CustomerDAO.CustomerExtras ex = (CustomerDAO.CustomerExtras) data[0];
+            @SuppressWarnings("unchecked")
+            List<AccountTransaction> history = (List<AccountTransaction>) data[1];
+            showEditDialog(customer, ex, history);
+        });
+        loader.setOnFailed(evt -> {
+            LOG.error("Chargement fiche client", loader.getException());
+            showToast("error", "Fiche client indisponible");
+        });
+        Thread t = new Thread(loader, "client-detail-load");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private void showEditDialog(Customer customer, CustomerDAO.CustomerExtras extras,
+                                List<AccountTransaction> history) {
+        boolean isNew = (customer == null);
+
+        javafx.scene.control.Dialog<javafx.scene.control.ButtonType> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle(isNew ? "Nouveau client" : "Fiche client");
+        dialog.setHeaderText(isNew ? "Creer un client" : customer.getName());
+        dialog.initOwner(rootStack.getScene() == null ? null : rootStack.getScene().getWindow());
+
+        javafx.scene.control.ButtonType saveType = new javafx.scene.control.ButtonType(
+                isNew ? "Creer" : "Enregistrer", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+        javafx.scene.control.ButtonType deleteType = new javafx.scene.control.ButtonType(
+                "Supprimer", javafx.scene.control.ButtonBar.ButtonData.LEFT);
+        dialog.getDialogPane().getButtonTypes().add(saveType);
+        if (!isNew) {
+            dialog.getDialogPane().getButtonTypes().add(deleteType);
+        }
+        dialog.getDialogPane().getButtonTypes().add(javafx.scene.control.ButtonType.CANCEL);
+
+        // Form fields
+        TextField nameField = new TextField(isNew ? "" : customer.getName());
+        nameField.setPromptText("Nom complet");
+        TextField cardField = new TextField(isNew ? "" : (customer.getCardUid() == null ? "" : customer.getCardUid()));
+        cardField.setPromptText("UID carte RFID (optionnel)");
+        TextField phoneField = new TextField(extras.phone());
+        phoneField.setPromptText("Telephone");
+        TextField emailField = new TextField(extras.email());
+        emailField.setPromptText("Email");
+        TextField addressField = new TextField(extras.address());
+        addressField.setPromptText("Adresse");
+        TextField balanceField = new TextField(isNew ? "0" : String.valueOf(customer.getBalance()));
+        balanceField.setPromptText(isNew ? "Solde initial" : "Solde courant");
+        javafx.scene.control.CheckBox activeBox = new javafx.scene.control.CheckBox("Compte actif");
+        activeBox.setSelected(isNew || customer.isActive());
+
+        Label spentLabel = new Label(FormatUtils.formatMoney(extras.lifetimeSpent()));
+        Label visitsLabel = new Label(String.valueOf(extras.visitCount()));
+        Label lastVisitLabel = new Label(extras.lastVisitAt().isBlank() ? "-" : extras.lastVisitAt());
+
+        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+        grid.setHgap(10);
+        grid.setVgap(8);
+        grid.setPadding(new javafx.geometry.Insets(10));
+        int r = 0;
+        grid.add(new Label("Nom *"),       0, r); grid.add(nameField,    1, r++);
+        grid.add(new Label("Carte RFID"),  0, r); grid.add(cardField,    1, r++);
+        grid.add(new Label("Telephone"),   0, r); grid.add(phoneField,   1, r++);
+        grid.add(new Label("Email"),       0, r); grid.add(emailField,   1, r++);
+        grid.add(new Label("Adresse"),     0, r); grid.add(addressField, 1, r++);
+        grid.add(new Label("Solde (DZD)"), 0, r); grid.add(balanceField, 1, r++);
+        grid.add(new Label("Etat"),        0, r); grid.add(activeBox,    1, r++);
+        if (!isNew) {
+            grid.add(new javafx.scene.control.Separator(), 0, r, 2, 1); r++;
+            grid.add(new Label("Total depense"), 0, r); grid.add(spentLabel,     1, r++);
+            grid.add(new Label("Nombre passages"), 0, r); grid.add(visitsLabel,  1, r++);
+            grid.add(new Label("Derniere visite"), 0, r); grid.add(lastVisitLabel, 1, r++);
+        }
+        javafx.scene.layout.ColumnConstraints c1 = new javafx.scene.layout.ColumnConstraints();
+        c1.setMinWidth(120);
+        javafx.scene.layout.ColumnConstraints c2 = new javafx.scene.layout.ColumnConstraints();
+        c2.setHgrow(javafx.scene.layout.Priority.ALWAYS);
+        c2.setMinWidth(260);
+        grid.getColumnConstraints().addAll(c1, c2);
+
+        VBox content = new VBox(10, grid);
+        if (!isNew && history != null) {
+            Label histTitle = new Label("Historique (50 dernieres)");
+            histTitle.getStyleClass().add("section-title");
+            TableView<AccountTransaction> historyTable = buildHistoryTable(history);
+            historyTable.setPrefHeight(180);
+            historyTable.setMaxHeight(220);
+            content.getChildren().addAll(new javafx.scene.control.Separator(), histTitle, historyTable);
+        }
+        content.setPrefWidth(540);
+
+        javafx.scene.control.ScrollPane scroll = new javafx.scene.control.ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setHbarPolicy(javafx.scene.control.ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setPrefViewportWidth(560);
+
+        // Cap dialog size to ~80% of owner window so it always fits the screen
+        double maxH = 600;
+        double maxW = 620;
+        javafx.stage.Window owner = rootStack.getScene() == null ? null : rootStack.getScene().getWindow();
+        if (owner != null) {
+            maxH = Math.max(360, owner.getHeight() * 0.85);
+            maxW = Math.max(420, Math.min(720, owner.getWidth() * 0.7));
+        }
+        scroll.setPrefViewportHeight(maxH - 120);
+        scroll.setMaxHeight(maxH - 120);
+
+        dialog.getDialogPane().setContent(scroll);
+        dialog.getDialogPane().setPrefWidth(maxW);
+        dialog.getDialogPane().setMaxWidth(maxW);
+        dialog.getDialogPane().setMaxHeight(maxH);
+        dialog.setResizable(true);
+
+        java.util.Optional<javafx.scene.control.ButtonType> result = dialog.showAndWait();
+        if (result.isEmpty()) return;
+
+        javafx.scene.control.ButtonType chosen = result.get();
+        if (chosen == javafx.scene.control.ButtonType.CANCEL) return;
+
+        if (chosen == deleteType && !isNew) {
+            deleteCustomer(customer);
             return;
         }
+
+        // Save / create
+        String name = safeString(nameField.getText());
+        String cardUid = RFIDDecoder.normalize(cardField.getText());
+        String phone = safeString(phoneField.getText());
+        String email = safeString(emailField.getText());
+        String address = safeString(addressField.getText());
+        double balance = parseAmount(balanceField.getText());
+        boolean active = activeBox.isSelected();
+
+        if (name.isBlank()) {
+            showToast("warning", "Nom requis");
+            return;
+        }
+
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
                 try (java.sql.Connection conn = DatabaseManager.openConnection()) {
                     conn.setAutoCommit(false);
-                    int id = customerDAO.insertCustomer(conn, name, uid, balance);
-                    if (balance > 0) {
-                        Integer userId = currentUserId();
-                        accountTransactionDAO.insertTransaction(conn, id, balance, "Solde initial", userId == null ? 0 : userId,
-                                balance, null);
+                    int id;
+                    if (isNew) {
+                        id = customerDAO.insertCustomer(conn, name, cardUid.isBlank() ? null : cardUid, balance, active);
+                        if (balance > 0) {
+                            Integer userId = currentUserId();
+                            accountTransactionDAO.insertTransaction(conn, id, balance, "Solde initial",
+                                    userId == null ? 0 : userId, balance, null);
+                        }
+                    } else {
+                        id = customer.getId();
+                        customerDAO.updateName(conn, id, name);
+                        customerDAO.updateCardUid(conn, id, cardUid);
+                        customerDAO.updateActive(conn, id, active);
+                        if (Math.abs(balance - customer.getBalance()) > 0.001) {
+                            customerDAO.updateBalance(conn, id, balance);
+                            Integer userId = currentUserId();
+                            double delta = balance - customer.getBalance();
+                            accountTransactionDAO.insertTransaction(conn, id, delta,
+                                    "Ajustement manuel", userId == null ? 0 : userId, balance, null);
+                        }
                     }
+                    customerDAO.updateExtraFields(conn, id, phone, email, address, null, null, null);
                     conn.commit();
                 }
                 return null;
             }
         };
         task.setOnSucceeded(evt -> {
-            newNameField.clear();
-            newCardField.clear();
-            newBalanceField.clear();
-            newCustomerPane.setVisible(false);
-            newCustomerPane.setManaged(false);
+            showToast("success", isNew ? "Client cree" : "Fiche enregistree");
             loadClients();
         });
         task.setOnFailed(evt -> {
-            LOG.error("Erreur ajout client", task.getException());
-            showToast("error", "Ajout client impossible");
+            LOG.error("Erreur enregistrement client", task.getException());
+            showToast("error", "Enregistrement impossible");
         });
-        Thread thread = new Thread(task, "client-add");
-        thread.setDaemon(true);
-        thread.start();
+        Thread th = new Thread(task, "client-save");
+        th.setDaemon(true);
+        th.start();
+    }
+
+    private TableView<AccountTransaction> buildHistoryTable(List<AccountTransaction> rows) {
+        TableView<AccountTransaction> table = new TableView<>();
+        TableColumn<AccountTransaction, String> dateCol = new TableColumn<>("Date");
+        dateCol.setCellValueFactory(d -> new SimpleStringProperty(FormatUtils.formatDateTime(d.getValue().createdAt())));
+        dateCol.setPrefWidth(140);
+        TableColumn<AccountTransaction, String> descCol = new TableColumn<>("Description");
+        descCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().description()));
+        descCol.setPrefWidth(180);
+        TableColumn<AccountTransaction, String> amtCol = new TableColumn<>("Montant");
+        amtCol.setCellValueFactory(d -> new SimpleStringProperty(FormatUtils.formatMoney(d.getValue().amount())));
+        amtCol.setPrefWidth(100);
+        TableColumn<AccountTransaction, String> balCol = new TableColumn<>("Solde");
+        balCol.setCellValueFactory(d -> new SimpleStringProperty(FormatUtils.formatMoney(d.getValue().balanceAfter())));
+        balCol.setPrefWidth(100);
+        table.getColumns().addAll(java.util.List.of(dateCol, descCol, amtCol, balCol));
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.getItems().setAll(rows);
+        return table;
     }
 
     private void editCustomer(Customer customer) {
-        if (customer == null) {
-            return;
-        }
-        TextInputDialog nameDialog = new TextInputDialog(customer.getName());
-        nameDialog.setTitle("Editer client");
-        nameDialog.setHeaderText("Nom client");
-        nameDialog.setContentText("Nom:");
-        if (nameDialog.showAndWait().isEmpty()) {
-            return;
-        }
-        String name = safeString(nameDialog.getResult());
-        if (name.isBlank()) {
-            showToast("warning", "Nom requis");
-            return;
-        }
-
-        TextInputDialog cardDialog = new TextInputDialog(customer.getCardUid());
-        cardDialog.setTitle("Editer client");
-        cardDialog.setHeaderText("UID carte");
-        cardDialog.setContentText("UID:");
-        if (cardDialog.showAndWait().isEmpty()) {
-            return;
-        }
-        String cardUid = safeString(cardDialog.getResult());
-        if (cardUid.isBlank()) {
-            showToast("warning", "UID carte requis");
-            return;
-        }
-
-        Task<Void> task = new Task<>() {
-            @Override
-            protected Void call() throws Exception {
-                try (java.sql.Connection conn = DatabaseManager.openConnection()) {
-                    conn.setAutoCommit(false);
-                    customerDAO.updateName(conn, customer.getId(), name);
-                    customerDAO.updateCardUid(conn, customer.getId(), cardUid);
-                    conn.commit();
-                }
-                return null;
-            }
-        };
-        task.setOnSucceeded(evt -> loadClients());
-        task.setOnFailed(evt -> {
-            LOG.error("Erreur edition client", task.getException());
-            showToast("error", "Edition client impossible");
-        });
-        Thread thread = new Thread(task, "client-edit");
-        thread.setDaemon(true);
-        thread.start();
+        openEditDialog(customer);
     }
 
     private void deleteCustomer(Customer customer) {
@@ -619,7 +743,7 @@ public class ClientsController {
     }
 
     private void lookupCard(String raw) {
-        String value = safeString(raw).toUpperCase();
+        String value = RFIDDecoder.normalize(raw);
         if (value.length() < 6 || value.length() > 20) {
             return;
         }
@@ -718,6 +842,6 @@ public class ClientsController {
         };
     }
 
-    public record ClientRow(Customer customer, String lastTransaction) {
+    public record ClientRow(Customer customer, String lastTransaction, String phone, double lifetimeSpent) {
     }
 }

@@ -10,8 +10,8 @@
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
@@ -40,6 +40,14 @@
                     </HBox>
                 </graphic>
             </Button>
+            <Button fx:id="linkIngredientButton" onAction="#onLinkIngredient" styleClass="ghost-button">
+                <graphic>
+                    <HBox spacing="6" alignment="CENTER">
+                        <FontIcon iconLiteral="mdi2l-link-variant" iconSize="16" iconColor="#1A4A6B"/>
+                        <Label text="Lier ingrédient"/>
+                    </HBox>
+                </graphic>
+            </Button>
         </HBox>
 
         <TabPane fx:id="tabPane" VBox.vgrow="ALWAYS">
@@ -65,27 +73,28 @@
                             <padding>
                                 <Insets top="12" right="12" bottom="12" left="12"/>
                             </padding>
-                            <HBox spacing="8" alignment="CENTER_LEFT">
-                                <Button fx:id="newIngredientButton" text="+ Ingredient" onAction="#onNewIngredient" styleClass="action-button"/>
-                                <Button fx:id="purchaseIngredientButton" text="Achat / Reappro" onAction="#onPurchaseIngredient" styleClass="ghost-button"/>
-                                <Button fx:id="withdrawShoppingButton" text="Sortie caisse shopping" onAction="#onWithdrawShoppingCash" styleClass="ghost-button"/>
-                                <Button fx:id="editIngredientButton" text="Editer" onAction="#onEditIngredient" styleClass="ghost-button"/>
-                                <Button fx:id="deleteIngredientButton" text="Supprimer" onAction="#onDeleteIngredient" styleClass="ghost-button"/>
-                                <Button fx:id="activateIngredientButton" text="Activer" onAction="#onActivateIngredient" styleClass="ghost-button"/>
-                                <Button fx:id="deactivateIngredientButton" text="Desactiver" onAction="#onDeactivateIngredient" styleClass="ghost-button"/>
-                                <Region HBox.hgrow="ALWAYS"/>
-                                <Label text="Unites: KG, G, MG, L, CL, ML, UNIT, PIECE, PACK" styleClass="hint-label"/>
-                            </HBox>
-                            <TableView fx:id="ingredientsTable" editable="true" VBox.vgrow="ALWAYS">
+                            <FlowPane hgap="8" vgap="8" prefWrapLength="1200" alignment="CENTER_LEFT">
+                                <Button fx:id="newIngredientButton" text="+ Ingredient" onAction="#onNewIngredient" styleClass="action-button ingredient-toolbar-button"/>
+                                <Button fx:id="purchaseIngredientButton" text="Achat / Reappro" onAction="#onPurchaseIngredient" styleClass="ghost-button ingredient-toolbar-button"/>
+                                <Button fx:id="withdrawShoppingButton" text="Sortie caisse shopping" onAction="#onWithdrawShoppingCash" styleClass="ghost-button ingredient-toolbar-button"/>
+                                <Button fx:id="editIngredientButton" text="Editer" onAction="#onEditIngredient" styleClass="ghost-button ingredient-toolbar-button"/>
+                                <Button fx:id="deleteIngredientButton" text="Supprimer" onAction="#onDeleteIngredient" styleClass="ghost-button ingredient-toolbar-button"/>
+                                <Button fx:id="activateIngredientButton" text="Activer" onAction="#onActivateIngredient" styleClass="ghost-button ingredient-toolbar-button"/>
+                                <Button fx:id="deactivateIngredientButton" text="Desactiver" onAction="#onDeactivateIngredient" styleClass="ghost-button ingredient-toolbar-button"/>
+                                <Button fx:id="manageUnitsButton" text="Gérer unités" onAction="#onManageUnits" styleClass="ghost-button ingredient-toolbar-button"/>
+                            </FlowPane>
+                            <Label text="Double-cliquez ou utilisez Editer pour modifier un ingrédient" styleClass="hint-label" wrapText="true"/>
+                            <TableView fx:id="ingredientsTable" editable="false" VBox.vgrow="ALWAYS">
                                 <columns>
-                                    <TableColumn fx:id="ingredientActiveColumn" text="On" prefWidth="46"/>
-                                    <TableColumn fx:id="ingredientNameColumn" text="Ingredient" prefWidth="180"/>
-                                    <TableColumn fx:id="ingredientUnitColumn" text="Unite" prefWidth="90"/>
-                                    <TableColumn fx:id="ingredientStockColumn" text="Stock" prefWidth="90"/>
-                                    <TableColumn fx:id="ingredientMinColumn" text="Seuil" prefWidth="90"/>
-                                    <TableColumn fx:id="ingredientPackageSizeColumn" text="Taille pack" prefWidth="100"/>
-                                    <TableColumn fx:id="ingredientPackagePriceColumn" text="Prix pack" prefWidth="100"/>
-                                    <TableColumn fx:id="ingredientUnitCostColumn" text="Cout unite" prefWidth="100"/>
+                                    <TableColumn fx:id="ingredientActiveColumn" text="Actif" prefWidth="52"/>
+                                    <TableColumn fx:id="ingredientNameColumn" text="Ingrédient" prefWidth="190"/>
+                                    <TableColumn fx:id="ingredientUnitColumn" text="Unité" prefWidth="80"/>
+                                    <TableColumn fx:id="ingredientStockColumn" text="Stock total" prefWidth="110"/>
+                                    <TableColumn fx:id="ingredientPacksColumn" text="Stock (packs)" prefWidth="110"/>
+                                    <TableColumn fx:id="ingredientMinColumn" text="Seuil alerte" prefWidth="100"/>
+                                    <TableColumn fx:id="ingredientPackageSizeColumn" text="Contenance / pack" prefWidth="130"/>
+                                    <TableColumn fx:id="ingredientPackagePriceColumn" text="Prix achat (pack)" prefWidth="130"/>
+                                    <TableColumn fx:id="ingredientUnitCostColumn" text="Coût / unité" prefWidth="110"/>
                                 </columns>
                             </TableView>
                         </VBox>
@@ -97,12 +106,11 @@
                             <padding>
                                 <Insets top="12" right="12" bottom="12" left="12"/>
                             </padding>
-                            <HBox spacing="8" alignment="CENTER_LEFT">
+                            <FlowPane hgap="8" vgap="8" prefWrapLength="1200" alignment="CENTER_LEFT">
                                 <Label text="Produit:"/>
                                 <ComboBox fx:id="recipeProductCombo" prefWidth="280" onAction="#onRecipeProductChanged"/>
-                                <Region HBox.hgrow="ALWAYS"/>
                                 <Label fx:id="recipeEstimatedCostLabel" text="Cout recette: 0 DZD" styleClass="hint-label"/>
-                            </HBox>
+                            </FlowPane>
                             <TableView fx:id="recipeTable" editable="true" VBox.vgrow="ALWAYS">
                                 <columns>
                                     <TableColumn fx:id="recipeIngredientColumn" text="Ingredient" prefWidth="220"/>
@@ -112,13 +120,13 @@
                                     <TableColumn fx:id="recipeLineCostColumn" text="Cout ligne" prefWidth="110"/>
                                 </columns>
                             </TableView>
-                            <HBox spacing="8" alignment="CENTER_LEFT">
+                            <FlowPane hgap="8" vgap="8" prefWrapLength="1200" alignment="CENTER_LEFT">
                                 <ComboBox fx:id="recipeIngredientCombo" prefWidth="240" promptText="Ingredient"/>
                                 <TextField fx:id="recipeQuantityField" prefWidth="120" promptText="Quantite"/>
                                 <ComboBox fx:id="recipeUnitCombo" prefWidth="90" promptText="Unite"/>
-                                <Button text="Ajouter / MAJ" styleClass="action-button" onAction="#onAddRecipeLine"/>
-                                <Button text="Supprimer" styleClass="ghost-button" onAction="#onRemoveRecipeLine"/>
-                            </HBox>
+                                <Button text="Ajouter / MAJ" styleClass="action-button ingredient-toolbar-button" onAction="#onAddRecipeLine"/>
+                                <Button text="Supprimer" styleClass="ghost-button ingredient-toolbar-button" onAction="#onRemoveRecipeLine"/>
+                            </FlowPane>
                         </VBox>
                     </content>
                 </Tab>
