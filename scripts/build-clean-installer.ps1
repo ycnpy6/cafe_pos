@@ -1,5 +1,6 @@
 param(
-    [switch]$NoClean
+    [switch]$NoClean,
+    [switch]$SkipInnoSetup
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,6 +12,8 @@ try {
     $mavenCmd = $null
     if (Get-Command mvn -ErrorAction SilentlyContinue) {
         $mavenCmd = "mvn"
+    } elseif (Test-Path (Join-Path $projectRoot ".tools\apache-maven-3.9.11\bin\mvn.cmd")) {
+        $mavenCmd = (Join-Path $projectRoot ".tools\apache-maven-3.9.11\bin\mvn.cmd")
     } elseif (Test-Path "C:\Program Files\apache-maven-3.9.15\bin\mvn.cmd") {
         $mavenCmd = "C:\Program Files\apache-maven-3.9.15\bin\mvn.cmd"
     }
@@ -35,17 +38,19 @@ try {
     }
 
     $isccExe = $null
-    $isccCmd = Get-Command ISCC -ErrorAction SilentlyContinue
-    if ($isccCmd) {
-        $isccExe = $isccCmd.Source
-    } elseif (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
-        $isccExe = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-    } elseif (Test-Path "C:\Program Files\Inno Setup 6\ISCC.exe") {
-        $isccExe = "C:\Program Files\Inno Setup 6\ISCC.exe"
-    }
+    if (-not $SkipInnoSetup) {
+        $isccCmd = Get-Command ISCC -ErrorAction SilentlyContinue
+        if ($isccCmd) {
+            $isccExe = $isccCmd.Source
+        } elseif (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+            $isccExe = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+        } elseif (Test-Path "C:\Program Files\Inno Setup 6\ISCC.exe") {
+            $isccExe = "C:\Program Files\Inno Setup 6\ISCC.exe"
+        }
 
-    if (-not $isccExe) {
-        throw "Inno Setup (ISCC) introuvable. Installez Inno Setup et ajoutez ISCC.exe au PATH."
+        if (-not $isccExe) {
+            throw "Inno Setup (ISCC) introuvable. Installez Inno Setup et ajoutez ISCC.exe au PATH, ou utilisez -SkipInnoSetup pour ne generer que l'app-image."
+        }
     }
 
     $mavenArgs = @("-DskipTests")
@@ -131,6 +136,9 @@ try {
     & $jpackageExe @jpackageArgs
 
     $appImagePath = Join-Path $appImageRoot "CommonGroundsPOS"
+    if (Test-Path $iconPath) {
+        Copy-Item $iconPath (Join-Path $appImagePath "CommonGroundsPOS.ico") -Force
+    }
     $jfxDir = Join-Path $appImagePath "app\jfx"
     if (Test-Path $jfxDir) {
         Remove-Item $jfxDir -Recurse -Force
@@ -167,11 +175,17 @@ try {
         }
     }
 
-    Write-Host "[4/5] Build Inno Setup..."
-    & $isccExe "installer\setup.iss"
+    if ($SkipInnoSetup) {
+        Write-Host "[4/5] Inno Setup ignore (--SkipInnoSetup)."
+        Write-Host "[5/5] App-image genere dans: $appImageRoot"
+        Get-ChildItem $appImageRoot | Select-Object Name, Length, LastWriteTime
+    } else {
+        Write-Host "[4/5] Build Inno Setup..."
+        & $isccExe "installer\setup.iss"
 
-    Write-Host "[5/5] Fichiers generes dans: $installerDir"
-    Get-ChildItem $installerDir | Select-Object Name, Length, LastWriteTime
+        Write-Host "[5/5] Fichiers generes dans: $installerDir"
+        Get-ChildItem $installerDir | Select-Object Name, Length, LastWriteTime
+    }
 }
 finally {
     Pop-Location

@@ -9,7 +9,7 @@ try {
         throw "Script introuvable: $buildScript"
     }
 
-    & $buildScript -NoClean
+    & $buildScript -NoClean -SkipInnoSetup
 
     $appImageSource = Join-Path $projectRoot "dist\app-image\CommonGroundsPOS"
     if (-not (Test-Path $appImageSource)) {

@@ -13,6 +13,8 @@ try {
     $mavenCmd = $null
     if (Get-Command mvn -ErrorAction SilentlyContinue) {
         $mavenCmd = "mvn"
+    } elseif (Test-Path (Join-Path $projectRoot ".tools\apache-maven-3.9.11\bin\mvn.cmd")) {
+        $mavenCmd = (Join-Path $projectRoot ".tools\apache-maven-3.9.11\bin\mvn.cmd")
     } elseif (Test-Path "C:\Program Files\apache-maven-3.9.15\bin\mvn.cmd") {
         $mavenCmd = "C:\Program Files\apache-maven-3.9.15\bin\mvn.cmd"
     }
@@ -57,6 +59,7 @@ try {
     $version = $mainJar.BaseName.Replace("cafe-pos-", "")
     $generatedType = $Type
     $javaFxModulePath = '$APPDIR\javafx-base-21.0.5-win.jar;$APPDIR\javafx-controls-21.0.5-win.jar;$APPDIR\javafx-fxml-21.0.5-win.jar;$APPDIR\javafx-graphics-21.0.5-win.jar'
+    $iconPath = "src/main/resources/com/cafepos/images/icon.ico"
 
     if ($Type -in @("exe", "msi")) {
         $localWixDir = Join-Path $projectRoot ".tools\wix314"
@@ -77,7 +80,7 @@ try {
         "--dest", $installerDir,
         "--input", "target/installer-input",
         "--main-jar", $mainJar.Name,
-        "--main-class", "com.cafepos.MainApp",
+        "--main-class", "com.cafepos.Launcher",
         "--app-version", $version,
         "--vendor", "Common Grounds",
         "--description", "Common Grounds Cafe POS",
@@ -96,8 +99,8 @@ try {
         )
     }
 
-    if (Test-Path "src/main/resources/com/cafepos/images/logo.ico") {
-        $jpackageArgs += @("--icon", "src/main/resources/com/cafepos/images/logo.ico")
+    if (Test-Path $iconPath) {
+        $jpackageArgs += @("--icon", $iconPath)
     }
 
     Write-Host "[3/5] Generation package jpackage ($Type)..."
@@ -114,7 +117,7 @@ try {
                 "--dest", $installerDir,
                 "--input", "target/installer-input",
                 "--main-jar", $mainJar.Name,
-                "--main-class", "com.cafepos.MainApp",
+                "--main-class", "com.cafepos.Launcher",
                 "--app-version", $version,
                 "--vendor", "Common Grounds",
                 "--description", "Common Grounds Cafe POS",
@@ -127,8 +130,8 @@ try {
                 "--win-menu",
                 "--win-per-user-install"
             )
-            if (Test-Path "src/main/resources/com/cafepos/images/logo.ico") {
-                $msiArgs += @("--icon", "src/main/resources/com/cafepos/images/logo.ico")
+            if (Test-Path $iconPath) {
+                $msiArgs += @("--icon", $iconPath)
             }
 
             & jpackage @msiArgs
@@ -152,7 +155,7 @@ try {
                 "--dest", $installerDir,
                 "--input", "target/installer-input",
                 "--main-jar", $mainJar.Name,
-                "--main-class", "com.cafepos.MainApp",
+                "--main-class", "com.cafepos.Launcher",
                 "--app-version", $version,
                 "--vendor", "Common Grounds",
                 "--description", "Common Grounds Cafe POS",
@@ -160,8 +163,8 @@ try {
                 "--java-options", "--add-modules=javafx.controls,javafx.fxml",
                 "--java-options", "-Dprism.order=sw"
             )
-            if (Test-Path "src/main/resources/com/cafepos/images/logo.ico") {
-                $fallbackArgs += @("--icon", "src/main/resources/com/cafepos/images/logo.ico")
+            if (Test-Path $iconPath) {
+                $fallbackArgs += @("--icon", $iconPath)
             }
 
             & jpackage @fallbackArgs
@@ -173,6 +176,13 @@ try {
             if ($Type -in @("exe", "msi")) {
                 Write-Warning "Installer Windows non genere. Fallback app-image cree."
             }
+        }
+    }
+
+    if ($generatedType -eq "app-image") {
+        $appImagePath = Join-Path $installerDir "CommonGroundsPOS"
+        if ((Test-Path $iconPath) -and (Test-Path $appImagePath)) {
+            Copy-Item $iconPath (Join-Path $appImagePath "CommonGroundsPOS.ico") -Force
         }
     }
 
