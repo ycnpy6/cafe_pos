@@ -10,10 +10,9 @@ import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
 import com.cafepos.service.AdminSessionManager;
 import com.cafepos.service.SessionManager;
+import com.cafepos.ui.PinPromptDialog;
 
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.TextInputDialog;
+import javafx.stage.Stage;
 import javafx.stage.Window;
 
 public class ActionAccessManager {
@@ -29,24 +28,21 @@ public class ActionAccessManager {
         User current = SessionManager.getCurrentUser();
 
         // Temporary manager elevation is orthogonal to cashier identity.
-        if (requiredRole == UserRole.MANAGER && AdminSessionManager.isAdminUnlocked()) {
+        if (requiredRole == UserRole.MANAGER && AdminSessionManager.isAdminUnlocked() && !pinRequired) {
             return true;
         }
 
-        if (!pinRequired) {
-            // No PIN required: role check is the only gate.
-            if (current == null && requiredRole == UserRole.BARISTA) {
-                return true;
-            }
-            if (current != null && isRoleAllowed(current.getRole(), requiredRole)) {
-                return true;
-            }
-            // Role insufficient and PIN not required → deny without prompting.
-            showWarning("Acces refuse", "Role requis: " + requiredRole.name());
-            return false;
+        boolean alreadyAuthorized = (current == null && requiredRole == UserRole.BARISTA)
+                || (current != null && isRoleAllowed(current.getRole(), requiredRole));
+
+        if (alreadyAuthorized && !pinRequired) {
+            // Already the right role and no forced re-auth requested: let it through.
+            return true;
         }
 
-        // PIN is required → always prompt for a PIN with the required role.
+        // Either the role is insufficient (no matter the PIN setting) or a forced
+        // re-auth was requested: offer a PIN step-up rather than a flat denial,
+        // so a manager-gated screen is always reachable, never a dead end.
         return requestPin(action, requiredRole, owner);
     }
 
@@ -81,45 +77,15 @@ public class ActionAccessManager {
     }
 
     private boolean requestPin(AppAction action, UserRole requiredRole, Window owner) {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Acces action");
-        dialog.setHeaderText("PIN requis: " + action.getLabel());
-        dialog.setContentText("PIN:");
-        if (owner != null) {
-            dialog.initOwner(owner);
-        }
-        Optional<String> input = dialog.showAndWait();
-        if (input.isEmpty()) {
+        Stage ownerStage = owner instanceof Stage stage ? stage : null;
+        Optional<User> authorized = PinPromptDialog.promptForRole(ownerStage, requiredRole, action.getLabel(), userDAO);
+        if (authorized.isEmpty()) {
             return false;
         }
-        String pin = input.get().trim();
-        if (pin.isBlank()) {
-            showWarning("Acces refuse", "PIN manquant.");
-            return false;
+        if (requiredRole == UserRole.MANAGER) {
+            AdminSessionManager.unlock();
         }
-
-        try {
-            String hash = SecurityUtils.sha256Hex(pin);
-            User user = userDAO.findByPinAndMinRole(hash, requiredRole);
-            if (user == null) {
-                showWarning("Acces refuse", "PIN invalide.");
-                return false;
-            }
-            if (requiredRole == UserRole.MANAGER) {
-                AdminSessionManager.unlock();
-            }
-            return true;
-        } catch (Exception ex) {
-            showWarning("Erreur", "Verification PIN impossible.");
-            return false;
-        }
-    }
-
-    private void showWarning(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.WARNING, message, ButtonType.OK);
-        alert.setTitle(title);
-        alert.setHeaderText(message);
-        alert.showAndWait();
+        return true;
     }
 
     private String readSetting(String key) {

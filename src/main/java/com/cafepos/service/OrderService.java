@@ -78,7 +78,7 @@ public class OrderService {
 
             Map<Integer, Double> requiredIngredients = new HashMap<>();
 
-            int orderId = orderDAO.insertOrder(conn, order, userId, workPeriodId);
+            int orderId = orderDAO.insertOrder(conn, order, actorUserId, workPeriodId);
             for (OrderLine line : order.getLines()) {
                 int productId = line.getProduct().getId();
                 Product soldProduct = productDAO.findById(conn, productId);

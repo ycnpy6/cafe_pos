@@ -44,6 +44,7 @@ public final class DatabaseManager {
                 runSchema(conn);
                 migrateCustomersSchema(conn);
                 normalizeCategories(conn);
+                cleanupOrphanReferences(conn);
 
                 // Customer seeding delegates to CustomerImporter, which uses
                 // DatabaseManager.openConnection(). Make the pool available
@@ -90,6 +91,20 @@ public final class DatabaseManager {
             stmt.executeUpdate("PRAGMA journal_mode=WAL");
             stmt.executeUpdate("PRAGMA synchronous=NORMAL");
             stmt.executeUpdate("PRAGMA cache_size=2000");
+        }
+    }
+
+    /**
+     * Pragmas des connexions du pool (runtime). SQLite n'applique pas les
+     * REFERENCES sans foreign_keys=ON (OFF par defaut, par connexion) : sans
+     * lui, lignes orphelines possibles. Le pragma n'est PAS active sur la
+     * connexion d'initialisation car schema.sql et les seeds inserent des
+     * lignes avant leurs parents (ex: produits avant categories).
+     */
+    static void applyRuntimePragmas(Connection conn) throws SQLException {
+        applyPragmas(conn);
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("PRAGMA foreign_keys=ON");
         }
     }
 
@@ -576,6 +591,36 @@ public final class DatabaseManager {
                 stmt.execute("ROLLBACK");
             } catch (Exception ignore) {}
             throw e;
+        }
+    }
+
+    /**
+     * Les bases creees avant l'activation de foreign_keys=ON (connexions du
+     * pool) peuvent contenir des references orphelines. Elles feraient
+     * echouer les UPDATE de ces lignes une fois le pragma actif : on nettoie
+     * les tables encore modifiables (l'historique immuable n'est pas touche).
+     */
+    private static void cleanupOrphanReferences(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            int products = stmt.executeUpdate(
+                    "UPDATE products SET category_id = NULL "
+                            + "WHERE category_id IS NOT NULL "
+                            + "AND category_id NOT IN (SELECT id FROM categories)");
+            int recipes = stmt.executeUpdate(
+                    "DELETE FROM product_ingredients "
+                            + "WHERE ingredient_id NOT IN (SELECT id FROM ingredients) "
+                            + "OR product_id NOT IN (SELECT id FROM products)");
+            int tags = stmt.executeUpdate(
+                    "DELETE FROM tags WHERE group_id IS NOT NULL "
+                            + "AND group_id NOT IN (SELECT id FROM tag_groups)");
+            int productTagGroups = stmt.executeUpdate(
+                    "DELETE FROM product_tag_groups "
+                            + "WHERE product_id NOT IN (SELECT id FROM products) "
+                            + "OR group_id NOT IN (SELECT id FROM tag_groups)");
+            if (products + recipes + tags + productTagGroups > 0) {
+                LOG.info("Nettoyage references orphelines: {} produits, {} lignes recette, {} tags, {} liens produit-groupe",
+                        products, recipes, tags, productTagGroups);
+            }
         }
     }
 

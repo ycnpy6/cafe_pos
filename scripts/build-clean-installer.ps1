@@ -22,14 +22,22 @@ try {
         throw "Maven introuvable. Installez Maven ou ajoutez-le au PATH."
     }
 
+    # Prefer JAVA_HOME's jpackage over PATH: it must match the JDK Maven
+    # compiles with (maven.compiler.release in pom.xml), otherwise the
+    # bundled runtime image can be an older JDK than the compiled classes,
+    # which makes the installed app fail to launch with no visible error
+    # (UnsupportedClassVersionError printed to a console nobody sees).
     $jpackageExe = $null
-    $jpackageCmd = Get-Command jpackage -ErrorAction SilentlyContinue
-    if ($jpackageCmd) {
-        $jpackageExe = $jpackageCmd.Source
-    } elseif ($env:JAVA_HOME) {
+    if ($env:JAVA_HOME) {
         $candidate = Join-Path $env:JAVA_HOME "bin\jpackage.exe"
         if (Test-Path $candidate) {
             $jpackageExe = $candidate
+        }
+    }
+    if (-not $jpackageExe) {
+        $jpackageCmd = Get-Command jpackage -ErrorAction SilentlyContinue
+        if ($jpackageCmd) {
+            $jpackageExe = $jpackageCmd.Source
         }
     }
 

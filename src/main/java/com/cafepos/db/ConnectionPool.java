@@ -22,7 +22,7 @@ public final class ConnectionPool {
         this.pool = new ArrayBlockingQueue<>(size);
         for (int i = 0; i < size; i++) {
             Connection conn = DriverManager.getConnection(jdbcUrl);
-            DatabaseManager.applyPragmas(conn);
+            DatabaseManager.applyRuntimePragmas(conn);
             pool.offer(conn);
         }
     }
@@ -62,7 +62,7 @@ public final class ConnectionPool {
             }
             if (conn.isClosed()) {
                 Connection replacement = DriverManager.getConnection(jdbcUrl);
-                DatabaseManager.applyPragmas(replacement);
+                DatabaseManager.applyRuntimePragmas(replacement);
                 pool.offer(replacement);
                 return;
             }

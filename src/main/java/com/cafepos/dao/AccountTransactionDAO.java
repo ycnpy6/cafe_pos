@@ -25,7 +25,13 @@ public class AccountTransactionDAO {
             ps.setInt(1, customerId);
             ps.setDouble(2, amount);
             ps.setString(3, description);
-            ps.setInt(4, userId);
+            // 0 = pas d'utilisateur (import, session anonyme) : NULL en base,
+            // sinon la contrainte FK vers users(id) echoue.
+            if (userId <= 0) {
+                ps.setObject(4, null);
+            } else {
+                ps.setInt(4, userId);
+            }
             if (balanceAfter == null) {
                 ps.setObject(5, null);
             } else {

@@ -18,6 +18,28 @@ public class WorkPeriodDAO {
         return null;
     }
 
+    /** Periode ouverte un jour precedent, avec sa date d'ouverture (yyyy-MM-dd). */
+    public record StalePeriod(int id, String openedDate) {
+    }
+
+    /**
+     * Periodes restees ouvertes depuis un jour precedent (PC eteint avant
+     * l'EOD planifie de 23h55). Elles doivent etre cloturees au demarrage.
+     */
+    public java.util.List<StalePeriod> findStaleOpenWorkPeriods(Connection conn) throws Exception {
+        String sql = "SELECT id, date(opened_at) AS opened_date FROM work_periods "
+                + "WHERE closed_at IS NULL AND date(opened_at) < date('now') "
+                + "ORDER BY opened_at";
+        java.util.List<StalePeriod> periods = new java.util.ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                periods.add(new StalePeriod(rs.getInt("id"), rs.getString("opened_date")));
+            }
+        }
+        return periods;
+    }
+
     public int openWorkPeriod(Connection conn, int userId) throws Exception {
         String sql = "INSERT INTO work_periods (opened_at, opened_by) VALUES (datetime('now'), ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)) {

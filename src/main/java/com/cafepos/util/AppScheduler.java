@@ -68,7 +68,7 @@ public class AppScheduler {
 
     private static void runBackupSafe() {
         try {
-            new BackupService().runBackup();
+            new BackupService().runScheduledBackup();
         } catch (Exception ex) {
             LOG.error("Backup echoue", ex);
         }

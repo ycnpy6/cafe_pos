@@ -1,96 +1,43 @@
 package com.cafepos.controllers;
 
 import com.cafepos.MainApp;
-import com.cafepos.dao.UserDAO;
 import com.cafepos.model.AppAction;
-import com.cafepos.model.User;
-import com.cafepos.model.UserRole;
 import com.cafepos.service.AdminSessionManager;
 import com.cafepos.service.SessionManager;
 import com.cafepos.util.ActionAccessManager;
 import com.cafepos.util.IdleMonitor;
-import com.cafepos.util.SecurityUtils;
 import com.cafepos.util.WindowUtils;
-import javafx.animation.TranslateTransition;
-import javafx.application.Platform;
-import javafx.concurrent.Task;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.SVGPath;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 public class LaunchController {
     private static final Logger LOG = LoggerFactory.getLogger(LaunchController.class);
-    private static final int PIN_LENGTH = 6;
-    private static final int MAX_PIN_ATTEMPTS = 3;
-    private static final long LOCKOUT_MS = 30_000;
 
-    private final UserDAO userDAO = new UserDAO();
     private final ActionAccessManager accessManager = new ActionAccessManager();
 
-    private final StringBuilder pinBuffer = new StringBuilder(PIN_LENGTH);
-
-    private Destination pendingDestination;
-    private int failedAttempts;
-    private long lockUntilMs;
-
-    @FXML
-    private VBox pinDialog;
-    @FXML
-    private VBox pinOverlay;
-    @FXML
-    private HBox pinDots;
-    @FXML
-    private Label pinDot1;
-    @FXML
-    private Label pinDot2;
-    @FXML
-    private Label pinDot3;
-    @FXML
-    private Label pinDot4;
-    @FXML
-    private Label pinDot5;
-    @FXML
-    private Label pinDot6;
-    @FXML
-    private Label pinError;
     @FXML
     private StackPane brandLogoContainer;
     @FXML
-    private Label appTitle;
-
-    private final List<Label> dynamicPinDots = new ArrayList<>(PIN_LENGTH);
+    private javafx.scene.control.Label appTitle;
 
     @FXML
     private void initialize() {
         applyLaunchBranding();
-        if (pinDialog == null) {
-            pinDialog = pinOverlay;
-        }
-        ensurePinDots();
-        hidePinDialog();
-        renderPinDots();
     }
 
     @FXML
@@ -152,125 +99,9 @@ public class LaunchController {
     }
 
     private Stage currentWindow() {
-        return pinDialog == null || pinDialog.getScene() == null
+        return brandLogoContainer == null || brandLogoContainer.getScene() == null
                 ? null
-                : (Stage) pinDialog.getScene().getWindow();
-    }
-
-    @FXML
-    private void onPinDigit(ActionEvent event) {
-        if (isLocked()) {
-            showPinError(lockMessage());
-            return;
-        }
-        Object source = event.getSource();
-        if (!(source instanceof Button button)) {
-            return;
-        }
-        String value = button.getUserData() == null
-                ? String.valueOf(button.getText())
-                : String.valueOf(button.getUserData());
-        if ("DEL".equalsIgnoreCase(value)) {
-            value = "BACK";
-        } else if ("OK".equalsIgnoreCase(value)) {
-            value = "OK";
-        }
-        switch (value) {
-            case "BACK" -> {
-                if (!pinBuffer.isEmpty()) {
-                    pinBuffer.deleteCharAt(pinBuffer.length() - 1);
-                }
-            }
-            case "OK" -> onPinConfirm();
-            default -> {
-                if (pinBuffer.length() < PIN_LENGTH && value.matches("\\d")) {
-                    pinBuffer.append(value);
-                }
-            }
-        }
-        renderPinDots();
-    }
-
-    @FXML
-    private void onPinDelete() {
-        if (!pinBuffer.isEmpty()) {
-            pinBuffer.deleteCharAt(pinBuffer.length() - 1);
-            renderPinDots();
-        }
-    }
-
-    @FXML
-    private void onPinCancel() {
-        hidePinDialog();
-    }
-
-    @FXML
-    private void onPinConfirm() {
-        if (pendingDestination == null) {
-            hidePinDialog();
-            return;
-        }
-        if (isLocked()) {
-            showPinError(lockMessage());
-            return;
-        }
-        if (pinBuffer.length() != PIN_LENGTH) {
-            showPinError("Code a 6 chiffres requis");
-            return;
-        }
-
-        String pin = pinBuffer.toString();
-        Task<User> task = new Task<>() {
-            @Override
-            protected User call() throws Exception {
-                String hash = SecurityUtils.sha256Hex(pin);
-                return userDAO.findByPinAndRole(hash, UserRole.MANAGER);
-            }
-        };
-        task.setOnSucceeded(evt -> {
-            User admin = task.getValue();
-            if (admin == null) {
-                handleWrongPin();
-                return;
-            }
-            failedAttempts = 0;
-            AdminSessionManager.unlock();
-            Destination destination = pendingDestination;
-            hidePinDialog();
-            switch (destination) {
-                case STOCK -> openBackOffice("/com/cafepos/fxml/stock.fxml");
-                case GESTION -> openBackOffice("/com/cafepos/fxml/dashboard.fxml");
-                case SETTINGS -> openBackOffice("/com/cafepos/fxml/settings.fxml");
-            }
-        });
-        task.setOnFailed(evt -> {
-            LOG.error("Erreur verification PIN", task.getException());
-            showPinError("Verification PIN impossible");
-        });
-        Thread thread = new Thread(task, "launch-pin-check");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    private void showPinFor(Destination destination) {
-        pendingDestination = destination;
-        pinBuffer.setLength(0);
-        renderPinDots();
-        if (isLocked()) {
-            showPinError(lockMessage());
-        } else {
-            pinError.setVisible(false);
-            pinError.setManaged(false);
-        }
-        pinDialog.setVisible(true);
-        pinDialog.setManaged(true);
-    }
-
-    private void hidePinDialog() {
-        pinDialog.setVisible(false);
-        pinDialog.setManaged(false);
-        pinBuffer.setLength(0);
-        renderPinDots();
+                : (Stage) brandLogoContainer.getScene().getWindow();
     }
 
     private void applyLaunchBranding() {
@@ -324,111 +155,6 @@ public class LaunchController {
         return wrapper;
     }
 
-    private void renderPinDots() {
-        setDot(pinDot1, pinBuffer.length() > 0);
-        setDot(pinDot2, pinBuffer.length() > 1);
-        setDot(pinDot3, pinBuffer.length() > 2);
-        setDot(pinDot4, pinBuffer.length() > 3);
-        setDot(pinDot5, pinBuffer.length() > 4);
-        setDot(pinDot6, pinBuffer.length() > 5);
-    }
-
-    private void setDot(Label label, boolean filled) {
-        if (label == null) {
-            return;
-        }
-        label.setText(filled ? "*" : "o");
-    }
-
-    private void ensurePinDots() {
-        if (pinDots == null) {
-            return;
-        }
-        if (!pinDots.getChildren().isEmpty()
-                && pinDot1 != null && pinDot2 != null && pinDot3 != null && pinDot4 != null
-                && pinDot5 != null && pinDot6 != null) {
-            return;
-        }
-        pinDots.getChildren().clear();
-        dynamicPinDots.clear();
-        for (int i = 0; i < PIN_LENGTH; i++) {
-            Label dot = new Label("o");
-            dot.getStyleClass().add("pin-dot");
-            dynamicPinDots.add(dot);
-            pinDots.getChildren().add(dot);
-        }
-        pinDot1 = dynamicPinDots.get(0);
-        pinDot2 = dynamicPinDots.get(1);
-        pinDot3 = dynamicPinDots.get(2);
-        pinDot4 = dynamicPinDots.get(3);
-        pinDot5 = dynamicPinDots.get(4);
-        pinDot6 = dynamicPinDots.get(5);
-    }
-
-    private void handleWrongPin() {
-        failedAttempts++;
-        pinBuffer.setLength(0);
-        renderPinDots();
-
-        if (failedAttempts >= MAX_PIN_ATTEMPTS) {
-            lockUntilMs = System.currentTimeMillis() + LOCKOUT_MS;
-            showPinError(lockMessage());
-        } else {
-            showPinError("PIN incorrect");
-        }
-        shakePinDialog();
-    }
-
-    private void shakePinDialog() {
-        TranslateTransition shake = new TranslateTransition(Duration.millis(70), pinDialog);
-        shake.setFromX(0);
-        shake.setByX(12);
-        shake.setCycleCount(4);
-        shake.setAutoReverse(true);
-        shake.setOnFinished(evt -> pinDialog.setTranslateX(0));
-        shake.play();
-    }
-
-    private void showPinError(String message) {
-        pinError.setText(message == null ? "" : message);
-        pinError.setVisible(true);
-        pinError.setManaged(true);
-    }
-
-    private boolean isLocked() {
-        return System.currentTimeMillis() < lockUntilMs;
-    }
-
-    private String lockMessage() {
-        long remaining = Math.max(1, (lockUntilMs - System.currentTimeMillis() + 999) / 1000);
-        return "Bloque " + remaining + "s";
-    }
-
-    private void openPos() {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cafepos/fxml/pos.fxml"), MainApp.getMessages());
-            Parent root = loader.load();
-            PosController controller = loader.getController();
-            User user = SessionManager.getCurrentUser();
-            if (user != null) {
-                controller.setUserInfo(user.getName(), user.getRole().name());
-            }
-            com.cafepos.model.Order locked = SessionManager.consumeLockedOrder();
-            if (locked != null) {
-                controller.restoreOrder(locked);
-            }
-            Scene scene = new Scene(root, 1100, 700);
-            MainApp.applyBrandTheme(scene);
-            IdleMonitor.bindScene(scene);
-            Stage stage = (Stage) pinDialog.getScene().getWindow();
-            stage.setScene(scene);
-            WindowUtils.applyFullSize(stage);
-        } catch (Exception ex) {
-            LOG.error("Echec ouverture POS", ex);
-            showPinError("Ouverture POS impossible");
-        }
-    }
-
     private void openLogin() {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/cafepos/fxml/login.fxml"), MainApp.getMessages());
@@ -436,12 +162,11 @@ public class LaunchController {
             Scene scene = new Scene(root, 1100, 700);
             MainApp.applyBrandTheme(scene);
             IdleMonitor.bindScene(scene);
-            Stage stage = (Stage) pinDialog.getScene().getWindow();
+            Stage stage = currentWindow();
             stage.setScene(scene);
             WindowUtils.applyFullSize(stage);
         } catch (Exception ex) {
             LOG.error("Echec ouverture login", ex);
-            showPinError("Ouverture ecran login impossible");
         }
     }
 
@@ -453,19 +178,11 @@ public class LaunchController {
             Scene scene = new Scene(root, 1100, 700);
             MainApp.applyBrandTheme(scene);
             IdleMonitor.bindScene(scene);
-            Stage stage = (Stage) pinDialog.getScene().getWindow();
+            Stage stage = currentWindow();
             stage.setScene(scene);
             WindowUtils.applyFullSize(stage);
         } catch (Exception ex) {
             LOG.error("Echec ouverture back-office", ex);
-            showPinError("Ouverture back-office impossible");
         }
     }
-
-    private enum Destination {
-        STOCK,
-        GESTION,
-        SETTINGS
-    }
-
 }

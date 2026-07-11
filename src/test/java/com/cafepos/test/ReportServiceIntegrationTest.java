@@ -35,6 +35,7 @@ public class ReportServiceIntegrationTest {
 
         try (Connection conn = com.cafepos.db.DatabaseManager.openConnection()) {
             insertProduct(conn, 1, "Cafe", 1);
+            insertIngredient(conn, 1, "Cafe moulu test");
             insertOrder(conn, 1001, 100.0, "ESPECES", today.toString());
             insertOrderLine(conn, 2001, 1001, 1, 1, 100.0);
             insertIngredientMovement(conn, 3001, 1, -1.0, "SALE", 30.0, 30.0, today.toString());
@@ -72,6 +73,15 @@ public class ReportServiceIntegrationTest {
         assertEquals(3, items.get(0).quantity());
         assertEquals("The", items.get(1).name());
         assertEquals(1, items.get(1).quantity());
+    }
+
+    private void insertIngredient(Connection conn, int id, String name) throws Exception {
+        String sql = "INSERT INTO ingredients (id, name) VALUES (?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            ps.setString(2, name);
+            ps.executeUpdate();
+        }
     }
 
     private void insertProduct(Connection conn, int id, String name, int categoryId) throws Exception {

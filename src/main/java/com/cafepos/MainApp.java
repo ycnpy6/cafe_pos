@@ -132,22 +132,32 @@ public class MainApp extends Application {
         }
 
         // Initialisation DB en arriere-plan pour ne pas bloquer le thread FX.
-        Task<Void> initTask = new Task<>() {
+        Task<java.util.List<com.cafepos.model.User>> initTask = new Task<>() {
             @Override
-            protected Void call() throws Exception {
+            protected java.util.List<com.cafepos.model.User> call() throws Exception {
                 try {
                     BackupService.applyPendingRestoreIfAny();
                 } catch (Exception ex) {
                     LOG.error("Echec application restauration en attente", ex);
                 }
                 DatabaseManager.initialize();
+                try {
+                    // L'EOD planifie (23h55) ne tourne que si l'app est ouverte :
+                    // cloture ici les journees manquees (PC eteint avant l'heure).
+                    int caughtUp = new com.cafepos.util.EODService().runEodCatchUp();
+                    if (caughtUp > 0) {
+                        LOG.info("EOD rattrape: {} periode(s) de travail cloturee(s)", caughtUp);
+                    }
+                } catch (Exception ex) {
+                    LOG.error("Echec rattrapage EOD", ex);
+                }
                 // Pre-build the unit cache on this background thread so the
                 // first FX-thread lookup (e.g. a TableView cell render) is a
                 // pure HashMap.get and never blocks on a DB connection.
                 com.cafepos.model.UnitRegistry.prewarm();
                 applySavedLocaleFromSettings();
                 AppScheduler.start();
-                return null;
+                return findManagersWithDefaultPin();
             }
         };
 
@@ -164,6 +174,7 @@ public class MainApp extends Application {
                 });
                 loadLaunchScene(stage);
                 writeStartupMarker("launch.fxml loaded", null);
+                promptDefaultPinChange(stage, initTask.getValue());
             } catch (Exception ex) {
                 LOG.error("Erreur au chargement de launch.fxml", ex);
                 writeStartupMarker("launch.fxml error", ex);
@@ -180,6 +191,49 @@ public class MainApp extends Application {
         Thread initThread = new Thread(initTask, "db-init");
         initThread.setDaemon(true);
         initThread.start();
+    }
+
+    /** Hash SHA-256 du PIN "1234" livre par le seed. */
+    private static final String DEFAULT_PIN_HASH =
+            "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+
+    private static java.util.List<com.cafepos.model.User> findManagersWithDefaultPin() {
+        try {
+            java.util.List<com.cafepos.model.User> managers =
+                    new com.cafepos.dao.UserDAO().findByRole(com.cafepos.model.UserRole.MANAGER);
+            managers.removeIf(user -> !DEFAULT_PIN_HASH.equals(user.getPinHash()));
+            return managers;
+        } catch (Exception ex) {
+            LOG.warn("Verification PIN par defaut impossible", ex);
+            return java.util.List.of();
+        }
+    }
+
+    private void promptDefaultPinChange(Stage stage, java.util.List<com.cafepos.model.User> defaultPinManagers) {
+        if (defaultPinManagers == null || defaultPinManagers.isEmpty()) {
+            return;
+        }
+        Optional<String> newPin = com.cafepos.ui.PinSetupDialog.promptNewPin(stage,
+                "Le PIN manager par defaut (1234) est encore actif. "
+                        + "Definissez un PIN personnel pour securiser la caisse.");
+        if (newPin.isEmpty()) {
+            LOG.warn("Changement du PIN par defaut reporte par l'utilisateur");
+            return;
+        }
+        String newHash = com.cafepos.util.SecurityUtils.sha256Hex(newPin.get());
+        Thread updateThread = new Thread(() -> {
+            try {
+                com.cafepos.dao.UserDAO userDAO = new com.cafepos.dao.UserDAO();
+                for (com.cafepos.model.User manager : defaultPinManagers) {
+                    userDAO.updatePin(manager.getId(), newHash);
+                }
+                LOG.info("PIN manager par defaut remplace ({} compte(s))", defaultPinManagers.size());
+            } catch (Exception ex) {
+                LOG.error("Echec mise a jour du PIN manager", ex);
+            }
+        }, "default-pin-update");
+        updateThread.setDaemon(true);
+        updateThread.start();
     }
 
     private Parent buildSplashView() {
@@ -332,15 +386,32 @@ public class MainApp extends Application {
             } else {
                 baseDir = Paths.get(appData, "CafePOS");
             }
-            Files.createDirectories(baseDir.resolve("data"));
-            Files.createDirectories(baseDir.resolve("backups"));
-            Files.createDirectories(baseDir.resolve("exports"));
-            Path logDir = baseDir.resolve("logs");
-            Files.createDirectories(logDir);
-            Files.createDirectories(baseDir.resolve("temp"));
-            System.setProperty("cafepos.logs.dir", logDir.toString());
+            String[] subDirs = {"data", "backups", "exports", "logs", "temp"};
+            for (String sub : subDirs) {
+                Path dir = baseDir.resolve(sub);
+                Files.createDirectories(dir);
+                verifyWritable(dir);
+            }
+            System.setProperty("cafepos.logs.dir", baseDir.resolve("logs").toString());
         } catch (Exception ex) {
             LOG.warn("Creation dossiers application impossible", ex);
+        }
+    }
+
+    /**
+     * Verifie qu'un dossier applicatif est reellement inscriptible (droits
+     * NTFS, antivirus, disque plein...) en y ecrivant un fichier sonde.
+     * Un echec est signale des le demarrage plutot que decouvert le soir au
+     * moment de la sauvegarde ou de l'export.
+     */
+    private static void verifyWritable(Path dir) {
+        Path probe = dir.resolve(".write-probe");
+        try {
+            Files.writeString(probe, "ok", StandardCharsets.UTF_8);
+            Files.deleteIfExists(probe);
+        } catch (Exception ex) {
+            LOG.error("Dossier applicatif non inscriptible: {} — sauvegardes/exports en danger", dir, ex);
+            writeStartupMarker("dir not writable: " + dir, ex);
         }
     }
 

@@ -5,6 +5,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+import com.cafepos.db.DatabaseManager;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -12,13 +17,52 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class BackupService {
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(BackupService.class);
     private static final String BACKUP_PREFIX = "cafepos_";
     private static final String BACKUP_SUFFIX = ".db";
     private static final String PENDING_RESTORE_FILE = "cafepos_restore_pending.db";
+    private static final String BACKUP_TARGET_DIR_KEY = "backup.target.dir";
     private static final int MAX_BACKUPS = 30;
 
     public Path runBackup() throws IOException {
         return runBackup(getDefaultBackupDir());
+    }
+
+    /**
+     * Sauvegarde planifiee (00h05) : toujours une copie locale, puis un miroir
+     * vers le dossier configure dans les reglages (cle USB, partage reseau,
+     * dossier Dropbox/OneDrive...). L'indisponibilite du miroir ne fait pas
+     * echouer la sauvegarde locale.
+     */
+    public Path runScheduledBackup() throws IOException {
+        Path local = runBackup(getDefaultBackupDir());
+        Path mirrorDir = resolveConfiguredBackupDir();
+        if (mirrorDir != null && !mirrorDir.equals(getDefaultBackupDir())) {
+            try {
+                Files.createDirectories(mirrorDir);
+                Path mirror = mirrorDir.resolve(local.getFileName());
+                Files.copy(local, mirror, StandardCopyOption.REPLACE_EXISTING);
+                cleanupOldBackups(mirrorDir);
+                LOG.info("Sauvegarde miroir ecrite: {}", mirror.toAbsolutePath());
+            } catch (Exception ex) {
+                LOG.warn("Miroir de sauvegarde inaccessible ({}), copie locale conservee: {}",
+                        mirrorDir, local.toAbsolutePath(), ex);
+            }
+        }
+        return local;
+    }
+
+    private Path resolveConfiguredBackupDir() {
+        try {
+            String value = new com.cafepos.dao.SettingsDAO().getValue(BACKUP_TARGET_DIR_KEY);
+            if (value == null || value.isBlank()) {
+                return null;
+            }
+            return Paths.get(value.trim());
+        } catch (Exception ex) {
+            LOG.warn("Lecture du dossier de sauvegarde configure impossible", ex);
+            return null;
+        }
     }
 
     public Path runBackup(Path backupDir) throws IOException {
@@ -29,7 +73,17 @@ public class BackupService {
         Files.createDirectories(backupDir);
         String name = BACKUP_PREFIX + LocalDate.now() + BACKUP_SUFFIX;
         Path target = backupDir.resolve(name);
-        Files.copy(dbPath, target, StandardCopyOption.REPLACE_EXISTING);
+        // Une copie fichier d'une base en mode WAL perd le contenu du -wal et
+        // peut capturer un etat incoherent. VACUUM INTO produit un snapshot
+        // transactionnel complet et compacte, sans arreter l'application.
+        Files.deleteIfExists(target); // VACUUM INTO exige que la cible n'existe pas.
+        String escapedTarget = target.toAbsolutePath().toString().replace("'", "''");
+        try (Connection conn = DatabaseManager.openConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("VACUUM INTO '" + escapedTarget + "'");
+        } catch (SQLException | IllegalStateException ex) {
+            throw new IOException("Echec sauvegarde (VACUUM INTO): " + ex.getMessage(), ex);
+        }
         cleanupOldBackups(backupDir);
         return target;
     }

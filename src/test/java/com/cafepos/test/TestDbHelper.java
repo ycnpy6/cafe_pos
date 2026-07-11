@@ -28,15 +28,23 @@ public final class TestDbHelper {
     public static void resetData() throws Exception {
         try (Connection conn = DatabaseManager.openConnection();
              Statement stmt = conn.createStatement()) {
+            // Enfants avant parents : les connexions du pool appliquent
+            // foreign_keys=ON, l'ordre de suppression compte desormais.
             stmt.execute("DELETE FROM order_line_tags");
+            stmt.execute("DELETE FROM refund_lines");
+            stmt.execute("DELETE FROM refunds");
+            stmt.execute("DELETE FROM waiting_order_line_tags");
+            stmt.execute("DELETE FROM waiting_order_lines");
+            stmt.execute("DELETE FROM waiting_orders");
+            stmt.execute("DELETE FROM product_tag_groups");
+            stmt.execute("DELETE FROM ingredient_movements");
+            stmt.execute("DELETE FROM stock_movements");
+            stmt.execute("DELETE FROM print_queue");
             stmt.execute("DELETE FROM order_lines");
             stmt.execute("DELETE FROM orders");
             stmt.execute("DELETE FROM product_ingredients");
             stmt.execute("DELETE FROM products");
             stmt.execute("DELETE FROM ingredients");
-            stmt.execute("DELETE FROM ingredient_movements");
-            stmt.execute("DELETE FROM stock_movements");
-            stmt.execute("DELETE FROM print_queue");
         }
     }
 }
