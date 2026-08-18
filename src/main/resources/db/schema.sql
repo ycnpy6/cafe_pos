@@ -429,27 +429,3 @@ UPDATE products SET price = 250 WHERE LOWER(name) = 'donut smile'     AND price 
 UPDATE products SET price = 50 WHERE LOWER(name) = 'syrup'    AND price = 0;
 UPDATE products SET price = 50 WHERE LOWER(name) = 'ice cup'   AND price = 0;
 
--- New products (inserted only if they don't exist yet)
-INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
-SELECT 'Americano', 100, 0, 1, 0, 1, 1
-WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'americano');
-
-INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
-SELECT 'Cookie M&Ms', 300, 0, 3, 0, 1, 0
-WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'cookie m&ms');
-
-INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
-SELECT 'Donut Filled', 250, 0, 3, 0, 1, 0
-WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'donut filled');
-
-INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
-SELECT 'Bottle of Water', 100, 0, 2, 0, 1, 0
-WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'bottle of water');
-
-INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
-SELECT 'Syrup', 50, 0, 6, 0, 1, 0
-WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'syrup');
-
-INSERT INTO products (name, price, cost, category_id, stock, active, is_prepared)
-SELECT 'Ice Cup', 50, 0, 6, 0, 1, 0
-WHERE NOT EXISTS (SELECT 1 FROM products WHERE LOWER(name) = 'ice cup');

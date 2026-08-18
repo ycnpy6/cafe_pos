@@ -5,6 +5,7 @@ import com.cafepos.dao.CustomerDAO;
 import com.cafepos.db.DatabaseManager;
 import com.cafepos.model.Customer;
 import com.cafepos.model.User;
+import com.cafepos.util.Money;
 
 public class AccountService {
     private final CustomerDAO customerDAO = new CustomerDAO();
@@ -24,7 +25,7 @@ public class AccountService {
         int userId = user == null ? 0 : user.getId();
         try (java.sql.Connection conn = DatabaseManager.openConnection()) {
             conn.setAutoCommit(false);
-            double newBalance = customer.getBalance() + amount;
+            double newBalance = Money.round2(customer.getBalance() + amount);
             customerDAO.updateBalance(conn, customer.getId(), newBalance);
             accountTransactionDAO.insertTransaction(conn, customer.getId(), amount, "Recharge", userId, newBalance, null);
             conn.commit();

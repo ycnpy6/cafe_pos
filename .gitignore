@@ -5,3 +5,4 @@ dist/
 debug.log
 hs_err_pid*.log
 replay_pid*.log
+data-import/

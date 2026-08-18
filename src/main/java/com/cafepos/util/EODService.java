@@ -3,6 +3,7 @@ package com.cafepos.util;
 import com.cafepos.dao.WorkPeriodDAO;
 import com.cafepos.db.DatabaseManager;
 import com.cafepos.service.DailyExportService;
+import com.cafepos.service.WeeklyExportService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +18,7 @@ public class EODService {
 
     private final WorkPeriodDAO workPeriodDAO = new WorkPeriodDAO();
     private final DailyExportService dailyExportService = new DailyExportService();
+    private final WeeklyExportService weeklyExportService = new WeeklyExportService();
 
     /**
      * Cloture les periodes de travail restees ouvertes depuis un jour
@@ -83,6 +85,14 @@ public class EODService {
             dailyExportService.exportDay(day);
         } catch (Exception ex) {
             LOG.error("Echec export quotidien {}", day, ex);
+        }
+        try {
+            // Regenere le rapport de la semaine contenant ce jour : le fichier
+            // hebdomadaire est ainsi toujours a jour apres chaque cloture,
+            // sans logique "seulement le lundi" qui raterait les PC eteints.
+            weeklyExportService.exportWeekContaining(day);
+        } catch (Exception ex) {
+            LOG.error("Echec export hebdomadaire (semaine de {})", day, ex);
         }
     }
 }

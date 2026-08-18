@@ -1,0 +1,3 @@
+name,card_uid,balance,active,phone,email,address,lifetime_spent,visit_count,last_visit_at
+Ahmed Benali,04A1B2C3,500,1,0555123456,ahmed@example.com,Alger,0,0,
+Sara Kaci,,0,1,0666789012,,,0,0,

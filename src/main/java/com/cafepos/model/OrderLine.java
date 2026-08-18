@@ -1,5 +1,7 @@
 package com.cafepos.model;
 
+import com.cafepos.util.Money;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -35,10 +37,10 @@ public class OrderLine {
         for (Tag tag : tags) {
             total += tag.getPriceModifier();
         }
-        return total;
+        return Money.round2(total);
     }
 
     public double getLineTotal() {
-        return getUnitTotal() * quantity;
+        return Money.round2(getUnitTotal() * quantity);
     }
 }

@@ -33,10 +33,15 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "A
 Source: "..\dist\app-image\CommonGroundsPOS\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
 Source: "assets\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "launch-app.cmd"; DestDir: "{app}"; Flags: ignoreversion
+Source: "assets\GUIDE_UTILISATEUR.txt"; DestDir: "{app}\Documentation"; Flags: ignoreversion
+Source: "assets\clients_template.csv"; DestDir: "{app}\Documentation"; Flags: ignoreversion
+Source: "assets\clients_template_LISEZMOI.txt"; DestDir: "{app}\Documentation"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{cmd}"; Parameters: "/c ""{app}\launch-app.cmd"""; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"
 Name: "{commondesktop}\{#MyAppName}"; Filename: "{cmd}"; Parameters: "/c ""{app}\launch-app.cmd"""; WorkingDir: "{app}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{group}\Guide utilisateur"; Filename: "{app}\Documentation\GUIDE_UTILISATEUR.txt"
+Name: "{group}\Modele import clients"; Filename: "{app}\Documentation"
 
 [Run]
 Filename: "{cmd}"; Parameters: "/c ""{app}\launch-app.cmd"""; WorkingDir: "{app}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent

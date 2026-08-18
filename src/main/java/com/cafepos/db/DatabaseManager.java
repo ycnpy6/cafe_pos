@@ -44,7 +44,6 @@ public final class DatabaseManager {
                 runSchema(conn);
                 migrateCustomersSchema(conn);
                 normalizeCategories(conn);
-                cleanupOrphanReferences(conn);
 
                 // Customer seeding delegates to CustomerImporter, which uses
                 // DatabaseManager.openConnection(). Make the pool available
@@ -53,6 +52,16 @@ public final class DatabaseManager {
                 pool = new ConnectionPool(jdbcUrl, 4);
                 initialized = true;
                 seedIfEmpty(conn);
+
+                // Doit s'executer APRES le seed : sur une base neuve, le bloc
+                // de produits complementaires de schema.sql s'insere avant que
+                // seed.sql ne cree les categories, donc leur category_id est
+                // orpheline un court instant. Nettoyer avant le seed les
+                // categorisait a tort en NULL de facon permanente (le produit
+                // se retrouvait ensuite duplique sans prix par
+                // ensureRequiredProducts, qui ne le reconnaissait plus comme
+                // deja categorise).
+                cleanupOrphanReferences(conn);
             }
 
             // 4 connections is enough for: 1 long-running background load,
@@ -91,6 +100,15 @@ public final class DatabaseManager {
             stmt.executeUpdate("PRAGMA journal_mode=WAL");
             stmt.executeUpdate("PRAGMA synchronous=NORMAL");
             stmt.executeUpdate("PRAGMA cache_size=2000");
+            // Sans ce pragma, SQLite refuse IMMEDIATEMENT (SQLITE_BUSY) des
+            // qu'une autre connexion detient le verrou d'ecriture (defaut
+            // C-level = 0 ms, aucune attente). Avec plusieurs Task JavaFX en
+            // arriere-plan + le scheduler EOD/backup/impression pouvant
+            // ecrire en meme temps, cela provoquait des echecs de vente
+            // evitables sous charge concurrente. 5s laisse SQLite retenter
+            // en interne avant d'abandonner, sans jamais depasser le
+            // timeout d'emprunt du pool (10s) qui reste le vrai garde-fou.
+            stmt.executeUpdate("PRAGMA busy_timeout=5000");
         }
     }
 
@@ -132,7 +150,19 @@ public final class DatabaseManager {
     }
 
     private static void seedIfEmpty(Connection conn) throws Exception {
-        if (isTableEmpty(conn, "products")) {
+        // Ne PAS se fier a "products" vide comme declencheur : le bloc
+        // "nouveaux produits" en fin de schema.sql (Americano, Cookie M&Ms...)
+        // s'execute avant ce point (dans runSchema) et remplit deja quelques
+        // lignes sur une base neuve. Cela ferait passer la table pour "non
+        // vide" et sauterait entierement seed.sql (~90 produits avec leurs
+        // vrais prix), laissant tout le reste du catalogue a 0 DA.
+        // "categories" n'est jamais touchee par ce bloc de schema.sql (lui
+        // seul cree les categories) : c'est un signal fiable d'installation
+        // reellement neuve, non fausse par cet ordre d'execution. Sur une
+        // base deja deployee, categories est deja peuplee depuis longtemps,
+        // donc ce correctif ne change rien a son comportement (seed.sql ne
+        // se relance pas dessus, aucun risque de doublon a la mise a jour).
+        if (isTableEmpty(conn, "categories")) {
             String seedSql = readResourceText("/db/seed.sql");
             executeScript(conn, seedSql);
         }

@@ -29,6 +29,11 @@ public class ActionAccessManager {
 
         // Temporary manager elevation is orthogonal to cashier identity.
         if (requiredRole == UserRole.MANAGER && AdminSessionManager.isAdminUnlocked() && !pinRequired) {
+            // Glisse la fenetre de grace de 5 min a chaque action manager
+            // enchainee, au lieu de la laisser expirer sur l'horodatage du
+            // tout premier PIN saisi : un manager qui fait plusieurs taches
+            // stock a la suite ne doit pas se faire deconnecter au milieu.
+            AdminSessionManager.touch();
             return true;
         }
 

@@ -19,6 +19,7 @@ import com.cafepos.model.ProductIngredientUsage;
 import com.cafepos.model.RefundLineSelection;
 import com.cafepos.model.RefundableOrderLine;
 import com.cafepos.model.User;
+import com.cafepos.util.Money;
 
 import java.util.HashMap;
 import java.util.List;
@@ -153,7 +154,7 @@ public class OrderService {
                     conn.rollback();
                     throw new IllegalStateException("Solde insuffisant");
                 }
-                double newBalance = customer.getBalance() - prepaid;
+                double newBalance = Money.round2(customer.getBalance() - prepaid);
                 customerDAO.updateBalance(conn, customer.getId(), newBalance);
                 accountTransactionDAO.insertTransaction(conn, customer.getId(), -prepaid, "Vente POS", userId,
                     newBalance, orderId);
@@ -206,6 +207,7 @@ public class OrderService {
                 }
                 totalRefund += available.unitPrice() * selection.quantity();
             }
+            totalRefund = Money.round2(totalRefund);
 
             if (totalRefund <= 0) {
                 conn.rollback();
@@ -293,7 +295,7 @@ public class OrderService {
                     conn.rollback();
                     throw new IllegalStateException("Client introuvable");
                 }
-                double newBalance = customer.getBalance() + totalRefund;
+                double newBalance = Money.round2(customer.getBalance() + totalRefund);
                 customerDAO.updateBalance(conn, customerId, newBalance);
                 accountTransactionDAO.insertTransaction(conn, customerId, totalRefund,
                         "Remboursement POS", userIdForLog, newBalance, orderId);

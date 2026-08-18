@@ -30,6 +30,7 @@
                     <ComboBox fx:id="printerBox" prefWidth="260"/>
                     <Button text="Enregistrer" onAction="#onSavePrinter" styleClass="action-button"/>
                     <Button text="Test" onAction="#onTestPrint" styleClass="ghost-button"/>
+                    <Button text="Apercu" onAction="#onPreviewTicket" styleClass="ghost-button"/>
                 </HBox>
                 <HBox spacing="10" alignment="CENTER_LEFT">
                     <Label fx:id="printQueueStatusLabel" text="File: 0" styleClass="hint-label"/>
@@ -105,6 +106,9 @@
                     <Button text="Choisir dossier" onAction="#onSelectExportFolder" styleClass="ghost-button"/>
                     <Button text="Sauvegarder" onAction="#onSaveExportFolder" styleClass="action-button"/>
                 </HBox>
+                <Label fx:id="exportFolderWarningLabel" text="Dossier export non configure : les rapports resteront locaux, invisibles a distance. Choisissez un dossier Dropbox/OneDrive/reseau puis Sauvegarder."
+                       styleClass="hint-label" style="-fx-text-fill: #B03A2E; -fx-font-weight: bold;" wrapText="true" maxWidth="600"
+                       managed="false" visible="false"/>
             </VBox>
 
             <VBox spacing="10" styleClass="card">

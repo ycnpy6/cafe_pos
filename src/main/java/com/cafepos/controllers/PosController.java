@@ -45,9 +45,13 @@ import com.cafepos.model.User;
 import com.cafepos.model.UserRole;
 import com.cafepos.model.WaitingOrderSummary;
 import com.cafepos.service.AccountService;
+import com.cafepos.hardware.PrinterService;
+import com.cafepos.model.AppAction;
+import com.cafepos.model.SalesSummary;
 import com.cafepos.service.AdminSessionManager;
 import com.cafepos.service.OrderService;
 import com.cafepos.service.PrintQueueService;
+import com.cafepos.service.ReportService;
 import com.cafepos.service.SessionManager;
 import com.cafepos.ui.CashTenderDialog;
 import com.cafepos.ui.CashWithdrawalDialog;
@@ -57,8 +61,12 @@ import com.cafepos.ui.ManagerPinDialog;
 import com.cafepos.ui.PrepaidPaymentDialog;
 import com.cafepos.ui.PrintTicketDialog;
 import com.cafepos.ui.QuickNewClientDialog;
+import com.cafepos.ui.TicketPreviewDialog;
 import com.cafepos.ui.TopupCardDialog;
 import com.cafepos.ui.TopupDialog;
+import com.cafepos.util.ActionAccessManager;
+import com.cafepos.util.ColorUtils;
+import com.cafepos.util.EODService;
 import com.cafepos.util.FormatUtils;
 import com.cafepos.util.IdleMonitor;
 import com.cafepos.util.SecurityUtils;
@@ -79,7 +87,9 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
@@ -141,6 +151,10 @@ public class PosController {
     private final AccountService accountService = new AccountService();
     private final PrintQueueService printQueueService = PrintQueueService.getInstance();
     private final SettingsDAO settingsDAO = new SettingsDAO();
+    private final PrinterService printerService = new PrinterService();
+    private final ReportService reportService = new ReportService();
+    private final EODService eodService = new EODService();
+    private final ActionAccessManager accessManager = new ActionAccessManager();
 
     private final Order currentOrder = new Order();
     private final List<Button> categoryButtons = new ArrayList<>();
@@ -574,6 +588,10 @@ public class PosController {
         btnHoldOp.setId("btnHold");
         btnHoldOp.setOnAction(evt -> onHoldOrder());
 
+        Button btnWaitingOp = UiIconHelper.makeOpButton("mdi2c-clipboard-list", "Commandes en attente", "elevated", 68, 72);
+        btnWaitingOp.setId("btnWaitingOrders");
+        btnWaitingOp.setOnAction(evt -> onWaitingOrders());
+
         Button btnDiscountOp = UiIconHelper.makeOpButton("mdi2p-percent", "Remise", "elevated", 68, 72);
         btnDiscountOp.setId("btnDiscount");
         btnDiscountOp.setOnAction(evt -> onDiscount());
@@ -610,10 +628,14 @@ public class PosController {
         btnClose.setId("btnClose");
         btnClose.setOnAction(evt -> onLockSession());
 
+        Button btnCloseSession = UiIconHelper.makeOpButton("mdi2l-logout", "Cloturer session", "danger", 68, 72);
+        btnCloseSession.setId("btnCloseSession");
+        btnCloseSession.setOnAction(evt -> onCloseSession());
+
         operationBar.getChildren().addAll(
-                btnNew, btnCancel, btnHoldOp, btnDiscountOp,
+                btnNew, btnCancel, btnHoldOp, btnWaitingOp, btnDiscountOp,
                 btnWithdraw, btnRefund, btnReprint, btnHistory,
-                btnTopup, btnNewClient, btnInvoice, btnClose
+                btnTopup, btnNewClient, btnInvoice, btnClose, btnCloseSession
         );
     }
 
@@ -1245,27 +1267,37 @@ public class PosController {
             categoryColor = categoryColors.get(product.getCategoryId());
         }
         boolean useDefaultColor = categoryColor == null || categoryColor.isBlank();
+        String textColor;
         if (useDefaultColor) {
             String rgba = toRgba("#6B2D1A", 0.20);
             String fallback = rgba == null ? "#F0E2CC" : rgba;
             tileButton.setStyle("-fx-background-color: " + fallback + "; -fx-background-radius: 8px;");
+            // Fond clair connu (teinte beige a 20% d'opacite) : texte sombre toujours lisible.
+            textColor = "#2C1810";
         } else {
             tileButton.setStyle("-fx-background-color: " + categoryColor + "; -fx-background-radius: 8px;");
+            // Couleur de categorie arbitraire (choisie en reglages) : peut etre
+            // claire ou sombre, le contraste doit etre calcule au lieu d'un
+            // texte clair fixe illisible sur les teintes pales.
+            textColor = ColorUtils.contrastTextColor(categoryColor);
         }
 
         VBox content = new VBox(3);
         content.setAlignment(javafx.geometry.Pos.CENTER);
 
+        String categoryIcon = categoryIcons.get(product.getCategoryId());
+        String iconCode = UiIconHelper.productFallbackIcon(product.getName(), categoryIcon);
+        FontIcon productIcon = UiIconHelper.makeIconSafe(iconCode, 18, textColor);
+
         Label name = new Label(product.getName());
         name.setWrapText(true);
         name.setMaxWidth(Math.max(100, tileWidth - 14));
-        String textColor = useDefaultColor ? "#2C1810" : "#F5ECD7";
         name.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-alignment: center; -fx-text-fill: " + textColor + ";");
         name.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
 
         Label price = new Label(formatAmount(product.getPrice()) + " DZD");
         price.setStyle("-fx-font-size: 11px; -fx-text-fill: " + textColor + "; -fx-opacity: 0.85;");
-        content.getChildren().addAll(name, price);
+        content.getChildren().addAll(productIcon, name, price);
         tileButton.setGraphic(content);
 
         PauseTransition longPress = new PauseTransition(Duration.millis(500));
@@ -1873,6 +1905,70 @@ public class PosController {
         onLock();
     }
 
+    /**
+     * Cloture definitive de la session (fin de journee) : demande une
+     * confirmation, propose l'impression d'un ticket recapitulatif, cloture
+     * la periode de travail en base (comme le ferait l'EOD planifie de
+     * 23h55) puis deconnecte l'utilisateur vers l'ecran de lancement.
+     * Distincte de "Verrouiller" (onLock), qui garde la periode ouverte.
+     */
+    private void onCloseSession() {
+        requireAdminAccess(this::confirmCloseSession);
+    }
+
+    private void confirmCloseSession() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Cloturer la session");
+        alert.setHeaderText("Fermer la caisse pour aujourd'hui ?");
+        alert.setContentText("Le tiroir sera cloture et vous serez deconnecte. Cette action est definitive pour la journee.");
+        ButtonType printAndClose = new ButtonType("Fermer et imprimer");
+        ButtonType closeOnly = new ButtonType("Fermer sans impression");
+        alert.getButtonTypes().setAll(printAndClose, closeOnly, ButtonType.CANCEL);
+        Stage owner = rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+        if (owner != null) {
+            alert.initOwner(owner);
+        }
+
+        alert.showAndWait().ifPresent(choice -> {
+            if (choice == ButtonType.CANCEL) {
+                return;
+            }
+            performCloseSession(choice == printAndClose, owner);
+        });
+    }
+
+    private void performCloseSession(boolean printSummary, Stage owner) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        Task<SalesSummary> task = new Task<>() {
+            @Override
+            protected SalesSummary call() throws Exception {
+                eodService.runEod();
+                return reportService.getSummary(today, today);
+            }
+        };
+        task.setOnSucceeded(evt -> {
+            SalesSummary summary = task.getValue();
+            if (printSummary && summary != null) {
+                java.util.List<String> lines = printerService.buildEndOfDaySummaryTextLines(summary, today);
+                TicketPreviewDialog.show(owner, "Recapitulatif du jour", lines, null);
+            }
+            showToast("success", "Session cloturee");
+            AdminSessionManager.lock();
+            SessionManager.setCurrentUser(null);
+            SessionManager.setCurrentWorkPeriodId(null);
+            navigateToLaunch();
+        });
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur cloture session", task.getException());
+            showToast("error", "Cloture de session impossible");
+        });
+        Thread thread = new Thread(task, "close-session");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     private void openWithdrawalWithSessionAdmin() {
         Stage owner = rootStack == null || rootStack.getScene() == null
                 ? null
@@ -2101,21 +2197,61 @@ public class PosController {
         VBox info = new VBox(2);
         Label title = new Label("#" + row.id() + " - " + row.customerName());
         title.getStyleClass().add("text-bold");
-        Label details = new Label(row.lineCount() + " ligne(s) • " + formatMoney(row.total()));
+
+        // Detail des articles (nom + quantite + options) : c'est ce qui
+        // permet au barista de savoir quoi preparer sans avoir a reprendre
+        // la commande d'abord pour la consulter.
+        String itemsText = row.itemsSummary() == null || row.itemsSummary().isBlank()
+                ? "Aucun article"
+                : row.itemsSummary();
+        Label items = new Label(itemsText);
+        items.setWrapText(true);
+        items.setMaxWidth(230);
+        items.setStyle("-fx-font-size: 12px;");
+
+        Label details = new Label(row.lineCount() + " ligne(s) • " + formatMoney(row.total())
+                + " • " + waitingElapsedLabel(row.createdAt()));
         details.getStyleClass().add("text-muted");
-        info.getChildren().addAll(title, details);
+        details.setStyle("-fx-font-size: 11px;");
+
+        info.getChildren().addAll(title, items, details);
         HBox.setHgrow(info, Priority.ALWAYS);
 
+        VBox actions = new VBox(4);
         Button resume = new Button("Reprendre");
         resume.getStyleClass().addAll("button", "success");
+        resume.setMaxWidth(Double.MAX_VALUE);
         resume.setOnAction(evt -> resumeWaitingOrder(row.id()));
 
         Button delete = new Button("Supprimer");
         delete.getStyleClass().addAll("button", "danger");
+        delete.setMaxWidth(Double.MAX_VALUE);
         delete.setOnAction(evt -> deleteWaitingOrder(row.id()));
+        actions.getChildren().addAll(resume, delete);
 
-        container.getChildren().addAll(info, resume, delete);
+        container.getChildren().addAll(info, actions);
         return container;
+    }
+
+    /** Temps ecoule depuis la mise en attente, format court ("a l'instant", "12 min", "1h05"). */
+    private String waitingElapsedLabel(String createdAt) {
+        if (createdAt == null || createdAt.isBlank()) {
+            return "";
+        }
+        try {
+            java.time.LocalDateTime created = java.time.LocalDateTime.parse(
+                    createdAt.trim().replace(' ', 'T'));
+            long minutes = java.time.Duration.between(created, java.time.LocalDateTime.now()).toMinutes();
+            if (minutes < 1) {
+                return "a l'instant";
+            }
+            if (minutes < 60) {
+                return minutes + " min";
+            }
+            return (minutes / 60) + "h" + String.format("%02d", minutes % 60);
+        } catch (Exception ex) {
+            return "";
+        }
     }
 
     private void resumeWaitingOrder(int waitingOrderId) {
@@ -3104,6 +3240,12 @@ public class PosController {
         thread.start();
     }
 
+    private Stage currentWindow() {
+        return rootStack == null || rootStack.getScene() == null
+                ? null
+                : (Stage) rootStack.getScene().getWindow();
+    }
+
     @FXML
     private void onNavCaisse() {
         setActiveNav(navCaisse);
@@ -3111,22 +3253,30 @@ public class PosController {
 
     @FXML
     private void onNavStock() {
-        requireAdminAccess(() -> openBackOffice("/com/cafepos/fxml/stock.fxml"));
+        if (accessManager.ensureAccess(AppAction.OPEN_STOCK, currentWindow())) {
+            openBackOffice("/com/cafepos/fxml/stock.fxml");
+        }
     }
 
     @FXML
     private void onNavClients() {
-        openBackOffice("/com/cafepos/fxml/clients.fxml");
+        if (accessManager.ensureAccess(AppAction.OPEN_CLIENTS, currentWindow())) {
+            openBackOffice("/com/cafepos/fxml/clients.fxml");
+        }
     }
 
     @FXML
     private void onNavRapports() {
-        requireAdminAccess(() -> openBackOffice("/com/cafepos/fxml/reports.fxml"));
+        if (accessManager.ensureAccess(AppAction.OPEN_REPORTS, currentWindow())) {
+            openBackOffice("/com/cafepos/fxml/reports.fxml");
+        }
     }
 
     @FXML
     private void onNavSettings() {
-        requireAdminAccess(() -> openBackOffice("/com/cafepos/fxml/settings.fxml"));
+        if (accessManager.ensureAccess(AppAction.OPEN_SETTINGS, currentWindow())) {
+            openBackOffice("/com/cafepos/fxml/settings.fxml");
+        }
     }
 
     @FXML

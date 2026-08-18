@@ -40,6 +40,13 @@ public final class TestDbHelper {
             stmt.execute("DELETE FROM ingredient_movements");
             stmt.execute("DELETE FROM stock_movements");
             stmt.execute("DELETE FROM print_queue");
+            // account_transactions.order_id et cash_withdrawals.work_period_id
+            // referencent orders/work_periods : doivent partir avant "orders"
+            // (trouve via LoadSimulationTest, qui laisse des transactions
+            // prepayees/mixtes liees a des commandes que d'autres classes de
+            // test suppriment ensuite via resetData()).
+            stmt.execute("DELETE FROM account_transactions");
+            stmt.execute("DELETE FROM cash_withdrawals");
             stmt.execute("DELETE FROM order_lines");
             stmt.execute("DELETE FROM orders");
             stmt.execute("DELETE FROM product_ingredients");

@@ -64,7 +64,25 @@ public class WaitingOrderDAO {
                                  GROUP BY wlt.waiting_line_id
                                  ) tags_sum ON tags_sum.waiting_line_id = wol.id
                             WHERE wol.waiting_order_id = wo.id
-                       ), 0) AS subtotal
+                       ), 0) AS subtotal,
+                       (SELECT GROUP_CONCAT(item_desc, ', ') FROM (
+                           SELECT wol.id,
+                                  wol.quantity || 'x ' || p.name ||
+                                  CASE WHEN tag_names.names IS NOT NULL
+                                       THEN ' (' || tag_names.names || ')'
+                                       ELSE '' END AS item_desc
+                             FROM waiting_order_lines wol
+                             JOIN products p ON p.id = wol.product_id
+                        LEFT JOIN (
+                                   SELECT wlt.waiting_line_id,
+                                          GROUP_CONCAT(t.name, ', ') AS names
+                                     FROM waiting_order_line_tags wlt
+                                     JOIN tags t ON t.id = wlt.tag_id
+                                 GROUP BY wlt.waiting_line_id
+                                 ) tag_names ON tag_names.waiting_line_id = wol.id
+                            WHERE wol.waiting_order_id = wo.id
+                            ORDER BY wol.id
+                       )) AS items_summary
                   FROM waiting_orders wo
               ORDER BY wo.id DESC
                 """;
@@ -90,12 +108,14 @@ public class WaitingOrderDAO {
                     customerName = "Sans client";
                 }
 
+                String itemsSummary = rs.getString("items_summary");
                 results.add(new WaitingOrderSummary(
                         rs.getInt("id"),
                         customerName,
                         total,
                         rs.getInt("line_count"),
-                        rs.getString("created_at")
+                        rs.getString("created_at"),
+                        itemsSummary == null || itemsSummary.isBlank() ? "" : itemsSummary
                 ));
             }
         }

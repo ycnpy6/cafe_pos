@@ -22,6 +22,7 @@ import com.cafepos.dao.SettingsDAO;
 import com.cafepos.model.Customer;
 import com.cafepos.model.Order;
 import com.cafepos.model.OrderLine;
+import com.cafepos.model.SalesSummary;
 import com.cafepos.model.PaymentType;
 import com.cafepos.model.PrintTicketType;
 
@@ -151,7 +152,7 @@ public class PrinterService {
         } catch (Exception ignored) {
             // Pas bloquant.
         }
-        if (saved != null) {
+        if (saved != null && !saved.isBlank()) {
             for (PrintService service : services) {
                 if (service.getName().equalsIgnoreCase(saved)) {
                     return service;
@@ -164,7 +165,17 @@ public class PrinterService {
                 return service;
             }
         }
-        return null;
+        // Aucune configuration explicite et aucun nom reconnu : la plupart des
+        // caisses n'ont qu'une imprimante (le ticket), deja definie par
+        // defaut dans Windows. Sans ce repli, toute impression echouait en
+        // silence (exception avalee par le dispatch de la file) des qu'aucun
+        // "PRINTER_KEY" n'etait sauvegarde et que le nom du pilote ne
+        // contenait ni "rongta" ni "generic".
+        PrintService defaultService = PrintServiceLookup.lookupDefaultPrintService();
+        if (defaultService != null) {
+            return defaultService;
+        }
+        return services.length > 0 ? services[0] : null;
     }
 
     public java.util.List<String> getPrinterNames() {
@@ -325,6 +336,271 @@ public class PrinterService {
         // Coupe papier GS V 0 (si supportee par l'imprimante).
         appendCommand(out, 0x1D, 0x56, 0x00);
         return out.toByteArray();
+    }
+
+    /** Ticket recapitulatif imprime a la cloture de session (fin de journee). */
+    public java.util.List<String> buildEndOfDaySummaryTextLines(SalesSummary summary, java.time.LocalDate day) {
+        ReceiptTemplate template = loadTemplate();
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        lines.add(center("COMMON GROUNDS"));
+        lines.add(center("CLOTURE DE SESSION"));
+        lines.add(repeat('-', LINE_WIDTH));
+        lines.add(center(capitalize(DateTimeFormatter.ofPattern("EEEE dd MMM yyyy", Locale.FRENCH).format(day))));
+        lines.add(center(capitalize(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm", Locale.FRENCH)))));
+        lines.add(repeat('=', LINE_WIDTH));
+        lines.add(leftRight("NB COMMANDES", String.valueOf(summary.orderCount())));
+        lines.add(leftRight("CHIFFRE D'AFFAIRES", formatAmount(summary.total(), template.currencyLabel())));
+        lines.add(repeat('-', LINE_WIDTH));
+        lines.add(leftRight("ESPECES", formatAmount(summary.cashTotal(), template.currencyLabel())));
+        lines.add(leftRight("PREPAYE", formatAmount(summary.prepaidTotal(), template.currencyLabel())));
+        lines.add(repeat('-', LINE_WIDTH));
+        lines.add(leftRight("COUT INGREDIENTS", formatAmount(summary.ingredientCost(), template.currencyLabel())));
+        lines.add(leftRight("MARGE BRUTE", formatAmount(summary.grossProfit(), template.currencyLabel())));
+        lines.add(leftRight("RETRAITS CAISSE", formatAmount(summary.cashWithdrawals(), template.currencyLabel())));
+        lines.add(repeat('=', LINE_WIDTH));
+        lines.add(leftRight("REVENU NET", formatAmount(summary.netRevenue(), template.currencyLabel())));
+        lines.add(center(repeat(template.separatorChar(), LINE_WIDTH)));
+        if (!template.footer().isBlank()) {
+            lines.add(center(template.footer()));
+        }
+        return lines;
+    }
+
+    public java.util.List<String> buildTestReceiptTextLines() {
+        ReceiptTemplate template = loadTemplate();
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        lines.add(center("COMMON GROUNDS"));
+        lines.add(center("American Institute, Alger"));
+        lines.add(repeat('-', LINE_WIDTH));
+        if (!template.phone().isBlank()) {
+            lines.add(center(template.phone()));
+        }
+        lines.add(center("TEST IMPRESSION"));
+        lines.add(center(capitalize(LocalDateTime.now().format(DATE_FORMAT))));
+        lines.add(repeat('=', LINE_WIDTH));
+        lines.add(leftRight("TOTAL", formatAmount(0, template.currencyLabel())));
+        lines.add(center(repeat(template.separatorChar(), LINE_WIDTH)));
+        if (!template.footer().isBlank()) {
+            lines.add(center(template.footer()));
+        }
+        return lines;
+    }
+
+    // ------------------------------------------------------------------
+    // Apercu / impression sur imprimante standard (non thermique)
+    // ------------------------------------------------------------------
+    // Les methodes ci-dessus produisent des octets ESC/POS bruts, compris
+    // uniquement par une imprimante ticket (thermique). Envoyer ce flux a une
+    // imprimante bureautique classique (jet d'encre/laser type Epson) ne
+    // produit rien d'exploitable : ces pilotes n'interpretent pas les
+    // commandes ESC/POS. Les methodes suivantes reconstruisent le meme
+    // contenu en texte brut, imprimable sur n'importe quelle imprimante via
+    // l'API Java standard (java.awt.print), et servent aussi a l'apercu.
+
+    public java.util.List<String> buildReceiptTextLines(Order order, int orderId, double remainingBalance) {
+        ReceiptTemplate template = loadTemplate();
+        java.util.List<String> lines = new java.util.ArrayList<>();
+
+        lines.add(center("COMMON GROUNDS"));
+        lines.add(center("American Institute, Alger"));
+        lines.add(repeat('-', LINE_WIDTH));
+        if (!template.phone().isBlank()) {
+            lines.add(center(template.phone()));
+        }
+        lines.add(center(capitalize(DateTimeFormatter.ofPattern("EEEE dd MMM yyyy HH:mm", Locale.FRENCH)
+                .format(LocalDateTime.now()))));
+        lines.add(center(orderId > 0 ? template.ticketPrefix() + " " + orderId : template.ticketPrefix()));
+        lines.add("");
+
+        for (OrderLine line : order.getLines()) {
+            String left = line.getQuantity() + " " + safeUpper(line.getProduct().getName());
+            String right = formatAmount(line.getLineTotal(), template.currencyLabel());
+            lines.add(leftRight(left, right));
+            if (line.getTags() != null && !line.getTags().isEmpty()) {
+                for (com.cafepos.model.Tag tag : line.getTags()) {
+                    String sign = tag.getPriceModifier() >= 0 ? "+ " : "- ";
+                    lines.add(leftRight(
+                            "  " + sign + safeUpper(tag.getName()),
+                            formatAmount(Math.abs(tag.getPriceModifier()), template.currencyLabel())
+                    ));
+                }
+            }
+        }
+
+        lines.add(repeat('-', LINE_WIDTH));
+        lines.add(leftRight("SOUS-TOTAL", formatAmount(order.getSubtotal(), template.currencyLabel())));
+        if (order.hasDiscount()) {
+            lines.add(leftRight("REMISE", "-" + formatAmount(order.getAppliedDiscountAmount(), template.currencyLabel())));
+        }
+        if (order.getTvaPercent() > 0) {
+            lines.add(leftRight(
+                    "TVA (" + formatPercent(order.getTvaPercent()) + "%)",
+                    formatAmount(order.getTvaAmount(), template.currencyLabel())
+            ));
+        }
+        lines.add(repeat('=', LINE_WIDTH));
+        lines.add(leftRight("TOTAL", formatAmount(order.getTotal(), template.currencyLabel())));
+
+        appendPaymentBlockText(lines, order, remainingBalance, template.currencyLabel());
+        appendCustomerBlockText(lines, order, remainingBalance, template.currencyLabel(), template.showCustomerBlock());
+
+        lines.add(center(repeat(template.separatorChar(), LINE_WIDTH)));
+        if (!template.footer().isBlank()) {
+            lines.add(center(template.footer()));
+        }
+        return lines;
+    }
+
+    public java.util.List<String> buildInvoiceTextLines(Order order,
+                                                         int orderId,
+                                                         String invoiceNumber,
+                                                         String recipientName,
+                                                         String recipientAddress) {
+        ReceiptTemplate template = loadTemplate();
+        java.util.List<String> lines = new java.util.ArrayList<>();
+
+        lines.add(center("COMMON GROUNDS"));
+        lines.add(center("Facture N°: " + resolveInvoiceNumber(orderId, invoiceNumber)));
+        lines.add(center(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm", Locale.FRENCH).format(LocalDateTime.now())));
+        if (recipientName != null && !recipientName.isBlank()) {
+            lines.add(center("Destinataire: " + recipientName.trim()));
+        }
+        if (recipientAddress != null && !recipientAddress.isBlank()) {
+            lines.add(center(recipientAddress.trim()));
+        }
+        lines.add(repeat('-', LINE_WIDTH));
+
+        for (OrderLine line : order.getLines()) {
+            String left = line.getQuantity() + " x " + safeUpper(line.getProduct().getName())
+                    + " (PU " + formatAmount(line.getUnitTotal(), template.currencyLabel()) + ")";
+            String right = formatAmount(line.getLineTotal(), template.currencyLabel());
+            lines.add(leftRight(left, right));
+        }
+
+        lines.add(repeat('-', LINE_WIDTH));
+        lines.add(leftRight("SOUS-TOTAL", formatAmount(order.getSubtotal(), template.currencyLabel())));
+        if (order.getTvaPercent() > 0) {
+            lines.add(leftRight(
+                    "TVA (" + formatPercent(order.getTvaPercent()) + "%)",
+                    formatAmount(order.getTvaAmount(), template.currencyLabel())
+            ));
+        }
+        if (order.hasDiscount()) {
+            lines.add(leftRight("REMISE", "-" + formatAmount(order.getAppliedDiscountAmount(), template.currencyLabel())));
+        }
+        lines.add(repeat('=', LINE_WIDTH));
+        lines.add(leftRight("TOTAL", formatAmount(order.getTotal(), template.currencyLabel())));
+        lines.add(repeat('-', LINE_WIDTH));
+        lines.add(center("Merci de votre visite!"));
+        return lines;
+    }
+
+    private void appendPaymentBlockText(java.util.List<String> lines, Order order, double remainingBalance, String currency) {
+        PaymentType type = order.getPaymentType() == null ? PaymentType.ESPECES : order.getPaymentType();
+        lines.add("");
+        switch (type) {
+            case ESPECES -> lines.add(leftRight("ESPECES", formatAmount(order.getTotal(), currency)));
+            case PREPAYE -> lines.add(leftRight("CARTE PREPAYEE", formatAmount(order.getTotal(), currency)));
+            case MIXTE -> {
+                double prepaid = order.getPrepaidAmount() > 0 ? order.getPrepaidAmount() : 0;
+                double cash = order.getCashAmount() > 0 ? order.getCashAmount() : Math.max(0, order.getTotal() - prepaid);
+                lines.add(leftRight("CARTE PREPAYEE", formatAmount(prepaid, currency)));
+                lines.add(leftRight("ESPECES", formatAmount(cash, currency)));
+            }
+        }
+        if ((type == PaymentType.PREPAYE || type == PaymentType.MIXTE) && remainingBalance >= 0) {
+            lines.add(leftRight("SOLDE RESTANT", formatAmount(remainingBalance, currency)));
+        }
+    }
+
+    private void appendCustomerBlockText(java.util.List<String> lines,
+                                         Order order,
+                                         double remainingBalance,
+                                         String currency,
+                                         boolean showCustomerBlock) {
+        if (!showCustomerBlock) {
+            return;
+        }
+        Customer customer = order.getCustomer();
+        if (customer == null) {
+            return;
+        }
+        lines.add(repeat('-', LINE_WIDTH));
+        lines.add("CLIENT       : " + safeUpper(customer.getName()));
+        lines.add("NUM CARTE    : " + safeUpper(customer.getCardUid()));
+        lines.add(leftRight("ANCIEN SOLDE", formatAmount(customer.getBalance(), currency)));
+
+        double prepaidAmount = switch (order.getPaymentType()) {
+            case PREPAYE -> order.getTotal();
+            case MIXTE -> Math.max(0, order.getPrepaidAmount());
+            default -> 0;
+        };
+        if (prepaidAmount > 0) {
+            lines.add(leftRight("MONTANT", formatAmount(prepaidAmount, currency)));
+            lines.add(leftRight("NOUVEAU SOLDE", formatAmount(remainingBalance, currency)));
+        }
+    }
+
+    private String center(String text) {
+        if (text == null) {
+            return "";
+        }
+        if (text.length() >= LINE_WIDTH) {
+            return text;
+        }
+        int totalPad = LINE_WIDTH - text.length();
+        int left = totalPad / 2;
+        return repeat(' ', left) + text;
+    }
+
+    /**
+     * Imprime des lignes de texte brut sur une imprimante Windows standard
+     * (jet d'encre/laser) via l'API d'impression Java classique — a
+     * l'inverse de printPayload() qui envoie des octets ESC/POS compris
+     * seulement par une imprimante ticket thermique.
+     */
+    public void printPlainText(java.util.List<String> lines, String printerName) throws Exception {
+        if (lines == null || lines.isEmpty()) {
+            throw new IllegalArgumentException("Rien a imprimer");
+        }
+        java.awt.print.PrinterJob job = java.awt.print.PrinterJob.getPrinterJob();
+        if (printerName != null && !printerName.isBlank()) {
+            PrintService target = resolvePrintServiceByName(printerName);
+            if (target == null) {
+                throw new IllegalStateException("Imprimante introuvable: " + printerName);
+            }
+            job.setPrintService(target);
+        }
+        job.setPrintable((graphics, pageFormat, pageIndex) -> {
+            int linesPerPage = 60;
+            int startLine = pageIndex * linesPerPage;
+            if (startLine >= lines.size()) {
+                return java.awt.print.Printable.NO_SUCH_PAGE;
+            }
+            java.awt.Graphics2D g2 = (java.awt.Graphics2D) graphics;
+            java.awt.Font font = new java.awt.Font(java.awt.Font.MONOSPACED, java.awt.Font.PLAIN, 10);
+            g2.setFont(font);
+            java.awt.FontMetrics metrics = g2.getFontMetrics();
+            int lineHeight = metrics.getHeight();
+            int x = (int) pageFormat.getImageableX();
+            int y = (int) pageFormat.getImageableY() + metrics.getAscent();
+            int endLine = Math.min(startLine + linesPerPage, lines.size());
+            for (int i = startLine; i < endLine; i++) {
+                g2.drawString(lines.get(i), x, y);
+                y += lineHeight;
+            }
+            return java.awt.print.Printable.PAGE_EXISTS;
+        });
+        job.print();
+    }
+
+    private PrintService resolvePrintServiceByName(String name) {
+        for (PrintService service : PrintServiceLookup.lookupPrintServices(null, null)) {
+            if (service.getName().equalsIgnoreCase(name)) {
+                return service;
+            }
+        }
+        return null;
     }
 
     private String resolveInvoiceNumber(int orderId, String invoiceNumber) {

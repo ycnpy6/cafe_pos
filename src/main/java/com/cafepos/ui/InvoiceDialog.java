@@ -113,7 +113,15 @@ public class InvoiceDialog extends BaseDialog {
         HBox.setHgrow(cancel, Priority.ALWAYS);
         cancel.setOnAction(evt -> close());
 
-        Button print = new Button("Imprimer");
+        Button preview = new Button("Apercu");
+        preview.getStyleClass().addAll("button", "elevated");
+        preview.setPrefHeight(52);
+        preview.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(preview, Priority.ALWAYS);
+        preview.setGraphic(UiIconHelper.makeIcon("mdi2e-eye", 16, "#6B2D1A"));
+        preview.setOnAction(evt -> showPreview());
+
+        Button print = new Button("Imprimer (thermique)");
         print.getStyleClass().addAll("button", "success");
         print.setPrefHeight(52);
         print.setMaxWidth(Double.MAX_VALUE);
@@ -121,7 +129,7 @@ public class InvoiceDialog extends BaseDialog {
         print.setGraphic(UiIconHelper.makeIcon("mdi2p-printer", 16, "#FFFFFF"));
         print.setOnAction(evt -> printInvoice());
 
-        HBox actions = new HBox(8, cancel, print);
+        HBox actions = new HBox(8, cancel, preview, print);
 
         root.getChildren().addAll(
                 titleRow,
@@ -203,6 +211,21 @@ public class InvoiceDialog extends BaseDialog {
         HBox.setHgrow(spacer, Priority.ALWAYS);
         row.getChildren().addAll(label, spacer, value);
         return row;
+    }
+
+    private void showPreview() {
+        List<String> lines = printerService.buildInvoiceTextLines(
+                order, -1, invoiceNumber, recipientName.getText(), recipientAddress.getText());
+        TicketPreviewDialog.show(this, orderTitle, lines, this::printInvoiceSilently);
+    }
+
+    private void printInvoiceSilently() {
+        try {
+            printerService.printInvoice(
+                    order, -1, -1, invoiceNumber, recipientName.getText(), recipientAddress.getText());
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     private void printInvoice() {

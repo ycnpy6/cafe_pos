@@ -30,7 +30,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -138,6 +137,8 @@ public class SettingsController {
     private TextField backupDriveField;
     @FXML
     private TextField exportFolderField;
+    @FXML
+    private Label exportFolderWarningLabel;
 
     @FXML
     private TextField stockThresholdField;
@@ -241,16 +242,30 @@ public class SettingsController {
 
     @FXML
     private void onTestPrint() {
-        // If a printer is selected in the HW combo, persist it first so PrinterService picks it up
-        String selectedPrinter = printerCombo != null ? printerCombo.getValue() : null;
+        // Deux selecteurs d'imprimante coexistent (carte "Impression" en haut
+        // et carte "Materiel" plus bas) : on privilegie celui que
+        // l'utilisateur vient de renseigner, quel qu'il soit, pour que le
+        // bouton "Test" verifie reellement la selection visible a l'ecran au
+        // lieu de tester une valeur oubliee dans l'autre combo.
+        String selectedPrinter = printerBox != null ? printerBox.getSelectionModel().getSelectedItem() : null;
+        if (selectedPrinter == null || selectedPrinter.isBlank()) {
+            selectedPrinter = printerCombo != null ? printerCombo.getValue() : null;
+        }
         if (selectedPrinter != null && !selectedPrinter.isBlank()) {
             try {
                 settingsDAO.setValue(PRINTER_KEY, selectedPrinter);
             } catch (Exception ignored) {}
+            if (printerBox != null) {
+                printerBox.getSelectionModel().select(selectedPrinter);
+            }
+            if (printerCombo != null) {
+                printerCombo.setValue(selectedPrinter);
+            }
         }
         if (printerStatusLabel != null) {
             printerStatusLabel.setText("Impression en cours...");
         }
+        showToast("info", "Envoi du ticket test...");
         Task<Void> task = new Task<>() {
             @Override
             protected Void call() throws Exception {
@@ -262,16 +277,34 @@ public class SettingsController {
             if (printerStatusLabel != null) {
                 printerStatusLabel.setText("Ticket test envoye ✓");
             }
+            showToast("success", "Ticket test envoye");
         });
         task.setOnFailed(evt -> {
-            LOG.error("Erreur impression test", task.getException());
+            Throwable ex = task.getException();
+            LOG.error("Erreur impression test", ex);
             if (printerStatusLabel != null) {
                 printerStatusLabel.setText("Erreur impression ✗");
             }
+            String detail = ex == null || ex.getMessage() == null ? "imprimante introuvable" : ex.getMessage();
+            showToast("error", "Impression impossible: " + detail);
         });
         Thread thread = new Thread(task, "hw-test-print");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    @FXML
+    private void onPreviewTicket() {
+        java.util.List<String> lines = printerService.buildTestReceiptTextLines();
+        Window window = currentWindow();
+        javafx.stage.Stage owner = window instanceof javafx.stage.Stage stage ? stage : null;
+        com.cafepos.ui.TicketPreviewDialog.show(owner, "Apercu ticket", lines, () -> {
+            try {
+                printerService.printTestTicket();
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        });
     }
 
     private void loadPrinters() {
@@ -443,11 +476,27 @@ public class SettingsController {
             if (exportFolderField != null) {
                 exportFolderField.setText(task.getValue());
             }
+            updateExportFolderWarning(task.getValue());
         });
         task.setOnFailed(evt -> LOG.error("Erreur chargement dossier export", task.getException()));
         Thread thread = new Thread(task, "export-settings-load");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    /**
+     * Signale un dossier export vide : les rapports quotidiens/hebdomadaires
+     * continueront a se generer (repli local automatique), mais resteront
+     * invisibles pour un client qui compte les consulter a distance via un
+     * dossier synchronise (Dropbox/OneDrive/reseau).
+     */
+    private void updateExportFolderWarning(String configuredValue) {
+        if (exportFolderWarningLabel == null) {
+            return;
+        }
+        boolean unconfigured = configuredValue == null || configuredValue.isBlank();
+        exportFolderWarningLabel.setVisible(unconfigured);
+        exportFolderWarningLabel.setManaged(unconfigured);
     }
 
     @FXML
@@ -617,7 +666,10 @@ public class SettingsController {
                 return null;
             }
         };
-        task.setOnSucceeded(evt -> showToast("success", "Dossier export enregistre"));
+        task.setOnSucceeded(evt -> {
+            showToast("success", "Dossier export enregistre");
+            updateExportFolderWarning(value.trim());
+        });
         task.setOnFailed(evt -> {
             LOG.error("Erreur sauvegarde export", task.getException());
             showToast("error", "Sauvegarde export impossible");
@@ -938,59 +990,31 @@ public class SettingsController {
             return;
         }
 
-        javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
-        dialog.setTitle("Changer PIN");
-        dialog.setHeaderText("Nouveau PIN pour: " + selected.getName());
+        Window window = currentWindow();
+        javafx.stage.Stage owner = window instanceof javafx.stage.Stage stage ? stage : null;
+        String subtitle = "Nouveau PIN pour " + selected.getName()
+                + (selected.getRole() == UserRole.MANAGER ? " (manager)" : " (barista)");
+        com.cafepos.ui.PinSetupDialog.promptNewPin(owner, "Changer le PIN", subtitle, "1234")
+                .ifPresent(newPin -> persistNewPin(selected, newPin));
+    }
 
-        javafx.scene.control.ButtonType okType =
-                new javafx.scene.control.ButtonType("Confirmer", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(okType, javafx.scene.control.ButtonType.CANCEL);
-
-        javafx.scene.control.PasswordField pinField = new javafx.scene.control.PasswordField();
-        pinField.setPromptText("Nouveau PIN");
-        javafx.scene.control.PasswordField confirmField = new javafx.scene.control.PasswordField();
-        confirmField.setPromptText("Confirmer PIN");
-
-        javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(10,
-                new javafx.scene.control.Label("Nouveau PIN:"), pinField,
-                new javafx.scene.control.Label("Confirmer:"), confirmField);
-        content.setPadding(new Insets(10));
-        dialog.getDialogPane().setContent(content);
-
-        javafx.scene.Node okButton = dialog.getDialogPane().lookupButton(okType);
-        okButton.setDisable(true);
-
-        javafx.beans.value.ChangeListener<String> pinListener = (obs, oldVal, newVal) -> {
-            String p = pinField.getText();
-            String c = confirmField.getText();
-            okButton.setDisable(p.isBlank() || !p.equals(c));
+    private void persistNewPin(User selected, String newPin) {
+        Task<Void> task = new Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                String hash = SecurityUtils.sha256Hex(newPin.trim());
+                userDAO.updatePin(selected.getId(), hash);
+                return null;
+            }
         };
-        pinField.textProperty().addListener(pinListener);
-        confirmField.textProperty().addListener(pinListener);
-
-        dialog.setResultConverter(btn -> btn == okType ? pinField.getText() : null);
-        if (currentWindow() != null) {
-            dialog.initOwner(currentWindow());
-        }
-
-        dialog.showAndWait().ifPresent(newPin -> {
-            Task<Void> task = new Task<>() {
-                @Override
-                protected Void call() throws Exception {
-                    String hash = SecurityUtils.sha256Hex(newPin.trim());
-                    userDAO.updatePin(selected.getId(), hash);
-                    return null;
-                }
-            };
-            task.setOnSucceeded(evt -> showToast("success", "PIN mis a jour: " + selected.getName()));
-            task.setOnFailed(evt -> {
-                LOG.error("Erreur maj PIN", task.getException());
-                showToast("error", "Mise a jour PIN impossible");
-            });
-            Thread thread = new Thread(task, "user-pin-update");
-            thread.setDaemon(true);
-            thread.start();
+        task.setOnSucceeded(evt -> showToast("success", "PIN mis a jour: " + selected.getName()));
+        task.setOnFailed(evt -> {
+            LOG.error("Erreur maj PIN", task.getException());
+            showToast("error", "Mise a jour PIN impossible");
         });
+        Thread thread = new Thread(task, "user-pin-update");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     @FXML

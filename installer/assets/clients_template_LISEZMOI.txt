@@ -1,0 +1,41 @@
+COMMON GROUNDS - Modele d'import clients
+==========================================
+
+Fichier : clients_template.csv
+
+Comment l'utiliser
+------------------
+1. Ouvrez clients_template.csv dans Excel.
+2. Remplacez les deux lignes d'exemple (Ahmed Benali, Sara Kaci) par vos
+   vrais clients. Ajoutez autant de lignes que necessaire.
+3. Enregistrez avec "Fichier > Enregistrer sous" puis choisissez le type
+   "CSV (delimiteur: point-virgule)" ou "CSV (delimiteur: virgule)".
+   Important : le fichier doit rester au format .csv, pas .xlsx.
+4. Dans l'application, ouvrez l'ecran Clients puis cliquez sur
+   "Importer CSV" et selectionnez votre fichier.
+
+Colonnes
+--------
+name             (OBLIGATOIRE) Nom du client.
+card_uid         Identifiant de la carte RFID, si le client en a une.
+                 Laissez vide si aucune carte n'est associee.
+balance          Solde prepaye actuel, en DA (ex: 500 ou 500.50).
+                 Laissez a 0 si le client n'a pas de solde.
+active           1 = client actif, 0 = inactif. Laissez 1 par defaut.
+phone            Numero de telephone.
+email            Adresse email.
+address          Adresse.
+lifetime_spent   Total historique depense (informatif, laissez 0 si inconnu).
+visit_count      Nombre de passages (informatif, laissez 0 si inconnu).
+last_visit_at    Date de derniere visite (informatif, laissez vide si inconnu).
+
+Notes importantes
+------------------
+- Seule la colonne "name" est obligatoire ; toutes les autres peuvent
+  rester vides.
+- Si "card_uid" est deja utilise par un client existant, la ligne est
+  ignoree automatiquement (pas d'erreur, pas de doublon cree).
+- Vous pouvez relancer l'import plusieurs fois avec le meme fichier sans
+  risque : les clients deja importes ne seront pas dupliques.
+- Une ligne nommee "PASSAGER" ou sans nom est ignoree (reservee au
+  systeme).

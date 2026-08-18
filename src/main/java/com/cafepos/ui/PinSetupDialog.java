@@ -17,14 +17,17 @@ import java.util.Optional;
 
 /**
  * Dialogue de definition d'un nouveau PIN (saisie puis confirmation), avec le
- * meme pave numerique que PinPromptDialog. Utilise au premier lancement pour
- * remplacer le PIN manager par defaut (1234) livre par le seed.
+ * meme pave numerique que PinPromptDialog. Reutilise a la fois pour forcer le
+ * remplacement du PIN manager par defaut (1234) au premier lancement, et pour
+ * le changement de PIN volontaire depuis Reglages > Utilisateurs.
  */
 public final class PinSetupDialog extends BaseDialog {
     private static final int PIN_MAX_LENGTH = 6;
     private static final int PIN_MIN_LENGTH = 4;
 
+    private final String titleText;
     private final String subtitleText;
+    private final String forbiddenPin;
 
     private final StringBuilder pinBuffer = new StringBuilder(PIN_MAX_LENGTH);
     private final List<Label> dots = new ArrayList<>(PIN_MAX_LENGTH);
@@ -35,25 +38,40 @@ public final class PinSetupDialog extends BaseDialog {
     private String firstEntry;
     private String result;
 
-    private PinSetupDialog(Stage owner, String subtitle) {
+    private PinSetupDialog(Stage owner, String title, String subtitle, String forbiddenPin) {
         super(owner, 360, 600);
+        this.titleText = title;
         this.subtitleText = subtitle;
+        this.forbiddenPin = forbiddenPin;
         initializeDialog();
     }
 
     /**
      * Shows the two-step PIN setup (enter, then confirm) and blocks until done.
      * Returns the plain new PIN (4-6 digits), or empty if the user cancelled.
+     * Kept for the forced first-run PIN-change flow: title defaults to
+     * "Nouveau PIN manager" and "1234" stays rejected.
      */
     public static Optional<String> promptNewPin(Stage owner, String subtitle) {
-        PinSetupDialog dialog = new PinSetupDialog(owner, subtitle);
+        return promptNewPin(owner, "Nouveau PIN manager", subtitle, "1234");
+    }
+
+    /**
+     * General-purpose variant used from Settings > Utilisateurs: caller
+     * chooses the title and which PIN (if any) must be rejected.
+     *
+     * @param forbiddenPin PIN value to refuse (e.g. the known default), or
+     *                     null/blank to accept any PIN within the length rules.
+     */
+    public static Optional<String> promptNewPin(Stage owner, String title, String subtitle, String forbiddenPin) {
+        PinSetupDialog dialog = new PinSetupDialog(owner, title, subtitle, forbiddenPin);
         dialog.showAndWait();
         return Optional.ofNullable(dialog.result);
     }
 
     @Override
     protected VBox buildContent() {
-        Label title = new Label("Nouveau PIN manager");
+        Label title = new Label(titleText == null ? "Nouveau PIN" : titleText);
         title.getStyleClass().add("title-3");
 
         Label subtitle = new Label(subtitleText == null ? "" : subtitleText);
@@ -137,8 +155,8 @@ public final class PinSetupDialog extends BaseDialog {
         }
         String entry = pinBuffer.toString();
         if (firstEntry == null) {
-            if ("1234".equals(entry)) {
-                showError("Choisissez un PIN different de 1234");
+            if (forbiddenPin != null && !forbiddenPin.isBlank() && forbiddenPin.equals(entry)) {
+                showError("Choisissez un PIN different de " + forbiddenPin);
                 pinBuffer.setLength(0);
                 renderDots();
                 shake();

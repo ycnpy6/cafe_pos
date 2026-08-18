@@ -1499,10 +1499,13 @@ public class StockController {
     private void overrideIngredientStock(IngredientRow row, double newQuantity) {
         double previousQuantity = row.getStockQuantity();
         double delta = newQuantity - previousQuantity;
-        row.setStockQuantity(newQuantity);
         if (Math.abs(delta) < 0.000001) {
             return;
         }
+        if (!ensureAccess(AppAction.ADJUST_STOCK)) {
+            return;
+        }
+        row.setStockQuantity(newQuantity);
 
         Integer userId = getCurrentUserId();
         Integer workPeriodId = SessionManager.getCurrentWorkPeriodId();

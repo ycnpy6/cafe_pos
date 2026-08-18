@@ -1,5 +1,7 @@
 package com.cafepos.model;
 
+import com.cafepos.util.Money;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,7 +51,7 @@ public class Order {
         for (OrderLine line : lines) {
             total += line.getLineTotal();
         }
-        return total;
+        return Money.round2(total);
     }
 
     public double getAppliedDiscountAmount() {
@@ -58,24 +60,24 @@ public class Order {
             return 0;
         }
         if (discountPercent > 0) {
-            return Math.min(subtotal, subtotal * (discountPercent / 100.0));
+            return Money.round2(Math.min(subtotal, subtotal * (discountPercent / 100.0)));
         }
-        return Math.min(subtotal, Math.max(0, discountAmount));
+        return Money.round2(Math.min(subtotal, Math.max(0, discountAmount)));
     }
 
     public double getNetBeforeTva() {
-        return Math.max(0, getSubtotal() - getAppliedDiscountAmount());
+        return Money.round2(Math.max(0, getSubtotal() - getAppliedDiscountAmount()));
     }
 
     public double getTvaAmount() {
         if (tvaPercent <= 0) {
             return 0;
         }
-        return getNetBeforeTva() * (tvaPercent / 100.0);
+        return Money.round2(getNetBeforeTva() * (tvaPercent / 100.0));
     }
 
     public double getTotal() {
-        return getNetBeforeTva() + getTvaAmount();
+        return Money.round2(getNetBeforeTva() + getTvaAmount());
     }
 
     public PaymentType getPaymentType() {

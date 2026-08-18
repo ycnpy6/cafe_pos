@@ -30,6 +30,20 @@ public final class UiIconHelper {
     }
 
     /**
+     * Variante tolerante aux pannes : si le code d'icone n'est pas resolu
+     * par la police chargee, retombe sur une icone generique connue au lieu
+     * de faire planter le rendu (utile pour les icones deduites par mot-cle,
+     * moins garanties qu'un code fixe deja utilise ailleurs dans l'app).
+     */
+    public static FontIcon makeIconSafe(String iconCode, int size, String color) {
+        try {
+            return makeIcon(iconCode, size, color);
+        } catch (Exception ex) {
+            return makeIcon("mdi2s-star-outline", size, color);
+        }
+    }
+
+    /**
      * Cree un bouton d'operation avec icone + label (sans raccourci clavier).
      */
     public static Button makeOpButton(String iconCode, String label,
@@ -94,6 +108,51 @@ public final class UiIconHelper {
             return "mdi2p-plus-box-outline";
         }
         return "mdi2s-star-outline";
+    }
+
+    /**
+     * Icone deduite du nom du produit (mots-cles), pour distinguer les
+     * articles d'une meme categorie au premier coup d'oeil sur les tuiles de
+     * caisse. Retombe sur l'icone de la categorie si aucun mot-cle ne
+     * correspond, puis sur une etoile generique en dernier recours.
+     */
+    public static String productFallbackIcon(String productName, String categoryIconFallback) {
+        if (productName == null || productName.isBlank()) {
+            return safeOrStar(categoryIconFallback);
+        }
+        String n = productName.trim().toLowerCase(Locale.ROOT);
+
+        if (containsAny(n, "frappuccino", "milkshake", "shake")) return "mdi2g-glass-cocktail";
+        if (containsAny(n, "the", "thé", "tea", "infusion")) return "mdi2c-coffee";
+        if (containsAny(n, "chocolate", "chocolat", "mocha")) return "mdi2c-coffee";
+        if (containsAny(n, "espresso", "cafe", "café", "latte", "cappuccino", "macchiato", "americano", "dalgona")) {
+            return "mdi2c-coffee";
+        }
+        if (containsAny(n, "iced", "ice", "glace", "juice", "jus", "lemonade", "citronnade")) return "mdi2g-glass-cocktail";
+        if (containsAny(n, "water", "eau", "cola", "sprite", "fanta", "soda")) return "mdi2g-glass-cocktail";
+        if (containsAny(n, "cookie", "biscuit")) return "mdi2c-cookie";
+        if (containsAny(n, "croissant", "pain au chocolat", "donut", "muffin", "brownie", "cheese cake", "gateau")) {
+            return "mdi2c-cake-variant";
+        }
+        if (containsAny(n, "pizza", "burger", "sandwich", "tacos", "panini", "bagel", "popcorn", "pop corn")) {
+            return "mdi2f-food";
+        }
+        if (containsAny(n, "card", "carte")) return "mdi2c-credit-card-outline";
+
+        return safeOrStar(categoryIconFallback);
+    }
+
+    private static boolean containsAny(String haystack, String... needles) {
+        for (String needle : needles) {
+            if (haystack.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String safeOrStar(String value) {
+        return value == null || value.isBlank() ? "mdi2s-star-outline" : value;
     }
 
     private static String toastIconCode(ToastService.ToastType type) {

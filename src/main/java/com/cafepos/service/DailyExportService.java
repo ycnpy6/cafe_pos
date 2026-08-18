@@ -11,55 +11,66 @@ import com.cafepos.model.TopItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Export quotidien des analytics dans un dossier date (un sous-dossier par
- * jour, fichiers CSV nommes sur la date). Le dossier racine est le parametre
- * "export.default.dir" : pointez-le vers un dossier Dropbox/OneDrive ou un
- * partage reseau et les rapports se synchronisent automatiquement. Si ce
- * dossier est inaccessible (cle USB absente, reseau coupe), on retombe sur le
- * dossier local %APPDATA%\CafePOS\exports pour ne jamais perdre le rapport.
+ * Export quotidien des analytics : un classeur Excel stylise (tables aux
+ * couleurs de la marque) par jour, nomme sur la date, dans un sous-dossier
+ * date. Le dossier racine est le parametre "export.default.dir" : pointez-le
+ * vers un dossier Dropbox/OneDrive ou un partage reseau et les rapports se
+ * synchronisent automatiquement. S'il est inaccessible (cle USB absente,
+ * reseau coupe), on retombe sur %APPDATA%\CafePOS\exports pour ne jamais
+ * perdre le rapport. Le fichier .xls contient du HTML : Excel l'ouvre
+ * nativement en conservant les styles.
  */
 public class DailyExportService {
     private static final Logger LOG = LoggerFactory.getLogger(DailyExportService.class);
     private static final String EXPORT_DIR_KEY = "export.default.dir";
 
-    // Excel (config FR) attend un CSV separe par des points-virgules avec
-    // decimales a virgule; le BOM force la detection UTF-8 des accents.
-    private static final String SEP = ";";
-    private static final String BOM = "\uFEFF";
+    private static final DateTimeFormatter DAY_TITLE_FORMAT =
+            DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
 
     private final ReportService reportService = new ReportService();
     private final SettingsDAO settingsDAO = new SettingsDAO();
 
     /**
-     * Genere les rapports du jour donne dans "<racine>/<yyyy-MM-dd>/".
-     * Idempotent : relancer le meme jour ecrase les fichiers avec les donnees
+     * Genere le rapport du jour donne dans "<racine>/<yyyy-MM-dd>/".
+     * Idempotent : relancer le meme jour ecrase le fichier avec les donnees
      * a jour (utile pour le rattrapage EOD du lendemain).
      *
-     * @return le dossier cree
+     * @return le dossier du jour
      */
     public Path exportDay(LocalDate day) throws Exception {
         Path dayDir = resolveExportRoot().resolve(day.toString());
         Files.createDirectories(dayDir);
 
         SalesSummary summary = reportService.getSummary(day, day);
-        writeSummary(dayDir, day, summary);
-        writeOrders(dayDir, day, reportService.getOrderHistory(day, day));
-        writeOrderLines(dayDir, day, reportService.getOrderLineExports(day, day));
-        writeTopProducts(dayDir, day, reportService.getTopItems(day, day, 0x7fffffff));
-        writeIngredients(dayDir, day, reportService.getTopIngredientsBySales(day, day, 0));
-        writeCashMovements(dayDir, day, reportService.getCashMovements(day, day));
+        List<OrderHistoryRow> orders = reportService.getOrderHistory(day, day);
+        List<OrderLineExportRow> lines = reportService.getOrderLineExports(day, day);
+        List<TopItem> topItems = reportService.getTopItems(day, day, 0x7fffffff);
+        List<IngredientUsageRow> ingredients = reportService.getTopIngredientsBySales(day, day, 0);
+        List<CashMovementRow> cashMovements = reportService.getCashMovements(day, day);
 
-        LOG.info("Export quotidien {} genere dans {}", day, dayDir.toAbsolutePath());
+        StringBuilder sb = new StringBuilder();
+        appendDocumentStart(sb, day);
+        appendSummarySection(sb, summary);
+        appendOrdersSection(sb, orders);
+        appendOrderLinesSection(sb, lines);
+        appendTopProductsSection(sb, topItems);
+        appendIngredientsSection(sb, ingredients);
+        appendCashMovementsSection(sb, cashMovements);
+        sb.append("</body></html>");
+
+        Path report = dayDir.resolve(day + "_rapport_journalier.xls");
+        Files.writeString(report, sb.toString(), StandardCharsets.UTF_8);
+        LOG.info("Rapport quotidien {} genere: {}", day, report.toAbsolutePath());
         return dayDir;
     }
 
@@ -93,107 +104,168 @@ public class DailyExportService {
         return Paths.get(appData, "CafePOS", "exports");
     }
 
-    private void writeSummary(Path dir, LocalDate day, SalesSummary s) throws IOException {
-        StringBuilder sb = header("Indicateur", "Valeur");
-        row(sb, "Date", day.toString());
-        row(sb, "Chiffre d'affaires total", money(s.total()));
-        row(sb, "Nombre de commandes", String.valueOf(s.orderCount()));
-        row(sb, "Encaissements especes", money(s.cashTotal()));
-        row(sb, "Encaissements prepayes", money(s.prepaidTotal()));
-        row(sb, "Cout ingredients", money(s.ingredientCost()));
-        row(sb, "Marge brute", money(s.grossProfit()));
-        row(sb, "Retraits caisse", money(s.cashWithdrawals()));
-        row(sb, "Revenu net", money(s.netRevenue()));
-        write(dir, day + "_resume.csv", sb);
+    // ------------------------------------------------------------------
+    // Construction du document
+    // ------------------------------------------------------------------
+
+    private void appendDocumentStart(StringBuilder sb, LocalDate day) {
+        ReportHtml.documentStart(sb, "Rapport journalier — "
+                + ReportHtml.capitalize(DAY_TITLE_FORMAT.format(day)) + " (" + day + ")");
     }
 
-    private void writeOrders(Path dir, LocalDate day, List<OrderHistoryRow> rows) throws IOException {
-        StringBuilder sb = header("Commande", "Heure", "Articles", "Total", "Cout ingredients",
-                "Marge", "Paiement", "Client", "Vendeur");
+    private void appendSummarySection(StringBuilder sb, SalesSummary s) {
+        sb.append("<h2>Resume de la journee</h2><table>")
+          .append("<tr><th>Indicateur</th><th class=\"num\">Valeur</th></tr>");
+        summaryRow(sb, "Chiffre d'affaires total", money(s.total()), false, false);
+        summaryRow(sb, "Nombre de commandes", String.valueOf(s.orderCount()), true, false);
+        summaryRow(sb, "Encaissements especes", money(s.cashTotal()), false, false);
+        summaryRow(sb, "Encaissements prepayes", money(s.prepaidTotal()), true, false);
+        summaryRow(sb, "Cout ingredients", money(s.ingredientCost()), false, false);
+        summaryRow(sb, "Marge brute", money(s.grossProfit()), true, false);
+        summaryRow(sb, "Marge brute %", ReportHtml.percent(s.grossProfit(), s.total()), false, false);
+        summaryRow(sb, "Retraits caisse", money(s.cashWithdrawals()), true, false);
+        summaryRow(sb, "REVENU NET", money(s.netRevenue()), false, true);
+        sb.append("</table>");
+    }
+
+    private void summaryRow(StringBuilder sb, String label, String value, boolean alt, boolean total) {
+        sb.append("<tr").append(total ? " class=\"total\"" : alt ? " class=\"alt\"" : "").append(">")
+          .append("<td").append(total ? "" : " class=\"kpi\"").append(">").append(escape(label)).append("</td>")
+          .append("<td class=\"num\">").append(escape(value)).append("</td></tr>");
+    }
+
+    private void appendOrdersSection(StringBuilder sb, List<OrderHistoryRow> rows) {
+        sb.append("<h2>Commandes (").append(rows.size()).append(")</h2><table>")
+          .append("<tr><th>N°</th><th>Heure</th><th class=\"num\">Articles</th><th class=\"num\">Total</th>")
+          .append("<th class=\"num\">Cout ingredients</th><th class=\"num\">Marge</th>")
+          .append("<th>Paiement</th><th>Client</th><th>Vendeur</th></tr>");
+        double totalSum = 0;
+        double marginSum = 0;
+        int i = 0;
         for (OrderHistoryRow r : rows) {
-            row(sb, String.valueOf(r.orderId()), r.createdAt(), String.valueOf(r.itemCount()),
-                    money(r.total()), money(r.ingredientCost()), money(r.grossProfit()),
-                    r.paymentType() == null ? "" : r.paymentType().name(),
-                    safe(r.clientName()), safe(r.userName()));
+            totalSum += r.total();
+            marginSum += r.grossProfit();
+            sb.append(rowStart(i++))
+              .append(td(String.valueOf(r.orderId())))
+              .append(td(timeOf(r.createdAt())))
+              .append(tdNum(String.valueOf(r.itemCount())))
+              .append(tdNum(money(r.total())))
+              .append(tdNum(money(r.ingredientCost())))
+              .append(tdNum(money(r.grossProfit())))
+              .append(td(r.paymentType() == null ? "" : r.paymentType().name()))
+              .append(td(r.clientName()))
+              .append(td(r.userName()))
+              .append("</tr>");
         }
-        write(dir, day + "_commandes.csv", sb);
+        sb.append("<tr class=\"total\"><td colspan=\"3\">TOTAL</td>")
+          .append("<td class=\"num\">").append(money(totalSum)).append("</td>")
+          .append("<td></td>")
+          .append("<td class=\"num\">").append(money(marginSum)).append("</td>")
+          .append("<td colspan=\"3\"></td></tr>")
+          .append("</table>");
     }
 
-    private void writeOrderLines(Path dir, LocalDate day, List<OrderLineExportRow> rows) throws IOException {
-        StringBuilder sb = header("Commande", "Heure", "Produit", "Quantite", "Prix unitaire",
-                "Total ligne", "Options", "Paiement", "Client", "Vendeur");
+    private void appendOrderLinesSection(StringBuilder sb, List<OrderLineExportRow> rows) {
+        sb.append("<h2>Details des ventes</h2><table>")
+          .append("<tr><th>Commande</th><th>Heure</th><th>Produit</th><th class=\"num\">Qte</th>")
+          .append("<th class=\"num\">Prix unitaire</th><th class=\"num\">Total ligne</th>")
+          .append("<th>Options</th><th>Paiement</th><th>Client</th><th>Vendeur</th></tr>");
+        int i = 0;
         for (OrderLineExportRow r : rows) {
-            row(sb, String.valueOf(r.orderId()), r.createdAt(), safe(r.productName()),
-                    String.valueOf(r.quantity()), money(r.unitPrice()), money(r.lineTotal()),
-                    safe(r.tags()), safe(r.paymentType()), safe(r.clientName()), safe(r.userName()));
+            sb.append(rowStart(i++))
+              .append(td(String.valueOf(r.orderId())))
+              .append(td(timeOf(r.createdAt())))
+              .append(td(r.productName()))
+              .append(tdNum(String.valueOf(r.quantity())))
+              .append(tdNum(money(r.unitPrice())))
+              .append(tdNum(money(r.lineTotal())))
+              .append(td(r.tags()))
+              .append(td(r.paymentType()))
+              .append(td(r.clientName()))
+              .append(td(r.userName()))
+              .append("</tr>");
         }
-        write(dir, day + "_details_commandes.csv", sb);
+        sb.append("</table>");
     }
 
-    private void writeTopProducts(Path dir, LocalDate day, List<TopItem> rows) throws IOException {
-        StringBuilder sb = header("Produit", "Quantite vendue", "Chiffre d'affaires");
+    private void appendTopProductsSection(StringBuilder sb, List<TopItem> rows) {
+        sb.append("<h2>Top produits</h2><table>")
+          .append("<tr><th>Produit</th><th class=\"num\">Quantite vendue</th>")
+          .append("<th class=\"num\">Chiffre d'affaires</th></tr>");
+        int i = 0;
         for (TopItem r : rows) {
-            row(sb, safe(r.name()), String.valueOf(r.quantity()), money(r.revenue()));
+            sb.append(rowStart(i++))
+              .append(td(r.name()))
+              .append(tdNum(String.valueOf(r.quantity())))
+              .append(tdNum(money(r.revenue())))
+              .append("</tr>");
         }
-        write(dir, day + "_top_produits.csv", sb);
+        sb.append("</table>");
     }
 
-    private void writeIngredients(Path dir, LocalDate day, List<IngredientUsageRow> rows) throws IOException {
-        StringBuilder sb = header("Ingredient", "Unite", "Quantite consommee", "Cout total");
+    private void appendIngredientsSection(StringBuilder sb, List<IngredientUsageRow> rows) {
+        sb.append("<h2>Ingredients consommes</h2><table>")
+          .append("<tr><th>Ingredient</th><th>Unite</th><th class=\"num\">Quantite</th>")
+          .append("<th class=\"num\">Cout total</th></tr>");
+        int i = 0;
         for (IngredientUsageRow r : rows) {
-            row(sb, safe(r.name()), safe(r.unit()), quantity(r.quantity()), money(r.totalCost()));
+            sb.append(rowStart(i++))
+              .append(td(r.name()))
+              .append(td(r.unit()))
+              .append(tdNum(quantity(r.quantity())))
+              .append(tdNum(money(r.totalCost())))
+              .append("</tr>");
         }
-        write(dir, day + "_ingredients_consommes.csv", sb);
+        sb.append("</table>");
     }
 
-    private void writeCashMovements(Path dir, LocalDate day, List<CashMovementRow> rows) throws IOException {
-        StringBuilder sb = header("Heure", "Type", "Categorie", "Montant", "Description", "Utilisateur");
+    private void appendCashMovementsSection(StringBuilder sb, List<CashMovementRow> rows) {
+        sb.append("<h2>Mouvements de caisse</h2><table>")
+          .append("<tr><th>Heure</th><th>Type</th><th>Categorie</th><th class=\"num\">Montant</th>")
+          .append("<th>Description</th><th>Utilisateur</th></tr>");
+        int i = 0;
         for (CashMovementRow r : rows) {
-            row(sb, r.createdAt(), safe(r.movementType()), safe(r.category()),
-                    money(r.amount()), safe(r.description()), safe(r.userName()));
+            sb.append(rowStart(i++))
+              .append(td(timeOf(r.createdAt())))
+              .append(td(r.movementType()))
+              .append(td(r.category()))
+              .append(tdNum(money(r.amount())))
+              .append(td(r.description()))
+              .append(td(r.userName()))
+              .append("</tr>");
         }
-        write(dir, day + "_mouvements_caisse.csv", sb);
+        sb.append("</table>");
     }
 
-    private static StringBuilder header(String... columns) {
-        StringBuilder sb = new StringBuilder(BOM);
-        row(sb, columns);
-        return sb;
+    // ------------------------------------------------------------------
+    // Helpers (mise en forme partagee avec l'export hebdomadaire)
+    // ------------------------------------------------------------------
+
+    private static String rowStart(int index) {
+        return ReportHtml.rowStart(index);
     }
 
-    private static void row(StringBuilder sb, String... cells) {
-        for (int i = 0; i < cells.length; i++) {
-            if (i > 0) {
-                sb.append(SEP);
-            }
-            sb.append(escape(cells[i]));
-        }
-        sb.append("\r\n");
+    private static String td(String value) {
+        return ReportHtml.td(value);
     }
 
-    private static String escape(String value) {
-        if (value == null) {
-            return "";
-        }
-        if (value.contains(SEP) || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
-        }
-        return value;
+    private static String tdNum(String value) {
+        return ReportHtml.tdNum(value);
+    }
+
+    private static String timeOf(String createdAt) {
+        return ReportHtml.timeOf(createdAt);
     }
 
     private static String money(double value) {
-        return String.format(Locale.FRENCH, "%.2f", value);
+        return ReportHtml.money(value);
     }
 
     private static String quantity(double value) {
-        return String.format(Locale.FRENCH, "%.3f", value);
+        return ReportHtml.quantity(value);
     }
 
-    private static String safe(String value) {
-        return value == null ? "" : value;
-    }
-
-    private static void write(Path dir, String fileName, StringBuilder content) throws IOException {
-        Files.writeString(dir.resolve(fileName), content.toString(), StandardCharsets.UTF_8);
+    private static String escape(String value) {
+        return ReportHtml.escape(value);
     }
 }
